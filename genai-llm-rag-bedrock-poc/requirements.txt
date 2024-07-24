@@ -1,0 +1,7 @@
+streamlit
+Pillow
+PyPDF2>=3.0.0
+pytesseract
+boto3
+langchain-aws
+langdetect
