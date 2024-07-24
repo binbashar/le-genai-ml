@@ -4,7 +4,7 @@
 <br clear="left"/>
 
 <a href="https://github.com/binbashar">
-    <img src="https://raw.githubusercontent.com/binbashar/le-genai-ml/master/assets/images/binbash-AWS-Startups-GenAI.png" width="1032" align="left" alt="binbash-GenAI"/>
+    <img src="https://raw.githubusercontent.com/binbashar/.github/master/assets/images/binbash-aws-startups-genai.png" width="1032" align="left" alt="binbash-GenAI"/>
 </a>
 <br clear="left"/>
 
