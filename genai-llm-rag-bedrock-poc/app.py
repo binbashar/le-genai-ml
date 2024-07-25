@@ -34,7 +34,7 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 def main_page():
-    st.title('Generative AI AWS Conference')
+    st.title('GenAI Leverage AWS Assistant')
     cases = {
         "Code Generation": code_generation,
         "Translation and NLP": translation_nlp,
