@@ -26,11 +26,11 @@ RUN pip install -r requirements.txt
 # Run the application
 CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
 
-# docker build -t generative-ai-aws-conference .
+# docker build -t generative-ai-aws-assistant .
 # docker run \
 #-e USER='YOUR-USER' \
 #-e PWD='YOUR-PWD' \
 #-e AWS_ACCESS_KEY_ID='YOUR-KEY' \
 #-e AWS_SECRET_ACCESS_KEY='SECRET_ACCESS_KEY' \
 #-e AWS_SESSION_TOKEN='YOUR-SESSION-TOKEN' \
-#-p 8080:8080 generative-ai-aws-conference
+#-p 8080:8080 generative-ai-aws-assistant

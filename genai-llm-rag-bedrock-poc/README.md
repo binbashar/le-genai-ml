@@ -33,8 +33,8 @@ cd <repository-directory>
 2. Build and run the Docker container:
 
 ```bash
-docker build -t generative-ai-aws-conference .
-docker run -e USER='YOUR-USER' -e PWD='YOUR-PWD' -e AWS_ACCESS_KEY_ID='YOUR-KEY' -e AWS_SECRET_ACCESS_KEY='YOUR-SECRET-ACCESS-KEY' -e AWS_SESSION_TOKEN='YOUR-SESSION-TOKEN' -p 8080:8080 generative-ai-aws-conference
+docker build -t generative-ai-aws-assistant .
+docker run -e USER='YOUR-USER' -e PWD='YOUR-PWD' -e AWS_ACCESS_KEY_ID='YOUR-KEY' -e AWS_SECRET_ACCESS_KEY='YOUR-SECRET-ACCESS-KEY' -e AWS_SESSION_TOKEN='YOUR-SESSION-TOKEN' -p 8080:8080 generative-ai-aws-assistant
 ```
 
 Replace the environment variables (`YOUR-USER`, `YOUR-PWD`, `YOUR-KEY`, `YOUR-SECRET-ACCESS-KEY`, `YOUR-SESSION-TOKEN`) with your actual AWS credentials and user information.
