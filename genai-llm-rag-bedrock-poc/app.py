@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+from PIL import Image
 from cases import code_generation, translation_nlp, extract_text_from_files
 
 streamlit_user = os.environ['USER']
@@ -11,8 +12,14 @@ def authenticate_user(username, password):
 
 def login_page():
     """Function to display the login page."""
-    #st.image('binbash_logo.png', width=150)
-    st.title("Generative AI AWS Conference")
+
+    # URL of the Binbash logo
+    image_gen_ai = "https://raw.githubusercontent.com/binbashar/.github/master/assets/images/binbash-aws-startups-genai.png"
+
+    # Display the logo at the top of the app
+    st.image(image_gen_ai, width=700)  # You can adjust the width as needed
+
+    st.title("GenAI Leverage AWS Assistant")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     login_button = st.button("Login")
@@ -27,7 +34,7 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 def main_page():
-    st.title('Generative AI AWS Conference')
+    st.title('GenAI Leverage AWS Assistant')
     cases = {
         "Code Generation": code_generation,
         "Translation and NLP": translation_nlp,
