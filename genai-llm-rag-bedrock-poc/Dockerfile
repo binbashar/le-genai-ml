@@ -16,7 +16,7 @@ RUN mkdir -p /root/.streamlit && \
     echo 'headless = true' >> /root/.streamlit/config.toml && \
     echo 'port = 8080' >> /root/.streamlit/config.toml && \
     echo 'enableCORS = false' >> /root/.streamlit/config.toml && \
-    echo 'enableXsrfProtection = false' >> /root/.streamlit/config.toml && 
+    echo 'enableXsrfProtection = false' >> /root/.streamlit/config.toml
     
 # Install dependencies
 RUN apt-get update && apt-get install -y tesseract-ocr
@@ -27,4 +27,10 @@ RUN pip install -r requirements.txt
 CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
 
 # docker build -t generative-ai-aws-conference .
-# docker run -e USER='YOUR-USER' -e PWD='YOUR-PWD' -e AWS_ACCESS_KEY_ID='YOUR-KEY' -e AWS_SECRET_ACCESS_KEY='SECRET_ACCESS_KEY' -e AWS_SESSION_TOKEN='YOUR-SESSION-TOKEN' -p 8080:8080 generative-ai-aws-conference
+# docker run \
+#-e USER='YOUR-USER' \
+#-e PWD='YOUR-PWD' \
+#-e AWS_ACCESS_KEY_ID='YOUR-KEY' \
+#-e AWS_SECRET_ACCESS_KEY='SECRET_ACCESS_KEY' \
+#-e AWS_SESSION_TOKEN='YOUR-SESSION-TOKEN' \
+#-p 8080:8080 generative-ai-aws-conference
