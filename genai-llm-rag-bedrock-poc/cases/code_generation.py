@@ -4,12 +4,12 @@ import json
 from langchain_aws import BedrockLLM
 
 # Configurar cliente de Bedrock
-aws_region = 'us-east-1'
+aws_region = 'us-west-2'
 bedrock_client = boto3.client('bedrock-runtime', region_name=aws_region)
 
 def load_llm():
     """Load the Bedrock LLM."""
-    return BedrockLLM(model_id="mistral.mixtral-8x7b-instruct-v0:1", client=bedrock_client)
+    return BedrockLLM(model_id="meta.llama3-1-405b-instruct-v1:0", client=bedrock_client)
 
 llm = load_llm()
 
