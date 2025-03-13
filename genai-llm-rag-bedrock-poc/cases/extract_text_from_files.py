@@ -12,7 +12,7 @@ bedrock_client = boto3.client('bedrock-runtime', region_name=aws_region)
 
 def load_llm():
     """Load the Bedrock LLM."""
-    return BedrockLLM(model_id="meta.llama3-1-405b-instruct-v1:0", client=bedrock_client)
+    return BedrockLLM(model_id="meta.llama3-1-70b-instruct-v1:0", client=bedrock_client)
 
 llm = load_llm()
 

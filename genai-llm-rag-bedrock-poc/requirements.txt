@@ -1,7 +1,32 @@
-streamlit
-Pillow
+# AWS y Bedrock
+boto3>=1.28.0
+langchain-aws>=0.1.0
+
+# LangChain components
+langchain>=0.1.0
+langchain-community>=0.0.16
+langchain-core>=0.1.10
+faiss-cpu>=1.7.4
+
+# Streamlit UI
+streamlit>=1.28.0
+
+# Procesamiento de documentos
 PyPDF2>=3.0.0
-pytesseract
-boto3
-langchain-aws
-langdetect
+Pillow>=10.0.0
+pytesseract>=0.3.10
+langdetect>=1.0.9
+
+# Manejo de datos
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Gestión de entorno
+python-dotenv>=1.0.0
+
+# Para manejo de errores específicos
+typing-extensions>=4.5.0
+
+# Utilidades
+regex>=2023.0.0
+tqdm>=4.66.0
