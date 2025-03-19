@@ -7,9 +7,10 @@ iam_client = boto3.client('iam')
 
 # List all Lambda functions
 paginator = lambda_client.get_paginator('list_functions')
+
 for page in paginator.paginate():
     for function in page['Functions']:
-        if function['FunctionName'].startswith('dlai-support-agent-'):
+        if function['FunctionName'].startswith('dlai-support-agent'):
             function_name = function['FunctionName']
             print(f"Deleting Lambda function: {function_name}")
             
