@@ -4,41 +4,53 @@ import json
 from langchain_aws import BedrockLLM
 
 # Configurar cliente de Bedrock
-aws_region = 'us-west-2'
-bedrock_client = boto3.client('bedrock-runtime', region_name=aws_region)
+aws_region = "us-west-2"
+bedrock_client = boto3.client("bedrock-runtime", region_name=aws_region)
+
 
 def load_llm():
     """Load the Bedrock LLM."""
-    return BedrockLLM(model_id="meta.llama3-1-405b-instruct-v1:0", client=bedrock_client)
+    return BedrockLLM(
+        model_id="meta.llama3-1-405b-instruct-v1:0", client=bedrock_client
+    )
+
 
 llm = load_llm()
+
 
 def process_response(response_text):
     """Process the LLM response to separate code and Docker instructions."""
     # Remove markdown code blocks and strip any leading/trailing whitespace
     cleaned_text = response_text.replace("```", "").strip()
-    
+
     # Split into lines and remove lines that contain only a language name
-    lines = cleaned_text.split('\n')
+    lines = cleaned_text.split("\n")
     language_names = ["python", "java", "javascript", "go", "c++", "ruby"]
     code_lines = [line for line in lines if line.lower() not in language_names]
-    
+
     cleaned_text = "\n".join(code_lines)
-    
+
     # Separate code and instructions
     if "Docker instructions:" in cleaned_text:
         code, instructions = cleaned_text.split("Docker instructions:", 1)
     else:
         code = cleaned_text
         instructions = ""
-    
+
     return code.strip(), instructions.strip()
 
+
 def run():
-    st.header('Code Generation')
-    prompt = st.text_area('Enter your prompt for code generation:', 'Write a function that reverses a string.')
-    language = st.selectbox('Select programming language:', ['Python', 'Java', 'JavaScript', 'C++', 'Ruby', 'Go'])
-    if st.button('Generate Code'):
+    st.header("Code Generation")
+    prompt = st.text_area(
+        "Enter your prompt for code generation:",
+        "Write a function that reverses a string.",
+    )
+    language = st.selectbox(
+        "Select programming language:",
+        ["Python", "Java", "JavaScript", "C++", "Ruby", "Go"],
+    )
+    if st.button("Generate Code"):
         try:
             prompt = (
                 f"Generate a {language} script that accomplishes the following task:\n"
@@ -50,7 +62,9 @@ def run():
             )
             response = llm.generate(prompts=[prompt], temperature=0.1)
             if response.generations:
-                generated_code, docker_instructions = process_response(response.generations[0][0].text)
+                generated_code, docker_instructions = process_response(
+                    response.generations[0][0].text
+                )
                 st.code(generated_code, language=language.lower())
                 if docker_instructions:
                     st.markdown("#### Docker Instructions")
@@ -74,4 +88,3 @@ def run():
                 st.error("No generation was provided.")
         except Exception as e:
             st.error(f"An error occurred: {e}")
-
