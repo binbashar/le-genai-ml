@@ -2,57 +2,63 @@ import boto3
 import time
 
 # Initialize the Bedrock Agent and IAM clients
-bedrock_agent = boto3.client('bedrock-agent', region_name='us-east-1')
+bedrock_agent = boto3.client("bedrock-agent", region_name="us-east-1")
 # iam = boto3.client('iam')
 
 # List all agents
 response = bedrock_agent.list_agents()
-agents = response['agentSummaries']
+agents = response["agentSummaries"]
 
 # Iterate through agents and delete those with matching prefix
 for agent in agents:
 
     print(f"Found: {agent['agentName']}")
 
-    agent_id = agent['agentId']
+    agent_id = agent["agentId"]
 
     # Get the agent details to retrieve the IAM role ARN
     agent_details = bedrock_agent.get_agent(agentId=agent_id)
-    
-    role_arn = agent_details['agent']['agentResourceRoleArn']
-    role_name = role_arn.split('/')[-1]
+
+    role_arn = agent_details["agent"]["agentResourceRoleArn"]
+    role_name = role_arn.split("/")[-1]
 
     # List all aliases for the agent
     alias_response = bedrock_agent.list_agent_aliases(agentId=agent_id)
-    aliases = alias_response['agentAliasSummaries']
+    aliases = alias_response["agentAliasSummaries"]
 
     # Delete each alias
     for alias in aliases:
-        alias_id = alias['agentAliasId']
+        alias_id = alias["agentAliasId"]
         print(f"Deleting alias: {alias['agentAliasName']} (ID: {alias_id})")
         try:
             bedrock_agent.delete_agent_alias(agentId=agent_id, agentAliasId=alias_id)
             print(f"Deletion initiated for alias: {alias['agentAliasName']}")
-            
+
             # Wait for the alias to be deleted
             while True:
                 try:
-                    bedrock_agent.get_agent_alias(agentId=agent_id, agentAliasId=alias_id)
-                    print(f"Waiting for alias {alias['agentAliasName']} to be deleted...")
+                    bedrock_agent.get_agent_alias(
+                        agentId=agent_id, agentAliasId=alias_id
+                    )
+                    print(
+                        f"Waiting for alias {alias['agentAliasName']} to be deleted..."
+                    )
                     time.sleep(5)
                 except bedrock_agent.exceptions.ResourceNotFoundException:
-                    print(f"Alias {alias['agentAliasName']} has been successfully deleted.")
+                    print(
+                        f"Alias {alias['agentAliasName']} has been successfully deleted."
+                    )
                     break
         except Exception as e:
             print(f"Error deleting alias {alias['agentAliasName']}: {str(e)}")
 
     print(f"Deleting agent: {agent['agentName']} (ID: {agent_id})")
-    
+
     try:
         # Delete the agent
         bedrock_agent.delete_agent(agentId=agent_id)
         print(f"Deletion initiated for agent: {agent['agentName']}")
-        
+
         # Wait for the agent to be deleted
         while True:
             try:
