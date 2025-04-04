@@ -24,7 +24,6 @@ def unpack_parameters(parameters):
 
 
 def lambda_handler(event, context):
-
     agent = event["agent"]
     actionGroup = event["actionGroup"]
     function = event["function"]

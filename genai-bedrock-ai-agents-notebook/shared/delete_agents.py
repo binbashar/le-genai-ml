@@ -11,7 +11,6 @@ agents = response["agentSummaries"]
 
 # Iterate through agents and delete those with matching prefix
 for agent in agents:
-
     print(f"Found: {agent['agentName']}")
 
     agent_id = agent["agentId"]

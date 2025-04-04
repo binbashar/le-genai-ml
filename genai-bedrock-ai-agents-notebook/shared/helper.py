@@ -83,7 +83,6 @@ def invoke_agent_and_print(
     endSession: bool = False,
     width: int = 70,
 ):
-
     bedrock_agent_runtime = boto3.client(
         service_name="bedrock-agent-runtime", region_name=region_name
     )
