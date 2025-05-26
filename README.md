@@ -10,3 +10,21 @@
 
 # le-genai-ml
 This repo includes the binbash GenAI - ML projects
+
+# GenAI AWS CDK Solutions Library
+
+## Workshops
+- https://github.com/binbashar/le-genai-agents-bedrock-workshop
+- https://github.com/aws-samples/aws-genai-llm-chatbot
+
+## DevOps
+- https://github.com/binbashar/le-genai-sample-devgenius-aws-solution-builder
+- https://github.com/aws-samples/well-architected-iac-analyzer
+
+## Fintech
+- https://github.com/aws-samples/generative-ai-ml-latam-samples/tree/main/blueprints/multipage-document-analysis
+- https://github.com/aws-samples/generative-ai-cdk-constructs-samples/tree/main/samples/contract-compliance-analysis
+
+# CONSIDERATIONS
+## Contribute
+- [Forks Workflow](https://binbash.atlassian.net/wiki/spaces/BDPS/pages/2323939333/Forks+Workflow)
