@@ -21,6 +21,9 @@ This repo includes the binbash GenAI - ML projects
 - https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/genai-llm-rag-bedrock-poc
 - https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/genai-llm-rag-bedrock-full
 
+## Speech2Text & Text2Speech
+- https://github.com/aws-samples/amazon-bedrock-voice-conversation
+
 ## DevOps
 - https://github.com/binbashar/le-genai-sample-devgenius-aws-solution-builder
 - https://github.com/aws-samples/well-architected-iac-analyzer
