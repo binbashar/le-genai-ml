@@ -22,7 +22,7 @@ This repo includes the binbash GenAI - ML projects
 - https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/genai-llm-rag-bedrock-full
 
 ## Agent | Speech2Text & Text2Speech
-- https://github.com/aws-samples/amazon-bedrock-voice-conversation
+- https://github.com/binbashar/amazon-bedrock-voice-conversation
 
 ## Agent | Web Scraper 
 - https://github.com/build-on-aws/bedrock-agents-webscraper
