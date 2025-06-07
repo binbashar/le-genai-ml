@@ -27,6 +27,13 @@ This repo includes the binbash GenAI - ML projects
 ## Agent | Web Scraper 
 - https://github.com/build-on-aws/bedrock-agents-webscraper
 
+## Agent | Uncategorized
+- https://github.com/build-on-aws/agentic-workshop/tree/main/reinvent_2024_agentic
+- https://github.com/awslabs/amazon-bedrock-agent-samples
+
+## Data
+- https://github.com/awslabs/project-lakechain/tree/main
+
 ## DevOps
 - https://github.com/binbashar/le-genai-sample-devgenius-aws-solution-builder
 - https://github.com/aws-samples/well-architected-iac-analyzer
