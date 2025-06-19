@@ -35,6 +35,7 @@ This repo includes the binbash GenAI - ML projects
 - 🚧 https://github.com/awslabs/project-lakechain/tree/main
 - 🚧 https://github.com/aws-samples/sample-pace-data-analytics-ml-ai
 - 🚧 https://github.com/aws-samples/sample-sonic-cdk-agent
+- 🚧 https://github.com/aws-samples/sample-amazon-nova-sonic-twilio-integration
 
 ## Data Engineering
 - ✔️ https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/datalake-demo--
