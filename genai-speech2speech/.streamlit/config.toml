@@ -1,0 +1,22 @@
+[server]
+# Permitir uploads de archivos grandes
+maxUploadSize = 200
+maxMessageSize = 200
+
+# Configuración para evitar errores CORS
+enableCORS = false
+enableXsrfProtection = false
+
+# Configuración de websockets
+enableWebsocketCompression = false
+
+[browser]
+# Deshabilitar el auto-open para evitar conflictos
+gatherUsageStats = false
+
+[theme]
+# Tema opcional
+primaryColor = "#667eea"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
