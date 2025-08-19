@@ -1,0 +1,12 @@
+# Authentication
+APP_USER=Prisma
+APP_PASSWORD=Binbash2025
+
+# AWS Configuration
+AWS_ACCESS_KEY_ID=your_access_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_key_here
+AWS_DEFAULT_REGION=us-west-2
+
+# App Configuration
+APP_NAME=Planogram Analyzer
+DEBUG=False

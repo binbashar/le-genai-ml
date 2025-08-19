@@ -1,0 +1,24 @@
+models:
+  llama_3_2_11b:
+    name: "Llama 3.2 11B Vision Instruct"
+    model_id: "meta.llama3-2-11b-instruct-v1:0"
+    max_tokens: 4096
+    temperature: 0.1
+    
+  claude_opus_4_1:
+    name: "Claude 4.1 Opus"
+    model_id: "anthropic.claude-opus-4-1-20250805-v1:0"
+    max_tokens: 4096
+    temperature: 0.1
+    
+  claude_sonnet_4:
+    name: "Claude Sonnet 4"
+    model_id: "anthropic.claude-sonnet-4-20250514-v1:0"
+    max_tokens: 4096
+    temperature: 0.1
+    
+  claude_3_7:
+    name: "Claude 3.7 Sonnet"
+    model_id: "anthropic.claude-3-7-sonnet-20250219-v1:0"
+    max_tokens: 4096
+    temperature: 0.1
