@@ -1,6 +1,6 @@
 # Authentication
-APP_USER=Prisma
-APP_PASSWORD=Binbash2025
+APP_USER=User
+APP_PASSWORD=Your_Password_Here
 
 # AWS Configuration
 AWS_ACCESS_KEY_ID=your_access_key_here
