@@ -1,19 +1,28 @@
+# Entorno / secretos
+.env
+
+# Python artefactos
 *.pyc
+**/__pycache__*
+.pytest_cache
+
+# Docs / empaquetado / build
 apidocs
 MANIFEST
 dist
-.project
 build
-.pydevproject
-.ropeproject
-*.out
 leverage.egg-info
-.python-version
-.vscode
-**/__pycache__*
-.pytest_cache
 coverage
 .coverage
 
+# Proyectos/IDE
+.project
+.pydevproject
+.ropeproject
+.python-version
+.vscode
 .idea
 .DS_Store
+
+# Otros
+*.out

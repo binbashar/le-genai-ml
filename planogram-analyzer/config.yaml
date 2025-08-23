@@ -1,24 +1,99 @@
 models:
-  llama_3_2_11b:
-    name: "Llama 3.2 11B Vision Instruct"
-    model_id: "meta.llama3-2-11b-instruct-v1:0"
-    max_tokens: 4096
-    temperature: 0.1
-    
-  claude_opus_4_1:
-    name: "Claude 4.1 Opus"
-    model_id: "anthropic.claude-opus-4-1-20250805-v1:0"
-    max_tokens: 4096
-    temperature: 0.1
-    
-  claude_sonnet_4:
-    name: "Claude Sonnet 4"
-    model_id: "anthropic.claude-sonnet-4-20250514-v1:0"
-    max_tokens: 4096
-    temperature: 0.1
-    
-  claude_3_7:
-    name: "Claude 3.7 Sonnet"
+  claude_3_sonnet:
+    name: "Claude 3.7 Sonnet (Recomendado)"
     model_id: "anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens: 4096
     temperature: 0.1
+
+  claude_4_opus:
+    name: "Claude 4.1 Opus (Más Preciso)"
+    model_id: "anthropic.claude-opus-4-1-20250805-v1:0"
+    max_tokens: 4096
+    temperature: 0.1
+
+  aws_nova_premier:
+    name: "Nova Premier"
+    model_id: "amazon.nova-premier-v1:0"
+    max_tokens: 4096
+    temperature: 0.1
+
+default_prompt: |
+  Te estoy adjuntando 2 imágenes:
+  - La PRIMERA imagen es el PLANOGRAMA que indica cómo se DEBEN exhibir los productos en una góndola (exhibición ESPERADA/DESEADA).
+  - La SEGUNDA imagen es el REALOGRAMA (exhibición REAL/ACTUAL) de control que muestra cómo están exhibidos los productos realmente en la tienda.
+
+  Como información adicional MUY IMPORTANTE, te paso un JSON detallado que describe TODOS los productos que aparecen en el planograma con su estructura esperada.
+
+  Tu tarea será encontrar TODAS las diferencias entre el planograma y el realograma, modificando en el JSON provisto según el resultado de la comparación las siguientes propiedades de cada producto:
+
+  1. "encontrado": true si el producto exacto fue encontrado en el realograma, false si no está
+  2. "posicion_correcta": true si está en la posición correcta (mismo nivel y orden), false si no
+  3. "frentes_encontrados": cantidad exacta de frentes visibles del producto en el realograma
+
+  PROCESO DE ANÁLISIS DETALLADO:
+
+  1. IDENTIFICACIÓN DE NIVELES:
+     - Nivel 1 = Estante superior
+     - Los niveles se incrementan hacia abajo
+     - Verifica que estés mirando el nivel correcto en el realograma
+
+  2. IDENTIFICACIÓN DE PRODUCTOS:
+     - Compara marca, tipo de envase (lata/botella), y tamaño (500ml, 1L, etc.)
+     - Un producto es "encontrado" SOLO si coincide exactamente (ej: "Stella Artois Lata 500ml" ≠ "Stella Artois Botella 1L")
+
+  3. VERIFICACIÓN DE POSICIÓN:
+     - Cuenta de IZQUIERDA a DERECHA en cada nivel
+     - La posición 1 es el producto más a la izquierda
+     - "posicion_correcta" = true SOLO si está en la misma posición numérica
+
+  4. CONTEO DE FRENTES (MUY IMPORTANTE):
+     - Un frente = una cara frontal completa del producto visible
+     - Si ves 3 latas del mismo producto lado a lado = 3 frentes
+     - Si ves 6 botellas del mismo producto = 6 frentes
+     - CUENTA VARIAS VECES para asegurarte del número correcto
+     - Registra el total en "frentes_encontrados"
+
+  5. DETECCIÓN DE ANOMALÍAS:
+     - Identifica productos en el realograma que NO están en el planograma
+     - Identifica espacios vacíos donde debería haber productos
+     - Nota si hay productos de otras marcas ocupando espacios planogramados
+
+  CONCLUSIONES A INCLUIR:
+  - Lista de TODOS los productos faltantes (no encontrados)
+  - Lista de productos mal posicionados
+  - Productos con diferencias significativas en cantidad de frentes
+  - Productos no planogramados que aparecen en el realograma
+  - Porcentaje de cumplimiento general
+  - Recomendaciones específicas de corrección
+
+  IMPORTANTE:
+  - Sé MUY PRECISO en el conteo de frentes - cuenta múltiples veces
+  - NO asumas que un producto está si no puedes verlo claramente
+  - Verifica CADA producto del JSON sin excepción
+  - Si un producto está parcialmente oculto pero identificable, cuenta solo los frentes visibles
+
+  ⚠️ REGLAS DE FORMATO ESTRICTO (OBLIGATORIAS):
+  - Devuelve EXCLUSIVAMENTE un JSON válido, sin texto adicional, sin markdown, sin comentarios.
+  - El JSON DEBE tener exactamente estas claves raíz: "diferencias" (array) y "conclusiones" (array).
+  - Cada item en "diferencias" tiene la forma:
+    {
+      "nivel": <número>,
+      "resultado": {
+        "productos": [
+          {
+            "posicion_producto": <número>,
+            "nombre": <string>,
+            "encontrado": <true|false>,
+            "posicion_correcta": <true|false>,
+            "frentes_esperados": <número>,
+            "frentes_encontrados": <número>
+          }
+        ]
+      }
+    }
+  - "conclusiones" es un array de strings.
+  - NO incluyas otras claves en la raíz (nada de "gondola", "productos", "metricas", "observaciones", etc.).
+  - Recorre TODO el JSON de planograma entregado y para CADA producto devuelve su evaluación.
+  - Si hay productos no planogramados en el realograma, menciónalos SOLO en "conclusiones" (no los agregues a "diferencias").
+  - Si no puedes confirmar un producto, usa: "encontrado": false, "posicion_correcta": false, "frentes_encontrados": 0.
+  - No inventes datos ni alteres el nombre/tamaño/envase del JSON base.

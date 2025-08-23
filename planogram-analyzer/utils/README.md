@@ -1,141 +1,193 @@
-# 🎯 Planogram Compliance Analyzer
+# 📊 Planogram Compliance Analyzer
 
-Sistema de análisis de cumplimiento de planogramas usando AWS Bedrock y modelos de visión AI.
+Sistema de análisis de cumplimiento de planogramas usando AWS Bedrock con modelos de visión AI.
 
-## 🚀 Quick Start con Docker (Codespaces)
+## 🚀 Instalación Rápida
 
-### 1. Clonar o crear el proyecto en Codespaces
-
+### 1. Clonar el repositorio
 ```bash
-# Si estás en Codespaces, el proyecto ya está listo
+git clone <your-repo>
 cd planogram-analyzer
 ```
 
-### 2. Configurar variables de entorno
+### 2. Configurar AWS Credentials
 
-Edita el archivo `.env` con tus credenciales de AWS:
+#### Opción A: Archivo .env (Recomendado)
+```bash
+cp env_example .env
+# Editar .env con sus credenciales AWS reales
+nano .env
+```
+
+**IMPORTANTE**: En el archivo `.env`, reemplace:
+- `AWS_ACCESS_KEY_ID`: Su Access Key ID de AWS
+- `AWS_SECRET_ACCESS_KEY`: Su Secret Access Key de AWS
+- `AWS_DEFAULT_REGION`: La región donde tiene habilitado Bedrock (ej: us-east-1)
+
+#### Opción B: AWS CLI
+```bash
+aws configure
+# Ingrese sus credenciales cuando se le solicite
+```
+
+### 3. Verificar permisos en AWS
+
+Asegúrese de que su usuario/rol de AWS tenga los siguientes permisos:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:InvokeModel",
+                "bedrock:InvokeModelWithResponseStream"
+            ],
+            "Resource": [
+                "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+                "arn:aws:bedrock:*::foundation-model/meta.llama*"
+            ]
+        }
+    ]
+}
+```
+
+### 4. Habilitar modelos en AWS Bedrock
+
+1. Ir a la consola de AWS Bedrock
+2. Navegar a "Model access"
+3. Solicitar acceso a:
+   - Claude 3.7 Sonnet
+   - Claude 4 Opus (si está disponible)
+   - Llama 3.2 Vision (opcional)
+
+### 5. Ejecutar con Docker (Recomendado)
 
 ```bash
-AWS_ACCESS_KEY_ID=tu_access_key
-AWS_SECRET_ACCESS_KEY=tu_secret_key
-AWS_DEFAULT_REGION=us-east-1
+# Construir y ejecutar
+docker-compose up --build
+
+# O ejecutar en segundo plano
+docker-compose up -d
 ```
 
-### 3. Construir y ejecutar con Docker
+La aplicación estará disponible en: http://localhost:8501
+
+### 6. Ejecutar sin Docker (Alternativa)
 
 ```bash
-# Construir la imagen
-docker-compose build
+# Instalar dependencias
+pip install -r requirements.txt
 
-# Ejecutar el contenedor
-docker-compose up
+# Ejecutar aplicación
+streamlit run app.py
 ```
 
-### 4. Acceder a la aplicación
+## 📁 Preparación de Archivos
 
-- En Codespaces: Click en el puerto 8501 cuando aparezca la notificación
-- Local: Navegar a http://localhost:8501
+Para usar la aplicación necesita 4 archivos:
 
-## 📋 Credenciales de acceso
+### 1. **Imagen del Planograma** (JPG/PNG)
+- Imagen clara del planograma esperado
+- Resolución mínima recomendada: 1024x768
 
-- **Usuario:** Prisma
-- **Password:** Binbash2025
+### 2. **Imagen del Realograma** (JPG/PNG)
+- Foto actual de la góndola/estante
+- Buena iluminación y ángulo frontal
 
-## 🎨 Características
-
-- ✅ Login seguro con credenciales desde .env
-- ✅ Integración con múltiples modelos de AWS Bedrock
-- ✅ Análisis de cumplimiento de planogramas
-- ✅ Cálculo de métricas (Recall, Precisión)
-- ✅ Descarga de resultados en JSON
-- ✅ Interfaz moderna y responsiva
-- ✅ Prompt personalizable
-- ✅ Soporte para múltiples modelos AI
-
-## 🤖 Modelos soportados
-
-1. Llama 3.2 11B Vision Instruct
-2. Claude 4.1 Opus
-3. Claude Sonnet 4
-4. Claude 3.7 Sonnet
-
-## 📊 Métricas calculadas
-
-- Productos encontrados vs esperados
-- Productos en posición correcta
-- Recall (sensibilidad)
-- Precisión
-- Productos faltantes
-
-## 🔧 Personalización
-
-### Agregar nuevos modelos
-
-Edita `config.yaml`:
-
-```yaml
-models:
-  nuevo_modelo:
-    name: "Nombre Display"
-    model_id: "model-id-en-bedrock"
-    max_tokens: 4096
-    temperature: 0.1
+### 3. **JSON de Estructura** (JSON)
+Archivo con la estructura del planograma:
+```json
+{
+  "diferencias": [
+    {
+      "nivel": 1,
+      "resultado": {
+        "productos": [
+          {
+            "posicion_producto": 1,
+            "nombre": "Producto A",
+            "encontrado": null,
+            "posicion_correcta": null,
+            "frentes_esperados": 6,
+            "frentes_encontrados": null
+          }
+        ]
+      }
+    }
+  ],
+  "conclusiones": []
+}
 ```
 
-### Modificar el prompt default
+### 4. **JSON Esperado** (Opcional)
+Para validación y comparación de resultados.
 
-Edita la sección `default_prompt` en `config.yaml`
+## 🔧 Solución de Problemas
 
-## 📝 Notas importantes
+### Error: "UnrecognizedClientException"
+**Causa**: Credenciales AWS inválidas
+**Solución**: 
+1. Verificar AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY en .env
+2. Confirmar que las credenciales son correctas en AWS IAM
 
-- Asegúrate de tener permisos en AWS Bedrock para los modelos configurados
-- Las imágenes se redimensionan automáticamente a max 2048x2048
-- El sistema está optimizado para detectar productos faltantes con alto recall
+### Error: "AccessDeniedException"
+**Causa**: Sin permisos para Bedrock
+**Solución**: 
+1. Agregar política de Bedrock al usuario/rol IAM
+2. Verificar que el modelo está habilitado en su región
 
-## 🐛 Troubleshooting
+### Error: "ValidationException"
+**Causa**: Modelo no disponible en la región
+**Solución**:
+1. Cambiar AWS_DEFAULT_REGION a una región con Bedrock
+2. Regiones recomendadas: us-east-1, us-west-2, eu-central-1
 
-Si encuentras errores de conexión con AWS:
-1. Verifica tus credenciales en `.env`
-2. Confirma que tienes acceso a los modelos en Bedrock
-3. Revisa la región configurada
+### Error: "Could not parse JSON response"
+**Causa**: El modelo no devolvió JSON válido
+**Solución**:
+1. Reintentar el análisis
+2. Verificar que las imágenes son claras
+3. Ajustar el prompt si es necesario
 
-## 📄 Licencia 
+## 📊 Métricas Calculadas
 
-Binbash
+- **Recall**: Productos encontrados / Total productos
+- **Precisión**: Productos en posición correcta / Total productos
+- **Cumplimiento de Frentes**: Frentes encontrados / Frentes esperados
+- **Cumplimiento General**: Score ponderado de todas las métricas
 
-# ====================
-# INSTRUCCIONES DE USO
-# ====================
+## 🔐 Seguridad
 
-## Para ejecutar en Codespaces:
+- **NUNCA** commitar el archivo .env con credenciales reales
+- Use AWS IAM roles con permisos mínimos necesarios
+- Rote las credenciales regularmente
+- Use AWS Secrets Manager para producción
 
-1. Crea una nueva carpeta llamada `planogram-analyzer`
-2. Copia todos los archivos según la estructura indicada
-3. Configura tus credenciales AWS en el archivo `.env`
-4. Ejecuta:
-   ```bash
-   docker-compose build
-   docker-compose up
-   ```
-5. Accede a la aplicación en el puerto 8501
+## 📝 Uso Básico
 
-## Características implementadas:
+1. Acceder a http://localhost:8501
+2. Login con usuario: `Prisma`, password: `Binbash2025`
+3. Cargar los 4 archivos requeridos
+4. Seleccionar modelo (recomendado: Claude 3.7 Sonnet)
+5. Click en "Analizar Cumplimiento"
+6. Revisar resultados y descargar reportes
 
-✅ Login con usuario/contraseña desde .env
-✅ Conexión parametrizable con AWS Bedrock
-✅ Soporte para múltiples modelos AI
-✅ Carga de planograma y realograma
-✅ Prompt personalizable
-✅ Análisis de cumplimiento con JSON estructurado
-✅ Cálculo de métricas (Recall, Precisión)
-✅ Descarga de resultados
-✅ Interfaz moderna y profesional
-✅ Docker y docker-compose listos para Codespaces
+## 🐛 Debug
 
-El sistema está optimizado para:
-- Máximo recall en detección de productos faltantes
-- Mínimos falsos positivos
-- Código limpio y eficiente
-- Fácil configuración y despliegue
+Para habilitar modo debug:
+```bash
+# En .env
+DEBUG=True
 
+# Ver logs de Docker
+docker-compose logs -f
+```
 
+## 📞 Soporte
+
+Para problemas específicos:
+1. Verificar logs: `docker-compose logs`
+2. Revisar estado AWS: `aws bedrock list-foundation-models`
+3. Validar credenciales: `aws sts get-caller-identity`

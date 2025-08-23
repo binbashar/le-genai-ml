@@ -3,10 +3,24 @@ version: '3.8'
 services:
   streamlit-app:
     build: .
+    container_name: planogram-analyzer
     ports:
       - "8501:8501"
     env_file:
       - .env
     volumes:
       - ./:/app
+      - ./data:/app/data  # Para guardar resultados
     restart: unless-stopped
+    networks:
+      - planogram-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  planogram-net:
+    driver: bridge
