@@ -1,6 +1,6 @@
 # Authentication
-APP_USER=User
-APP_PASSWORD=Your_Password_Here
+APP_USER=user
+APP_PASSWORD=your_password_here
 
 # AWS Configuration
 AWS_ACCESS_KEY_ID=your_access_key_here
