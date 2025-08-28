@@ -40,6 +40,7 @@ This repo includes the binbash GenAI - ML projects
 ## Data Engineering
 - ✔️ https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/datalake-demo--
 - ✔️ https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/lakehouse-demo--
+- 📙 https://github.com/aws/modern-data-architecture-accelerator
 
 ## DevOps
 - 🚧 https://github.com/binbashar/le-genai-sample-devgenius-aws-solution-builder
