@@ -1,28 +1,137 @@
-# Entorno / secretos
+# Environment variables
 .env
+.env.local
+.env.*.local
 
-# Python artefactos
-*.pyc
-**/__pycache__*
-.pytest_cache
-
-# Docs / empaquetado / build
-apidocs
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 MANIFEST
-dist
-build
-leverage.egg-info
-coverage
+.pytest_cache/
 .coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+*.cover
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
 
-# Proyectos/IDE
-.project
-.pydevproject
-.ropeproject
-.python-version
-.vscode
-.idea
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
+Thumbs.db
 
-# Otros
-*.out
+# Streamlit
+.streamlit/cache/
+.streamlit/secrets.toml
+*.log
+
+# Data and outputs
+data/*.json
+data/*.csv
+data/*.xlsx
+data/*.jpg
+data/*.png
+data/*.jpeg
+logs/
+backups/
+cache/
+results/
+output/
+temp/
+tmp/
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# AWS
+.aws/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+test_output/
+test_results/
+coverage.xml
+*.cover
+
+# Documentation
+docs/_build/
+site/
+
+# Sensitive files
+*.pem
+*.key
+*.crt
+*.p12
+credentials.json
+secrets.yaml
+secrets.json
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Keep these
+!.gitkeep
+!requirements.txt
+!env_example
+!data/.gitkeep
+!logs/.gitkeep
+!cache/.gitkeep

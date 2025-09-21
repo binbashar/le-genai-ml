@@ -7,4 +7,5 @@ pyyaml==6.0.1
 pandas==2.2.0
 plotly==5.19.0
 base64io==1.0.3
-numpy==1.24.3
+numpy
+colorama==0.4.6
