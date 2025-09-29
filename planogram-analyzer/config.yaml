@@ -11,18 +11,6 @@ models:
     max_tokens: 4096
     temperature: 0.1
 
-  aws_nova_premier:
-    name: "Nova Premier"
-    model_id: "amazon.nova-premier-v1:0"
-    max_tokens: 4096
-    temperature: 0.1
-
-  claude_3_haiku:
-    name: "Claude 3 Haiku (Más Rápido)"
-    model_id: "anthropic.claude-3-haiku-20240307-v1:0"
-    max_tokens: 4096
-    temperature: 0.1
-
 default_prompt: |
   Te estoy adjuntando 2 imágenes:
   - La PRIMERA imagen es el PLANOGRAMA que indica cómo se DEBEN exhibir los productos en una góndola (exhibición ESPERADA/DESEADA).
@@ -111,44 +99,3 @@ default_prompt: |
   - Si hay productos no planogramados en el realograma, menciónalo SOLO en "conclusiones".
   - Si no puedes confirmar un producto, usa: "encontrado": false, "posicion_correcta": false, "frentes_encontrados": 0.
   - No inventes datos ni alteres el nombre/tamaño/envase del JSON base.
-
-# Configuración de Rekognition
-rekognition:
-  confidence_threshold: 80
-  max_labels: 100
-  detect_text: true
-  detect_moderation: false
-  
-  # Categorías relevantes para detección de productos
-  relevant_categories:
-    - Bottle
-    - Can
-    - Package
-    - Box
-    - Container
-    - Product
-    - Beverage
-    - Food
-    - Snack
-    - Cosmetics
-    - Cleaning Product
-    - Aerosol
-    - Spray
-    - Wipes
-    - Jar
-    - Tube
-    - Packet
-
-# Configuración de análisis
-analysis:
-  grid_rows: 6  # Número de niveles de estantes
-  grid_cols: 12  # Divisiones horizontales para detección de vacíos
-  empty_space_threshold: 0.2  # Umbral para considerar un espacio como vacío
-  similarity_threshold: 0.7  # Umbral para matching de productos
-
-# Configuración de la aplicación
-app:
-  max_image_size: 2048  # Tamaño máximo de imagen en píxeles
-  image_quality: 95  # Calidad de compresión JPEG
-  session_timeout: 3600  # Timeout de sesión en segundos
-  enable_debug: false  # Modo debug

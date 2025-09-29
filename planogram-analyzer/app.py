@@ -1,9 +1,8 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from utils.auth import check_password
 from utils.bedrock_client import BedrockClient
-from utils.image_processor import process_images, calculate_metrics, analyze_differences
+from utils.image_processor import process_images
 import yaml
 import json
 import base64
@@ -12,802 +11,747 @@ import io
 import pandas as pd
 from datetime import datetime
 
-# Load environment variables
+# Load environment variables FIRST
 load_dotenv()
 
 # Page config
 st.set_page_config(
-    page_title=os.getenv("APP_NAME", "Planogram Analyzer"),
-    page_icon="📊",
+    page_title=os.getenv("APP_NAME", "Planogram Compliance Platform"),
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Enhanced CSS for Professional Platform Interface
+# Minimal CSS - Let Streamlit's light theme handle most styling
 st.markdown("""
 <style>
-    /* Main Layout */
-    .main {
-        padding: 1.5rem 2rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        min-height: 100vh;
-    }
-
-    /* Header */
+    /* Just enhance the header */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
+        padding: 2.5rem;
+        border-radius: 16px;
         margin-bottom: 2rem;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-
-    /* Buttons */
-    .stButton>button {
-        width: 100%;
-        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-        color: white;
-        font-weight: 600;
-        border-radius: 10px;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-        font-size: 16px;
-    }
-
-    .stButton>button:hover {
-        background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
-        transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
-    }
-
-    /* Primary Analysis Button */
-    .stButton[data-testid="baseButton-primary"]>button {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
-        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
-        font-size: 18px;
-        padding: 1rem 2rem;
-    }
-
-    .stButton[data-testid="baseButton-primary"]>button:hover {
-        background: linear-gradient(135deg, #FF5252 0%, #FF7043 100%);
-        box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
-    }
-
-    /* Metric Cards */
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        backdrop-filter: blur(10px);
-        margin: 1rem 0;
-    }
-
-    /* Upload Areas */
-    .upload-container {
-        background: white;
-        border: 3px dashed #4CAF50;
-        border-radius: 15px;
-        padding: 2rem;
-        text-align: center;
-        margin: 1rem 0;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-
-    .upload-container:hover {
-        border-color: #45a049;
-        box-shadow: 0 6px 25px rgba(76, 175, 80, 0.2);
-        transform: translateY(-2px);
-    }
-
-    /* Sidebar */
-    .css-1d391kg {
-        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 0 15px 15px 0;
-    }
-
-    /* File Uploader */
-    .stFileUploader {
-        background: white;
-        border-radius: 10px;
-        padding: 1rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-
-    /* Alert Boxes */
-    .stAlert {
-        border-radius: 10px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        margin: 1rem 0;
-    }
-
-    /* Success Alert */
-    .stAlert[data-baseweb="notification"][kind="success"] {
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-        border-left: 4px solid #28a745;
-    }
-
-    /* Warning Alert */
-    .stAlert[data-baseweb="notification"][kind="warning"] {
-        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-        border-left: 4px solid #ffc107;
-    }
-
-    /* Error Alert */
-    .stAlert[data-baseweb="notification"][kind="error"] {
-        background: linear-gradient(135deg, #f8d7da 0%, #f1c0c7 100%);
-        border-left: 4px solid #dc3545;
-    }
-
-    /* Info Alert */
-    .stAlert[data-baseweb="notification"][kind="info"] {
-        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
-        border-left: 4px solid #17a2b8;
-    }
-
-    /* Tabs */
-    .stTabs {
-        background: white;
-        border-radius: 15px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 10px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        border: none;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-        color: white;
-    }
-
-    /* Expanders */
-    .streamlit-expanderHeader {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 10px;
-        font-weight: 600;
-    }
-
-    /* Code blocks */
-    .stCodeBlock {
-        border-radius: 10px;
-        background: #2d3748;
-        border: none;
-    }
-
-    /* JSON display */
-    .stJson {
-        background: #1a202c;
-        border-radius: 10px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-
-    /* Metrics */
-    .metric-container {
-        background: white;
-        border-radius: 15px;
+    
+    /* Upload containers with subtle enhancement */
+    .upload-box {
+        border: 2px dashed #e0e0e0;
+        border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        margin: 0.5rem;
         text-align: center;
-        transition: all 0.3s ease;
+        background: #fafafa;
+        margin: 0.5rem 0;
     }
-
-    .metric-container:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    
+    .upload-box:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
     }
-
-    /* Spinner */
-    .stSpinner {
-        background: rgba(255,255,255,0.9);
-        border-radius: 15px;
-        backdrop-filter: blur(10px);
-    }
-
-    /* Progress indicators */
-    .stProgress .stProgress-bar {
-        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-        border-radius: 10px;
-    }
-
 </style>
 """, unsafe_allow_html=True)
 
 # Load configuration
 @st.cache_resource
 def load_config():
-    with open('config.yaml', 'r') as f:
-        return yaml.safe_load(f)
+    try:
+        with open('config.yaml', 'r') as f:
+            return yaml.safe_load(f)
+    except:
+        # Default config if file doesn't exist
+        st.error("❌ config.yaml not found. Please create configuration file.")
+        return {
+            'models': {
+                'claude-3-sonnet': {
+                    'name': 'Claude 3 Sonnet',
+                    'model_id': 'anthropic.claude-3-sonnet-20240229-v1:0',
+                    'temperature': 0.1,
+                    'max_tokens': 4096
+                }
+            },
+            'default_prompt': 'Analyze the planogram compliance comparing the expected vs actual images.'
+        }
+
+def check_password():
+    """Returns True if the user has the correct username and password"""
+    
+    def verify_credentials():
+        """Checks whether username and password entered are correct"""
+        # Read from environment variables - NO DEFAULTS
+        correct_username = os.getenv("APP_USER")
+        correct_password = os.getenv("APP_PASSWORD")
+        
+        if not correct_username or not correct_password:
+            st.error("❌ Authentication not configured. Please set APP_USER and APP_PASSWORD in .env file")
+            st.session_state["password_correct"] = False
+            return
+        
+        if (st.session_state.get("username") == correct_username and 
+            st.session_state.get("password") == correct_password):
+            st.session_state["password_correct"] = True
+            if "password" in st.session_state:
+                del st.session_state["password"]
+            if "username" in st.session_state:
+                del st.session_state["username"]
+        else:
+            st.session_state["password_correct"] = False
+
+    # First time - no password check yet
+    if "password_correct" not in st.session_state:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style="text-align: center; margin-top: 100px;">
+                <h2 style="color: #333;">🔐 Platform Authentication</h2>
+                <p style="color: #666;">Enter your credentials to access</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            with st.form("login_form"):
+                st.text_input(
+                    "Username",
+                    key="username",
+                    placeholder="Enter username"
+                )
+                st.text_input(
+                    "Password",
+                    type="password",
+                    key="password",
+                    placeholder="Enter password"
+                )
+                submitted = st.form_submit_button("Login", type="primary", use_container_width=True)
+                
+                if submitted:
+                    verify_credentials()
+            
+            if os.getenv("APP_USER") and os.getenv("APP_PASSWORD"):
+                st.caption("✅ Credentials configured in .env file")
+            else:
+                st.warning("⚠️ Please configure APP_USER and APP_PASSWORD in .env file")
+        return False
+    
+    # Password was wrong
+    elif not st.session_state.get("password_correct", False):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("""
+            <div style="text-align: center; margin-top: 100px;">
+                <h2 style="color: #333;">🔐 Platform Authentication</h2>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            with st.form("login_form"):
+                st.text_input(
+                    "Username",
+                    key="username",
+                    placeholder="Enter username"
+                )
+                st.text_input(
+                    "Password",
+                    type="password",
+                    key="password",
+                    placeholder="Enter password"
+                )
+                submitted = st.form_submit_button("Login", type="primary", use_container_width=True)
+                
+                if submitted:
+                    verify_credentials()
+            
+            st.error("❌ Incorrect username or password. Please try again.")
+            
+            if not (os.getenv("APP_USER") and os.getenv("APP_PASSWORD")):
+                st.warning("⚠️ Please configure APP_USER and APP_PASSWORD in .env file")
+        return False
+    
+    # Password correct
+    else:
+        return True
 
 def validate_json_structure(json_data):
-    """Validate that the JSON has the expected structure"""
+    """Validate JSON structure"""
     if not isinstance(json_data, dict):
-        return False, "JSON debe ser un objeto"
-    if 'diferencias' not in json_data:
-        return False, "JSON debe contener 'diferencias'"
-    if not isinstance(json_data['diferencias'], list):
-        return False, "'diferencias' debe ser una lista"
-    return True, "JSON válido"
+        return False, "JSON must be an object"
+    return True, "Valid JSON"
 
-def build_final_prompt(user_prompt: str, custom_instructions: str = None) -> str:
-    """
-    Construye el prompt final combinando las instrucciones del usuario con reglas estrictas
-    """
+def calculate_metrics_from_result(result, json_structure=None):
+    """Calculate metrics from analysis result based on actual vs expected"""
+    metrics = {
+        'total_expected': 0,
+        'total_found': 0,
+        'correct_position': 0,
+        'missing': 0,
+        'wrong_position': 0,
+        'recall': 0.0,
+        'precision': 0.0,
+        'compliance_rate': 0.0
+    }
+    
+    try:
+        # First, count expected products from compliance JSON if available
+        if json_structure and isinstance(json_structure, dict):
+            # Count total expected products from the structure
+            if 'diferencias' in json_structure:
+                for level in json_structure['diferencias']:
+                    if 'resultado' in level and 'productos' in level['resultado']:
+                        metrics['total_expected'] += len(level['resultado']['productos'])
+            elif 'niveles' in json_structure:
+                for level in json_structure['niveles']:
+                    if 'productos' in level:
+                        metrics['total_expected'] += len(level['productos'])
+            elif 'products' in json_structure:
+                metrics['total_expected'] = len(json_structure['products'])
+        
+        # Handle both dict and string responses
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except:
+                return metrics
+        
+        # Count actual results
+        if isinstance(result, dict) and 'diferencias' in result:
+            products_analyzed = []
+            
+            for level in result['diferencias']:
+                if 'resultado' in level and 'productos' in level['resultado']:
+                    for product in level['resultado']['productos']:
+                        products_analyzed.append(product)
+                        
+                        # Count if product was found
+                        if product.get('encontrado', False):
+                            metrics['total_found'] += 1
+                            
+                            # Check if in correct position
+                            if product.get('posicion_correcta', False):
+                                metrics['correct_position'] += 1
+                            else:
+                                metrics['wrong_position'] += 1
+                        else:
+                            metrics['missing'] += 1
+            
+            # If no expected count from structure, use analyzed count
+            if metrics['total_expected'] == 0:
+                metrics['total_expected'] = len(products_analyzed)
+            
+            # Calculate rates
+            if metrics['total_expected'] > 0:
+                # Recall: How many of expected products were found
+                metrics['recall'] = metrics['total_found'] / metrics['total_expected']
+                # Compliance: How many are in correct position out of total expected
+                metrics['compliance_rate'] = metrics['correct_position'] / metrics['total_expected']
+            
+            if metrics['total_found'] > 0:
+                # Precision: Of those found, how many are correct
+                metrics['precision'] = metrics['correct_position'] / metrics['total_found']
+                
+    except Exception as e:
+        st.warning(f"Note: Metrics calculation encountered an issue: {str(e)}")
+    
+    return metrics
 
-    # Reglas de formato que siempre se aplican
+def build_final_prompt(user_prompt: str) -> str:
+    """Build the final prompt with format rules"""
     format_rules = """
 
-REGLAS DE FORMATO ESTRICTO (OBLIGATORIAS):
-- Devuelve EXCLUSIVAMENTE un JSON válido, sin texto adicional, sin markdown, sin comentarios.
-- El JSON DEBE tener exactamente estas claves raíz: "diferencias" (array) y "conclusiones" (array).
-- Cada item en "diferencias" tiene:
-  {
-    "nivel": <número>,
-    "resultado": {
-      "productos": [
-        {
-          "posicion_producto": <número>,
-          "nombre": <string>,
-          "encontrado": <true|false>,
-          "posicion_correcta": <true|false>,
-          "frentes_esperados": <número>,
-          "frentes_encontrados": <número>
-        }
-      ]
+STRICT OUTPUT FORMAT - Return ONLY valid JSON:
+{
+  "diferencias": [
+    {
+      "nivel": <number>,
+      "resultado": {
+        "productos": [
+          {
+            "posicion_producto": <number>,
+            "nombre": <string>,
+            "encontrado": <boolean>,
+            "posicion_correcta": <boolean>,
+            "frentes_esperados": <number>,
+            "frentes_encontrados": <number>
+          }
+        ]
+      }
     }
-  }
-- "conclusiones" es un array de strings con hallazgos.
-- NO incluyas otras claves en la raíz.
-- Recorre TODO el planograma y evalúa CADA producto.
-- Si no puedes confirmar un dato: "encontrado": false, "posicion_correcta": false, "frentes_encontrados": 0.
-- No inventes productos: sólo evalúa los del JSON base.
+  ],
+  "conclusiones": [<strings>]
+}
+
+Return ONLY JSON, no markdown, no text.
 """
+    
+    return user_prompt + format_rules
 
-    # Construir prompt final
-    final_prompt = user_prompt
-
-    # Agregar instrucciones personalizadas si existen
-    if custom_instructions and custom_instructions.strip():
-        final_prompt += f"\n\nINSTRUCCIONES ADICIONALES DEL USUARIO:\n{custom_instructions.strip()}"
-
-    # Siempre agregar reglas de formato al final
-    final_prompt += format_rules
-
-    return final_prompt.strip()
-
-def compare_results(actual, expected):
-    """Compare actual results with expected results"""
-    comparison = {
-        'matches': True,
-        'differences': []
-    }
+def parse_bedrock_response(response_text):
+    """Parse Bedrock response handling various formats"""
     try:
-        actual_json = json.dumps(actual, sort_keys=True)
-        expected_json = json.dumps(expected, sort_keys=True)
-        if actual_json != expected_json:
-            comparison['matches'] = False
-            comparison['differences'].append("Los resultados no coinciden exactamente con lo esperado")
-    except Exception:
-        comparison['matches'] = False
-        comparison['differences'].append("No se pudo comparar los resultados")
-    return comparison
-
-def save_prompt_context(prompt: str):
-    """Guardar el prompt personalizado en session state como contexto"""
-    if 'saved_prompts' not in st.session_state:
-        st.session_state.saved_prompts = []
-    st.session_state.saved_prompts.append(prompt)
-    st.session_state.current_context = prompt
+        if isinstance(response_text, dict):
+            return response_text
+        
+        if isinstance(response_text, str):
+            cleaned = response_text.strip()
+            
+            # Remove markdown formatting if present
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+            elif cleaned.startswith("```"):
+                cleaned = cleaned[3:]
+            
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+            
+            cleaned = cleaned.strip()
+            return json.loads(cleaned)
+    except Exception as e:
+        st.error(f"Failed to parse AI response: {str(e)}")
+        return None
 
 def main():
-    # Authentication
+    # Check authentication
     if not check_password():
         st.stop()
 
+    # Load config
     config = load_config()
 
-    # Initialize session state
-    if 'current_context' not in st.session_state:
-        st.session_state.current_context = None
-    if 'use_custom_context' not in st.session_state:
-        st.session_state.use_custom_context = False
-
-    # Header with enhanced styling
+    # Header with gradient
     st.markdown("""
     <div class="main-header">
         <h1 style="color: white; text-align: center; margin: 0; font-size: 2.5em; font-weight: 700;">
-            🎯 """ + os.getenv("APP_NAME", "Planogram Compliance Analyzer") + """
+            🎯 Planogram Compliance Platform
         </h1>
-        <p style="color: rgba(255,255,255,0.9); text-align: center; margin: 1rem 0 0 0; font-size: 1.2em;">
-            Análisis inteligente de cumplimiento con AWS Bedrock
+        <p style="color: rgba(255,255,255,0.9); text-align: center; margin: 0.5rem 0 0 0; font-size: 1.1em;">
+            AI-Powered Retail Execution Analysis with AWS Bedrock
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Sidebar
+    # Sidebar Configuration
     with st.sidebar:
-        st.header("⚙️ Configuración")
+        st.header("⚙️ Configuration")
 
-        # Model selection
-        st.subheader("🤖 Modelo AI")
+        # Model Selection
+        st.subheader("🤖 AI Model")
         model_key = st.selectbox(
-            "Seleccionar modelo:",
+            "Select model:",
             options=list(config['models'].keys()),
             format_func=lambda x: config['models'][x]['name']
         )
         selected_model = config['models'][model_key]
-        st.info(f"Model ID: `{selected_model['model_id']}`")
 
         # System Status
-        st.subheader("📊 Estado del Sistema")
-
-        # AWS Status
-        if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
-            st.success("✅ AWS Bedrock: Conectado")
-            st.info(f"🌍 Región: {os.getenv('AWS_DEFAULT_REGION', 'us-east-1')}")
+        st.subheader("📊 System Status")
+        
+        # Check AWS credentials from .env
+        aws_key = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+        aws_region = os.getenv("AWS_DEFAULT_REGION", "us-west-2")
+        
+        if aws_key and aws_secret:
+            st.success("✅ AWS Connected")
+            st.info(f"🌍 Region: {aws_region}")
         else:
-            st.error("❌ AWS: No configurado")
-            st.warning("Configure credenciales AWS en .env")
+            st.error("❌ AWS Not Configured")
+            st.warning("Add AWS credentials to .env file")
+        
+        st.success(f"🤖 Model: {selected_model['name']}")
+        
+        with st.expander("📋 Model Details"):
+            st.code(f"ID: {selected_model['model_id']}")
 
-        # Model Status
-        st.success(f"🤖 Modelo: {selected_model['name']}")
-        st.info(f"🔧 ID: {selected_model['model_id']}")
+        st.divider()
 
-        st.markdown("---")
-
-        # Enhanced Prompt Customization
-        st.subheader("📝 Instrucciones del Análisis")
-        st.markdown("<p style='color: #7f8c8d; font-size: 0.9em;'>Personalice las instrucciones para el modelo AI</p>", unsafe_allow_html=True)
-
-        # Prompt mode selection
+        # Analysis Configuration - ONLY 2 MODES
+        st.subheader("📝 Analysis Configuration")
+        
         prompt_mode = st.radio(
-            "Modo de prompt:",
-            ["default", "custom", "instructions_only"],
+            "Prompt mode:",
+            ["default", "custom"],
             format_func=lambda x: {
-                "default": "🎯 Usar prompt predefinido del sistema",
-                "custom": "✏️ Editar prompt completo",
-                "instructions_only": "📝 Solo agregar instrucciones adicionales"
+                "default": "🎯 Use Configuration Default",
+                "custom": "✏️ Full Custom Prompt"
             }[x],
             index=0,
-            help="Seleccione cómo desea configurar las instrucciones"
+            help="Default uses config.yaml prompt, Custom ignores config and uses only your input"
         )
 
         if prompt_mode == "default":
-            st.info("📝 Usando el prompt predefinido del sistema. El modelo seguirá las instrucciones estándar de análisis.")
-            custom_prompt = config['default_prompt']
-            lock_prompt = True
+            # DEFAULT MODE - Use config.yaml prompt
+            final_prompt = config.get('default_prompt', 'Analyze the planogram compliance.')
+            st.success("✅ Using prompt from config.yaml")
+            
+            with st.expander("View Default Prompt"):
+                st.text_area(
+                    "Current default prompt:",
+                    value=final_prompt,
+                    height=150,
+                    disabled=True,
+                    help="This prompt is defined in config.yaml"
+                )
 
-        elif prompt_mode == "custom":
-            st.warning("⚠️ Modo avanzado: Edite el prompt completo. Use con precaución.")
+        else:  # custom
+            # CUSTOM MODE - Ignore config, use only user input
+            st.warning("⚠️ Custom mode - config.yaml prompt will be ignored")
+            
             custom_prompt = st.text_area(
-                "Prompt completo (incluye todas las instrucciones):",
-                value=config['default_prompt'],
-                height=300,
-                help="Este será el prompt base. Se agregarán reglas de formato automáticamente."
-            )
-            lock_prompt = False
-
-        else:  # instructions_only
-            st.success("✨ Modo recomendado: Agregue instrucciones específicas que se combinarán con el prompt base.")
-            custom_prompt = config['default_prompt']  # Always use base prompt
-            lock_prompt = True
-
-            # Custom instructions box
-            additional_instructions = st.text_area(
-                "Instrucciones adicionales (ejemplos: 'Solo analizar el primer nivel', 'Enfocarse en productos de marca X', etc.):",
+                "Enter your complete custom prompt:",
                 value="",
-                height=150,
-                placeholder="Ejemplo: Solo analizar los productos del nivel 1 y 2. Ignorar productos de marca Z.",
-                help="Estas instrucciones se agregarán al prompt base del sistema."
+                height=200,
+                placeholder="Enter your full prompt here. This will completely replace the default prompt.",
+                help="This prompt will be used instead of config.yaml default"
+            )
+            
+            if custom_prompt.strip():
+                final_prompt = custom_prompt.strip()
+            else:
+                st.error("❌ Please enter a custom prompt")
+                final_prompt = None
+
+        # Advanced Settings
+        with st.expander("⚙️ Advanced Settings"):
+            temperature = st.slider(
+                "Temperature",
+                0.0, 1.0,
+                float(selected_model.get('temperature', 0.1)),
+                0.1,
+                help="Lower = more focused, Higher = more creative"
+            )
+            max_tokens = st.number_input(
+                "Max Tokens",
+                1000, 8000,
+                int(selected_model.get('max_tokens', 4096)),
+                500,
+                help="Maximum length of response"
             )
 
-            # Save and load custom instructions
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("💾 Guardar instrucciones") and additional_instructions.strip():
-                    st.session_state.current_context = additional_instructions.strip()
-                    st.session_state.use_custom_context = True
-                    st.success("✅ Instrucciones guardadas")
-
-            with col2:
-                if st.button("🗑️ Limpiar instrucciones"):
-                    st.session_state.current_context = None
-                    st.session_state.use_custom_context = False
-                    st.success("✅ Instrucciones limpiadas")
-
-            # Show saved instructions
-            if st.session_state.current_context:
-                with st.expander("📄 Ver instrucciones guardadas"):
-                    st.info(f"Instrucciones activas: {st.session_state.current_context}")
-
-            # Update the custom_prompt with additional instructions if provided
-            if additional_instructions.strip():
-                st.session_state.current_context = additional_instructions.strip()
-                st.session_state.use_custom_context = True
-
-            # Advanced settings
-            with st.expander("⚡ Configuración Avanzada"):
-                temperature = st.slider("Temperature", 0.0, 1.0, float(selected_model.get('temperature', 0.1)))
-                max_tokens = st.number_input("Max Tokens", 100, 8000, int(selected_model.get('max_tokens', 4096)))
-
-                # Analysis options
-                st.subheader("🔍 Opciones de Análisis")
-                check_false_negatives = st.checkbox("Detectar Falsos Negativos", value=True)
-                check_wrong_positions = st.checkbox("Detectar Productos Mal Posicionados", value=True)
-                check_extra_products = st.checkbox("Detectar Productos No Planogramados", value=True)
-                check_empty_spaces = st.checkbox("🆕 Detectar Espacios Vacíos", value=True)
-
-    # Main content - File uploads with enhanced design
-    st.markdown("<h2 style='text-align: center; color: #2c3e50; margin: 2rem 0;'>📁 Carga de Archivos</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #7f8c8d; margin-bottom: 2rem;'>Suba las imágenes y archivos necesarios para el análisis</p>", unsafe_allow_html=True)
-
+    # Main Content Area
+    st.header("📁 File Upload")
+    
+    # File upload section with columns
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("""
-        <div class="upload-container">
-            <h4 style="color: #2c3e50; margin-bottom: 1rem;">📋 Planograma (Esperado)</h4>
-            <p style="color: #7f8c8d; font-size: 0.9em;">Imagen que muestra cómo deben estar dispuestos los productos</p>
+        <div class="upload-box">
+            <h4>📋 Planogram Image</h4>
+            <p style="color: #666; font-size: 0.9em;">Expected product arrangement</p>
         </div>
         """, unsafe_allow_html=True)
-
+        
         planogram_file = st.file_uploader(
-            "Cargar imagen del planograma",
+            "Upload planogram",
             type=['png', 'jpg', 'jpeg'],
             key="planogram",
-            help="Imagen que muestra cómo deben estar dispuestos los productos"
+            label_visibility="collapsed"
         )
         if planogram_file:
-            st.image(planogram_file, use_column_width=True, caption="Planograma cargado")
+            st.image(planogram_file, use_column_width=True, caption="✅ Planogram loaded")
 
     with col2:
         st.markdown("""
-        <div class="upload-container">
-            <h4 style="color: #2c3e50; margin-bottom: 1rem;">📸 Realograma (Actual)</h4>
-            <p style="color: #7f8c8d; font-size: 0.9em;">Imagen que muestra cómo están dispuestos los productos actualmente</p>
+        <div class="upload-box">
+            <h4>📸 Realogram Image</h4>
+            <p style="color: #666; font-size: 0.9em;">Actual shelf photograph</p>
         </div>
         """, unsafe_allow_html=True)
-
+        
         realogram_file = st.file_uploader(
-            "Cargar imagen del realograma",
+            "Upload realogram",
             type=['png', 'jpg', 'jpeg'],
             key="realogram",
-            help="Imagen que muestra cómo están dispuestos los productos actualmente"
+            label_visibility="collapsed"
         )
         if realogram_file:
-            st.image(realogram_file, use_column_width=True, caption="Realograma cargado")
+            st.image(realogram_file, use_column_width=True, caption="✅ Realogram loaded")
 
-    col3, col4 = st.columns(2)
+    # Compliance JSON upload
+    st.markdown("""
+    <div class="upload-box">
+        <h4>📊 Compliance JSON</h4>
+        <p style="color: #666; font-size: 0.9em;">Product structure and compliance rules</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    json_structure_file = st.file_uploader(
+        "Upload JSON",
+        type=['json', 'txt'],
+        key="json_structure",
+        label_visibility="collapsed"
+    )
 
-    with col3:
-        st.markdown("""
-        <div class="upload-container">
-            <h4 style="color: #2c3e50; margin-bottom: 1rem;">📊 JSON Estructura</h4>
-            <p style="color: #7f8c8d; font-size: 0.9em;">JSON que describe la estructura esperada del planograma</p>
-        </div>
-        """, unsafe_allow_html=True)
+    json_structure = None
+    if json_structure_file:
+        try:
+            json_content = json_structure_file.read().decode('utf-8')
+            json_structure = json.loads(json_content)
+            st.success("✅ Compliance JSON loaded successfully")
+            
+            is_valid, message = validate_json_structure(json_structure)
+            if is_valid:
+                with st.expander("📄 View Structure"):
+                    st.json(json_structure)
+            else:
+                st.error(f"❌ Invalid JSON: {message}")
+                json_structure = None
+        except Exception as e:
+            st.error(f"❌ Error parsing JSON: {str(e)}")
 
-        json_structure_file = st.file_uploader(
-            "Cargar JSON con estructura del planograma",
-            type=['json', 'txt'],
-            key="json_structure",
-            help="JSON que describe la estructura esperada del planograma"
-        )
+    # Analysis Section
+    st.header("🚀 Analysis")
 
-        json_structure = None
-        if json_structure_file:
-            try:
-                json_content = json_structure_file.read().decode('utf-8')
-                json_structure = json.loads(json_content)
-                st.success("✅ JSON de estructura cargado correctamente")
-
-                # Validate JSON structure
-                is_valid, message = validate_json_structure(json_structure)
-                if is_valid:
-                    # Show preview
-                    with st.expander("Ver estructura del planograma"):
-                        st.json(json_structure)
-                else:
-                    st.error(f"❌ Error en estructura JSON: {message}")
-                    json_structure = None
-            except Exception as e:
-                st.error(f"❌ Error al parsear JSON: {str(e)}")
-
-    with col4:
-        st.markdown("""
-        <div class="upload-container">
-            <h4 style="color: #2c3e50; margin-bottom: 1rem;">🎯 JSON Esperado (Opcional)</h4>
-            <p style="color: #7f8c8d; font-size: 0.9em;">JSON opcional para comparar con el resultado del análisis</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        json_expected_file = st.file_uploader(
-            "Cargar JSON con resultado esperado (para validación)",
-            type=['json', 'txt'],
-            key="json_expected",
-            help="JSON opcional para comparar con el resultado del análisis"
-        )
-
-        json_expected = None
-        if json_expected_file:
-            try:
-                json_content = json_expected_file.read().decode('utf-8')
-                json_expected = json.loads(json_content)
-                st.success("✅ JSON esperado cargado correctamente")
-
-                # Show preview
-                with st.expander("Ver resultado esperado"):
-                    st.json(json_expected)
-            except Exception as e:
-                st.error(f"❌ Error al parsear JSON esperado: {str(e)}")
-
-    # Analysis button with better validation
-    st.markdown("<h2 style='text-align: center; color: #2c3e50; margin: 2rem 0;'>🚀 Ejecutar Análisis</h2>", unsafe_allow_html=True)
-
-    # Pre-flight checks
-    ready_to_analyze = True
-    issues = []
+    # Requirements check
+    ready = True
+    missing = []
 
     if not planogram_file:
-        issues.append("📋 Imagen del planograma")
-        ready_to_analyze = False
-
+        missing.append("Planogram Image")
+        ready = False
     if not realogram_file:
-        issues.append("📸 Imagen del realograma")
-        ready_to_analyze = False
-
+        missing.append("Realogram Image")
+        ready = False
     if not json_structure:
-        issues.append("📊 JSON de estructura")
-        ready_to_analyze = False
+        missing.append("Compliance JSON")
+        ready = False
+    if not (aws_key and aws_secret):
+        missing.append("AWS Credentials in .env")
+        ready = False
+    if prompt_mode == "custom" and not final_prompt:
+        missing.append("Custom Prompt")
+        ready = False
 
-    if not (os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY")):
-        issues.append("🔐 Credenciales AWS")
-        ready_to_analyze = False
-
-    # Show status
-    if ready_to_analyze:
-        st.success("✅ Todo listo para el análisis")
+    # Status display
+    if ready:
+        st.success("✅ All requirements satisfied - Ready to analyze")
     else:
-        st.error(f"❌ Faltan elementos requeridos: {', '.join(issues)}")
+        st.warning(f"⚠️ Missing requirements: {', '.join(missing)}")
 
     # Analysis button
-    if st.button("🚀 Iniciar Análisis de Cumplimiento",
-                type="primary",
-                disabled=not ready_to_analyze,
-                use_container_width=True):
-
-        if not ready_to_analyze:
-            st.error("❌ Complete todos los elementos requeridos antes de continuar")
+    if st.button("🚀 START COMPLIANCE ANALYSIS", type="primary", disabled=not ready, use_container_width=True):
+        
+        if not ready:
+            st.error("❌ Please complete all requirements before starting")
             st.stop()
 
-        with st.spinner("🔄 Procesando imágenes y ejecutando análisis con IA..."):
+        with st.spinner("🔄 Processing images and executing AI analysis..."):
             try:
-                result = None
-                
                 # Process images
                 planogram_b64 = process_images(planogram_file)
                 realogram_b64 = process_images(realogram_file)
                 
-                # Execute Bedrock analysis
-                st.info("🤖 Ejecutando análisis con AWS Bedrock...")
-
+                # Progress indication
+                progress = st.progress(0)
+                status = st.empty()
+                
+                status.text("📤 Connecting to AWS Bedrock...")
+                progress.progress(20)
+                
+                # Initialize Bedrock client with credentials from .env
                 bedrock_client = BedrockClient(
                     model_id=selected_model['model_id'],
-                    region=os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+                    region=aws_region
                 )
 
-                # Build final prompt correctly
-                if lock_prompt:
-                    # Use default prompt from config
-                    base_prompt = config['default_prompt']
-                    user_instructions = None
-                else:
-                    # Use user's custom prompt
-                    base_prompt = custom_prompt
-                    user_instructions = None
-
-                # If using saved context, treat it as additional instructions
-                if st.session_state.use_custom_context and st.session_state.current_context:
-                    user_instructions = st.session_state.current_context
-
-                # Build analysis options as additional instructions
-                analysis_options = []
-                if 'check_false_negatives' in locals() and check_false_negatives:
-                    analysis_options.append("⚠️ Enfatiza búsqueda de FALSOS NEGATIVOS.")
-                if 'check_wrong_positions' in locals() and check_wrong_positions:
-                    analysis_options.append("⚠️ Verifica POSICIONES exactas.")
-                if 'check_extra_products' in locals() and check_extra_products:
-                    analysis_options.append("⚠️ Identifica PRODUCTOS NO PLANOGRAMADOS.")
-                if 'check_empty_spaces' in locals() and check_empty_spaces:
-                    analysis_options.append("⚠️ Identifica ESPACIOS VACÍOS en góndola.")
-
-                # Combine user instructions with analysis options
-                combined_instructions = []
-                if user_instructions:
-                    combined_instructions.append(user_instructions)
-                if analysis_options:
-                    combined_instructions.extend(analysis_options)
-
-                final_instructions = "\n".join(combined_instructions) if combined_instructions else None
-
-                # Build the enhanced prompt
-                enhanced_prompt = build_final_prompt(base_prompt, final_instructions)
-
+                # Build the enhanced prompt with format rules
+                enhanced_prompt = build_final_prompt(final_prompt)
+                
+                status.text("🤖 Analyzing compliance with AI...")
+                progress.progress(50)
+                
+                # Execute analysis
                 result = bedrock_client.analyze_compliance(
                     planogram_b64,
                     realogram_b64,
                     enhanced_prompt,
                     json_structure,
-                    float(temperature) if 'temperature' in locals() else 0.1,
-                    int(max_tokens) if 'max_tokens' in locals() else 4096
+                    temperature,
+                    max_tokens
                 )
-
-                st.success("✅ Análisis completado exitosamente!")
-
+                
+                status.text("📊 Processing results...")
+                progress.progress(80)
+                
+                # Parse response
+                if isinstance(result, str):
+                    result = parse_bedrock_response(result)
+                
+                if result is None:
+                    st.error("❌ Failed to parse AI response")
+                    st.stop()
+                
                 # Calculate metrics
-                differences_analysis = []
-                if isinstance(result, dict):
-                    metrics = calculate_metrics(result)
+                metrics = calculate_metrics_from_result(result, json_structure)
+                
+                progress.progress(100)
+                status.empty()
+                progress.empty()
+                
+                st.success("✅ **Analysis completed successfully!**")
 
-                    # Display metrics
-                    st.markdown("### 📊 Métricas de Cumplimiento")
-                    col1, col2, col3, col4 = st.columns(4)
+                # Metrics Dashboard
+                st.subheader("📊 Compliance Metrics")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric(
+                        "📦 Products Found",
+                        f"{metrics['total_found']}/{metrics['total_expected']}",
+                        f"-{metrics['missing']}" if metrics['missing'] > 0 else "Complete",
+                        delta_color="inverse" if metrics['missing'] > 0 else "normal",
+                        help="Products detected vs expected in planogram"
+                    )
+                
+                with col2:
+                    st.metric(
+                        "✅ Correct Position",
+                        f"{metrics['correct_position']}/{metrics['total_found'] if metrics['total_found'] > 0 else metrics['total_expected']}",
+                        f"-{metrics['wrong_position']}" if metrics['wrong_position'] > 0 else "Perfect",
+                        delta_color="inverse" if metrics['wrong_position'] > 0 else "normal",
+                        help="Products found in their correct planogram position"
+                    )
+                
+                with col3:
+                    st.metric(
+                        "🔍 Recall",
+                        f"{metrics['recall']:.1%}",
+                        "Good" if metrics['recall'] >= 0.9 else f"-{((1-metrics['recall'])*100):.0f}%",
+                        delta_color="normal" if metrics['recall'] >= 0.9 else "inverse",
+                        help="Detection rate: Percentage of expected products that were found"
+                    )
+                
+                with col4:
+                    st.metric(
+                        "🎯 Compliance",
+                        f"{metrics['compliance_rate']:.1%}",
+                        "Good" if metrics['compliance_rate'] >= 0.9 else f"-{((1-metrics['compliance_rate'])*100):.0f}%",
+                        delta_color="normal" if metrics['compliance_rate'] >= 0.9 else "inverse",
+                        help="Overall compliance: Products in correct position vs total expected"
+                    )
+
+                # Issues summary if any
+                if metrics['missing'] > 0 or metrics['wrong_position'] > 0:
+                    st.subheader("⚠️ Compliance Issues")
+                    col1, col2 = st.columns(2)
                     with col1:
-                        st.metric("📦 Productos Encontrados", 
-                                f"{metrics['found']}/{metrics['total']}",
-                                delta=f"{metrics['found'] - metrics['total']}" if metrics['found'] != metrics['total'] else None)
+                        if metrics['missing'] > 0:
+                            st.error(f"🔴 {metrics['missing']} products not found")
                     with col2:
-                        st.metric("✅ Posición Correcta", 
-                                f"{metrics['correct_position']}/{metrics['total']}",
-                                delta=f"{metrics['correct_position'] - metrics['total']}" if metrics['correct_position'] != metrics['total'] else None)
-                    with col3:
-                        st.metric("🔍 Recall", f"{metrics['recall']:.2%}",
-                                delta="Objetivo: 100%" if metrics['recall'] < 1 else "✔")
-                    with col4:
-                        st.metric("🎯 Precisión", f"{metrics['precision']:.2%}",
-                                delta="Objetivo: 100%" if metrics['precision'] < 1 else "✔")
-
-                    # Additional analysis
-                    if metrics['missing'] > 0:
-                        st.warning(f"⚠️ {metrics['missing']} productos no fueron encontrados en el realograma")
-                    
-                    if metrics['wrong_position'] > 0:
-                        st.warning(f"⚠️ {metrics['wrong_position']} productos están en posición incorrecta")
+                        if metrics['wrong_position'] > 0:
+                            st.warning(f"⚠️ {metrics['wrong_position']} products misplaced")
 
                 # Results tabs
-                tab1, tab2, tab3, tab4, tab5 = st.tabs([
-                    "📄 Resultado JSON",
-                    "🔍 Análisis Detallado",
-                    "📊 Comparación",
-                    "🎯 Conclusiones",
-                    "💾 Descargar"
-                ])
+                tab1, tab2 = st.tabs(["📄 Analysis Results", "💾 Export Data"])
 
-                with tab1:  # JSON Result
-                    st.subheader("📄 Resultado del Análisis")
+                with tab1:
+                    st.subheader("JSON Output")
                     st.json(result)
 
-                with tab2:  # Detailed Analysis
-                    if isinstance(result, dict) and 'diferencias' in result:
-                        st.subheader("📋 Análisis por Nivel")
-                        differences_analysis = analyze_differences(result, json_expected)
-                        
-                        for nivel_info in differences_analysis:
-                            with st.expander(f"Nivel {nivel_info['nivel']} - {nivel_info['status']}"):
-                                st.write(f"**Total productos:** {nivel_info['total_products']}")
-                                st.write(f"**Encontrados:** {nivel_info['found']}")
-                                st.write(f"**Posición correcta:** {nivel_info['correct_position']}")
-                                
-                                if nivel_info['missing_products']:
-                                    st.error(f"❌ Productos faltantes: {', '.join(nivel_info['missing_products'])}")
-                                
-                                if nivel_info['wrong_position_products']:
-                                    st.warning(f"⚠️ Mal posicionados: {', '.join(nivel_info['wrong_position_products'])}")
-                                
-                                if nivel_info['frentes_issues']:
-                                    st.info(f"📊 Problemas de frentes: {', '.join(nivel_info['frentes_issues'])}")
-                
-                with tab3:  # Comparison
-                    st.subheader("📊 Comparación con Resultado Esperado")
-                    if json_expected:
-                        comparison = compare_results(result, json_expected)
-
-                        if comparison['matches']:
-                            st.success("✅ El análisis coincide con el resultado esperado")
-                        else:
-                            st.warning("⚠️ Hay diferencias con el resultado esperado")
-                            for diff in comparison['differences']:
-                                st.write(f"• {diff}")
-                    else:
-                        st.info("ℹ️ No se cargó un JSON esperado para comparación")
-                
-                with tab4:  # Conclusions
-                    st.markdown("<h3 style='color: #2c3e50;'>🎯 Conclusiones del Análisis</h3>", unsafe_allow_html=True)
-                    st.markdown("<p style='color: #7f8c8d;'>Resumen de hallazgos y recomendaciones del AI</p>", unsafe_allow_html=True)
-
-                    if isinstance(result, dict) and 'conclusiones' in result and result['conclusiones']:
-                        st.markdown("---")
-
-                        for i, conclusion in enumerate(result['conclusiones'], 1):
-                            if "no se encontr" in conclusion.lower() or "faltante" in conclusion.lower():
-                                st.error(f"🔴 **Problema Crítico {i}:** {conclusion}")
-                            elif "mal posicion" in conclusion.lower() or "incorrecto" in conclusion.lower():
-                                st.warning(f"⚠️ **Problema Moderado {i}:** {conclusion}")
-                            elif "vacío" in conclusion.lower() or "espacio" in conclusion.lower():
-                                st.info(f"🔲 **Espacio Vacío {i}:** {conclusion}")
-                            else:
-                                st.success(f"✅ **Observación {i}:** {conclusion}")
-                    else:
-                        st.info("ℹ️ No se generaron conclusiones automáticas en esta ejecución")
-                
-                with tab5:  # Download
-                    # Download JSON result
-                    json_str = json.dumps(result, indent=2, ensure_ascii=False)
-                    st.download_button(
-                        label="📥 Descargar Resultado JSON",
-                        data=json_str,
-                        file_name="planogram_analysis_result.json",
-                        mime="application/json"
-                    )
+                with tab2:
+                    st.subheader("Export Options")
                     
-                    # Download metrics
-                    if isinstance(result, dict):
-                        metrics_data = {
-                            "metrics": metrics,
-                            "analysis_details": differences_analysis if 'diferencias' in result else [],
-                            "analysis_mode": "bedrock",
-                            "custom_context_used": st.session_state.use_custom_context
-                        }
-                        metrics_str = json.dumps(metrics_data, indent=2, ensure_ascii=False)
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        # JSON export
+                        json_str = json.dumps(result, indent=2, ensure_ascii=False)
                         st.download_button(
-                            label="📊 Descargar Métricas Detalladas",
-                            data=metrics_str,
-                            file_name="planogram_metrics.json",
-                            mime="application/json"
+                            "📥 Download JSON",
+                            json_str,
+                            f"analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                            "application/json",
+                            use_container_width=True
                         )
-                
+                    
+                    with col2:
+                        # Metrics export
+                        metrics_data = {
+                            "timestamp": datetime.now().isoformat(),
+                            "model": selected_model['model_id'],
+                            "region": aws_region,
+                            "metrics": {
+                                "total_expected": metrics['total_expected'],
+                                "total_found": metrics['total_found'],
+                                "correct_position": metrics['correct_position'],
+                                "missing": metrics['missing'],
+                                "wrong_position": metrics['wrong_position'],
+                                "recall": f"{metrics['recall']:.2%}",
+                                "precision": f"{metrics['precision']:.2%}" if metrics['precision'] > 0 else "N/A",
+                                "compliance_rate": f"{metrics['compliance_rate']:.2%}"
+                            },
+                            "configuration": {
+                                "temperature": temperature,
+                                "max_tokens": max_tokens,
+                                "prompt_mode": prompt_mode
+                            }
+                        }
+                        metrics_str = json.dumps(metrics_data, indent=2)
+                        st.download_button(
+                            "📊 Download Metrics",
+                            metrics_str,
+                            f"metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                            "application/json",
+                            use_container_width=True
+                        )
+                    
+                    with col3:
+                        # CSV export
+                        data = []
+                        if isinstance(result, dict) and 'diferencias' in result:
+                            for level in result['diferencias']:
+                                if 'resultado' in level and 'productos' in level['resultado']:
+                                    for product in level['resultado']['productos']:
+                                        data.append({
+                                            'Level': level.get('nivel', 'N/A'),
+                                            'Product': product.get('nombre', 'Unknown'),
+                                            'Found': '✅' if product.get('encontrado', False) else '❌',
+                                            'Correct': '✅' if product.get('posicion_correcta', False) else '❌',
+                                            'Expected': product.get('frentes_esperados', 0),
+                                            'Actual': product.get('frentes_encontrados', 0)
+                                        })
+                        
+                        if data:
+                            df = pd.DataFrame(data)
+                            csv = df.to_csv(index=False)
+                            st.download_button(
+                                "📑 Download CSV",
+                                csv,
+                                f"summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                                "text/csv",
+                                use_container_width=True
+                            )
 
-                    # Debug information
-                    with st.expander("🛠️ Debug Information"):
-                        debug = result.get("_debug", {}) if isinstance(result, dict) else {}
-                        debug['analysis_mode'] = "bedrock"
-                        debug['custom_context_used'] = st.session_state.use_custom_context
-                        st.code(json.dumps(debug, indent=2, ensure_ascii=False))
+                # Debug info
+                with st.expander("🛠️ Technical Details"):
+                    debug_info = {
+                        "timestamp": datetime.now().isoformat(),
+                        "model": selected_model['model_id'],
+                        "region": aws_region,
+                        "aws_configured": bool(aws_key and aws_secret),
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "prompt_mode": prompt_mode,
+                        "prompt_source": "config.yaml" if prompt_mode == "default" else "user_input"
+                    }
+                    st.json(debug_info)
                     
             except Exception as e:
-                st.error(f"❌ Error en el análisis: {str(e)}")
+                st.error(f"❌ Analysis Error: {str(e)}")
                 
-                # Show more detailed error information
+                error_type = type(e).__name__
+                
                 if "UnrecognizedClientException" in str(e) or "security token" in str(e):
-                    st.error("🔐 Error de autenticación AWS. Por favor verifique:")
-                    st.write("1. Las credenciales AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY en el archivo .env")
-                    st.write("2. Que las credenciales tengan permisos para usar Bedrock")
-                    st.write("3. Que la región configurada sea correcta")
+                    st.error("🔐 AWS Authentication Failed")
+                    st.write("Please check in your .env file:")
+                    st.code("""
+APP_USER=your_username
+APP_PASSWORD=your_password
+AWS_ACCESS_KEY_ID=your_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_here
+AWS_DEFAULT_REGION=us-west-2
+                    """)
                 elif "ValidationException" in str(e):
-                    st.error("❌ Error de validación. Verifique que el modelo esté disponible en su región.")
-                elif "InvalidImageException" in str(e):
-                    st.error("❌ Error con las imágenes. Verifique que las imágenes sean válidas.")
+                    st.error("❌ Model validation error")
+                    st.write(f"Model {selected_model['model_id']} may not be available in {aws_region}")
                 
-                # Show full error for debugging
-                with st.expander("Ver detalles del error"):
+                with st.expander("🔍 Full Error Details"):
                     st.exception(e)
 
 if __name__ == "__main__":
