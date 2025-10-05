@@ -4,18 +4,20 @@
 
 ### Paso 1: Configurar Credenciales AWS
 
-Edite el archivo `.env` y reemplace con sus credenciales reales:
+Copie el archivo de ejemplo y configure sus credenciales:
 
 ```bash
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE     # ← Su Access Key real
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI...      # ← Su Secret Key real
-AWS_DEFAULT_REGION=us-east-1                # ← Su región preferida
+cp env_example .env
+# Edite el archivo .env con sus credenciales reales
 ```
+
+**IMPORTANTE:** Nunca comparta o versione el archivo `.env` con credenciales reales.
 
 **¿No tiene credenciales AWS?**
 1. Vaya a [AWS Console](https://console.aws.amazon.com/)
 2. IAM → Users → Su usuario → Security credentials
 3. Create access key
+4. Configure las credenciales en el archivo `.env`
 
 ### Paso 2: Verificar Configuración
 
@@ -46,8 +48,7 @@ streamlit run app.py
 1. **Abrir navegador**: http://localhost:8501
 
 2. **Login**:
-   - Usuario: `Prisma`
-   - Password: `Binbash2025`
+   - Usuario y contraseña configurados en archivo `.env` (APP_USER y APP_PASSWORD)
 
 3. **Cargar 4 archivos**:
    - 📷 Imagen del Planograma (JPG/PNG)
@@ -56,7 +57,7 @@ streamlit run app.py
    - 📝 JSON Esperado (opcional)
 
 4. **Analizar**:
-   - Seleccionar modelo: `Claude 3 Sonnet (Recomendado)`
+   - Seleccionar modelo: `Anthropic Sonnet 3.7 (Recomendado)`
    - Click en `🚀 Analizar Cumplimiento`
 
 5. **Resultados**:
@@ -67,10 +68,10 @@ streamlit run app.py
 
 ### Error: "UnrecognizedClientException"
 ```bash
-# Verificar credenciales en .env
-cat .env | grep AWS_
+# Verificar que .env está configurado
+ls -la .env
 
-# Probar credenciales
+# Probar credenciales (requiere AWS CLI configurado)
 aws sts get-caller-identity
 ```
 
@@ -138,8 +139,9 @@ docker ps
 
 ## ✅ Checklist Pre-Análisis
 
-- [ ] AWS credentials configuradas en .env
-- [ ] Modelo Claude habilitado en Bedrock
+- [ ] Archivo `.env` creado desde `env_example`
+- [ ] AWS credentials y APP_USER/APP_PASSWORD configurados en `.env`
+- [ ] Modelos Anthropic habilitados en AWS Bedrock
 - [ ] Imagen planograma clara y frontal
 - [ ] Imagen realograma buena iluminación
 - [ ] JSON estructura con todos los productos

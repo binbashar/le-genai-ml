@@ -78,7 +78,9 @@ def calculate_metrics(result: Dict) -> Dict[str, Any]:
                 
                 # Count frentes
                 frentes_expected = producto.get('frentes_esperados', 0)
-                frentes_found = producto.get('frentes_encontrados', 0)
+                frentes_found = producto.get('frentes_encontrados')
+                if frentes_found is None:
+                    frentes_found = producto.get('cantidad_frentes_encontrados', 0)
                 
                 metrics['total_frentes_expected'] += frentes_expected
                 metrics['total_frentes_found'] += frentes_found if frentes_found else 0
@@ -155,8 +157,10 @@ def analyze_differences(result: Dict, expected: Dict = None) -> List[Dict]:
                 
                 # Check frentes
                 frentes_esperados = producto.get('frentes_esperados', 0)
-                frentes_encontrados = producto.get('frentes_encontrados', 0)
-                
+                frentes_encontrados = producto.get('frentes_encontrados')
+                if frentes_encontrados is None:
+                    frentes_encontrados = producto.get('cantidad_frentes_encontrados', 0)
+
                 if frentes_esperados != frentes_encontrados and producto.get('encontrado', False):
                     nivel_analysis['frentes_issues'].append(
                         f"{nombre}: {frentes_encontrados}/{frentes_esperados} frentes"
@@ -264,7 +268,10 @@ def generate_compliance_report(result: Dict, metrics: Dict) -> str:
                     nombre = producto.get('nombre', 'Sin nombre')
                     encontrado = "✓" if producto.get('encontrado', False) else "✗"
                     posicion = "✓" if producto.get('posicion_correcta', False) else "✗"
-                    frentes = f"{producto.get('frentes_encontrados', 0)}/{producto.get('frentes_esperados', 0)}"
+                    frentes_encontrados = producto.get('frentes_encontrados')
+                    if frentes_encontrados is None:
+                        frentes_encontrados = producto.get('cantidad_frentes_encontrados', 0)
+                    frentes = f"{frentes_encontrados}/{producto.get('frentes_esperados', 0)}"
                     
                     report.append(f"  • {nombre}")
                     report.append(f"    Encontrado: {encontrado} | Posición: {posicion} | Frentes: {frentes}")

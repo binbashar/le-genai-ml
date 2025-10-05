@@ -58,9 +58,8 @@ Asegúrese de que su usuario/rol de AWS tenga los siguientes permisos:
 1. Ir a la consola de AWS Bedrock
 2. Navegar a "Model access"
 3. Solicitar acceso a:
-   - Claude 3.7 Sonnet
-   - Claude 4 Opus (si está disponible)
-   - Llama 3.2 Vision (opcional)
+   - Anthropic Sonnet 3.7
+   - Anthropic Opus 4.1 (si está disponible)
 
 ### 5. Ejecutar con Docker (Recomendado)
 
@@ -168,9 +167,9 @@ Para validación y comparación de resultados.
 ## 📝 Uso Básico
 
 1. Acceder a http://localhost:8501
-2. Login con usuario: `Prisma`, password: `Binbash2025`
+2. Login con credenciales configuradas en archivo `.env`
 3. Cargar los 4 archivos requeridos
-4. Seleccionar modelo (recomendado: Claude 3.7 Sonnet)
+4. Seleccionar modelo (recomendado: Anthropic Sonnet 3.7)
 5. Click en "Analizar Cumplimiento"
 6. Revisar resultados y descargar reportes
 

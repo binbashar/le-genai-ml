@@ -7,8 +7,16 @@ def check_password():
     
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if (st.session_state["username"] == os.getenv("APP_USER", "Prisma") and
-            st.session_state["password"] == os.getenv("APP_PASSWORD", "Binbash2025")):
+        app_user = os.getenv("APP_USER")
+        app_password = os.getenv("APP_PASSWORD")
+
+        if not app_user or not app_password:
+            st.error("⚠️ APP_USER and APP_PASSWORD must be set in environment variables")
+            st.session_state["password_correct"] = False
+            return
+
+        if (st.session_state["username"] == app_user and
+            st.session_state["password"] == app_password):
             st.session_state["password_correct"] = True
             del st.session_state["password"]
             del st.session_state["username"]
@@ -25,10 +33,6 @@ def check_password():
             st.text_input("👤 Usuario", key="username", placeholder="Ingrese su usuario")
             st.text_input("🔑 Contraseña", type="password", key="password", placeholder="Ingrese su contraseña")
             st.button("🚀 Ingresar", on_click=password_entered, type="primary", use_container_width=True)
-            
-            # Show hint in development
-            if os.getenv("DEBUG") == "True":
-                st.info("Debug Mode: Usuario=Prisma, Password=Binbash2025")
         return False
     
     elif not st.session_state["password_correct"]:
@@ -51,3 +55,4 @@ def check_password():
                 del st.session_state["password_correct"]
                 st.rerun()
         return True
+        

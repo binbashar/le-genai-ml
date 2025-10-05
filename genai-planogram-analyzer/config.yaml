@@ -1,12 +1,12 @@
 models:
-  claude_3_sonnet:
-    name: "Claude 3.7 Sonnet (Recomendado)"
+  anthropic_sonnet:
+    name: "Anthropic Sonnet 3.7 (Recomendado)"
     model_id: "anthropic.claude-3-7-sonnet-20250219-v1:0"
     max_tokens: 4096
     temperature: 0.1
 
-  claude_4_opus:
-    name: "Claude 4.1 Opus (Más Preciso)"
+  anthropic_opus:
+    name: "Anthropic Opus 4.1 (Más Preciso)"
     model_id: "anthropic.claude-opus-4-1-20250805-v1:0"
     max_tokens: 4096
     temperature: 0.1

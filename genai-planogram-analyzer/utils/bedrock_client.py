@@ -8,6 +8,24 @@ INFERENCE_PROFILE_PROVIDERS = (
     "anthropic.", "amazon.nova-", "meta.", "mistral.", "writer.", "twelvelabs.", "deepseek.",
 )
 
+def check_aws_credentials() -> bool:
+    """
+    Check if AWS credentials are available using boto3's default credential chain.
+    This automatically handles both local development (access keys) and AWS environments (task roles).
+    
+    Returns:
+        bool: True if credentials are available, False otherwise
+    """
+    try:
+        session = boto3.Session()
+        credentials = session.get_credentials()
+        if credentials and credentials.access_key:
+            return True
+    except Exception:
+        pass
+    
+    return False
+
 def _resolve_model_id_for_profile(model_id: str) -> str:
     mid = (model_id or "").strip()
     if mid.startswith("arn:"):   # ARN de inference profile
@@ -23,17 +41,18 @@ class BedrockClient:
         self.original_model_id = model_id
         self.resolved_model_id = _resolve_model_id_for_profile(model_id)
 
-        if not os.getenv('AWS_ACCESS_KEY_ID') or not os.getenv('AWS_SECRET_ACCESS_KEY'):
-            raise ValueError("AWS credentials not found in env. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY")
+        # Check if AWS credentials are available using boto3's default credential chain
+        if not check_aws_credentials():
+            raise ValueError("AWS credentials not found. Ensure credentials are configured via environment variables, AWS credential files, or IAM roles.")
 
         cfg = Config(connect_timeout=60, read_timeout=300, retries={"max_attempts": 3, "mode": "standard"})
+        
         try:
+            # Let boto3 handle the credential chain automatically
+            # It will check environment variables, credential files, IAM roles, etc.
             self.client = boto3.client(
                 "bedrock-runtime",
                 region_name=region,
-                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-                aws_session_token=os.getenv("AWS_SESSION_TOKEN", None),
                 config=cfg
             )
         except NoCredentialsError:
@@ -73,6 +92,10 @@ class BedrockClient:
                 raise self._map_error(e)
 
             payload = json.loads(resp["body"].read())
+
+            # Extract usage/token info
+            usage_info = self._extract_usage(payload, provider)
+
             text = self._extract_text(payload, provider) or ""
             text = self._strip_fences(text)
 
@@ -89,18 +112,21 @@ class BedrockClient:
             # 3) si ya trae 'diferencias', devolver tal cual
             if isinstance(parsed, dict) and "diferencias" in parsed:
                 parsed["_debug"] = self._debug()
+                parsed["_usage"] = usage_info
                 return parsed
 
             # 4) normalizar si vino como 'gondola'/'niveles'
             normalized = self._normalize_gondola_schema(parsed)
             if normalized and "diferencias" in normalized:
                 normalized["_debug"] = self._debug()
+                normalized["_usage"] = usage_info
                 return normalized
 
             # 5) normalizar si vino como 'productos' plano
             normalized2 = self._normalize_flat_products_schema(parsed)
             if normalized2 and "diferencias" in normalized2:
                 normalized2["_debug"] = self._debug()
+                normalized2["_usage"] = usage_info
                 return normalized2
 
             # 6) último recurso: error estructurado con raw
@@ -110,6 +136,7 @@ class BedrockClient:
                 "diferencias": json_structure.get("diferencias", []),
                 "conclusiones": ["Error: El modelo no devolvió la estructura esperada"],
                 "_debug": self._debug(),
+                "_usage": usage_info,
             }
 
         except Exception as e:
@@ -123,7 +150,7 @@ class BedrockClient:
     # -------------------- Builders --------------------
 
     def _build_anthropic(self, p64: str, r64: str, prompt: str, temp: float, max_tok: int) -> Dict:
-        # Claude (Anthropic) multimodal (Bedrock)
+        # Anthropic multimodal (Bedrock)
         return {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tok,
@@ -207,6 +234,29 @@ class BedrockClient:
             return out.get("outputText")
         # fallback
         return json.dumps(payload, ensure_ascii=False)
+
+    def _extract_usage(self, payload: Dict[str, Any], provider: str) -> Dict[str, Any]:
+        """Extract token usage information from response"""
+        # Anthropic format
+        if "usage" in payload:
+            usage = payload["usage"]
+            return {
+                "input_tokens": usage.get("input_tokens", 0),
+                "output_tokens": usage.get("output_tokens", 0),
+                "total_tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            }
+        # Nova/generic format
+        if "output" in payload:
+            out = payload["output"]
+            if "usage" in out:
+                usage = out["usage"]
+                return {
+                    "input_tokens": usage.get("inputTokens", 0),
+                    "output_tokens": usage.get("outputTokens", 0),
+                    "total_tokens": usage.get("totalTokens", 0)
+                }
+        # Fallback
+        return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
     def _strip_fences(self, s: str) -> str:
         s = s.strip()

@@ -62,8 +62,8 @@ def load_config():
         st.error("❌ config.yaml not found. Please create configuration file.")
         return {
             'models': {
-                'claude-3-sonnet': {
-                    'name': 'Claude 3 Sonnet',
+                'anthropic-sonnet': {
+                    'name': 'Anthropic Sonnet 3',
                     'model_id': 'anthropic.claude-3-sonnet-20240229-v1:0',
                     'temperature': 0.1,
                     'max_tokens': 4096
@@ -582,60 +582,23 @@ def main():
                 progress.progress(100)
                 status.empty()
                 progress.empty()
-                
+
                 st.success("✅ **Analysis completed successfully!**")
 
-                # Metrics Dashboard
-                st.subheader("📊 Compliance Metrics")
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric(
-                        "📦 Products Found",
-                        f"{metrics['total_found']}/{metrics['total_expected']}",
-                        f"-{metrics['missing']}" if metrics['missing'] > 0 else "Complete",
-                        delta_color="inverse" if metrics['missing'] > 0 else "normal",
-                        help="Products detected vs expected in planogram"
-                    )
-                
-                with col2:
-                    st.metric(
-                        "✅ Correct Position",
-                        f"{metrics['correct_position']}/{metrics['total_found'] if metrics['total_found'] > 0 else metrics['total_expected']}",
-                        f"-{metrics['wrong_position']}" if metrics['wrong_position'] > 0 else "Perfect",
-                        delta_color="inverse" if metrics['wrong_position'] > 0 else "normal",
-                        help="Products found in their correct planogram position"
-                    )
-                
-                with col3:
-                    st.metric(
-                        "🔍 Recall",
-                        f"{metrics['recall']:.1%}",
-                        "Good" if metrics['recall'] >= 0.9 else f"-{((1-metrics['recall'])*100):.0f}%",
-                        delta_color="normal" if metrics['recall'] >= 0.9 else "inverse",
-                        help="Detection rate: Percentage of expected products that were found"
-                    )
-                
-                with col4:
-                    st.metric(
-                        "🎯 Compliance",
-                        f"{metrics['compliance_rate']:.1%}",
-                        "Good" if metrics['compliance_rate'] >= 0.9 else f"-{((1-metrics['compliance_rate'])*100):.0f}%",
-                        delta_color="normal" if metrics['compliance_rate'] >= 0.9 else "inverse",
-                        help="Overall compliance: Products in correct position vs total expected"
-                    )
+                # Store results in session_state for later comparison
+                st.session_state['bedrock_result'] = result
+                st.session_state['bedrock_metrics'] = metrics
 
-                # Issues summary if any
-                if metrics['missing'] > 0 or metrics['wrong_position'] > 0:
-                    st.subheader("⚠️ Compliance Issues")
-                    col1, col2 = st.columns(2)
+                # Display token usage
+                if '_usage' in result:
+                    usage = result['_usage']
+                    col1, col2, col3 = st.columns(3)
                     with col1:
-                        if metrics['missing'] > 0:
-                            st.error(f"🔴 {metrics['missing']} products not found")
+                        st.metric("📥 Tokens de Entrada", f"{usage.get('input_tokens', 0):,}")
                     with col2:
-                        if metrics['wrong_position'] > 0:
-                            st.warning(f"⚠️ {metrics['wrong_position']} products misplaced")
+                        st.metric("📤 Tokens de Salida", f"{usage.get('output_tokens', 0):,}")
+                    with col3:
+                        st.metric("📊 Total Tokens", f"{usage.get('total_tokens', 0):,}")
 
                 # Results tabs
                 tab1, tab2 = st.tabs(["📄 Analysis Results", "💾 Export Data"])
@@ -698,13 +661,17 @@ def main():
                             for level in result['diferencias']:
                                 if 'resultado' in level and 'productos' in level['resultado']:
                                     for product in level['resultado']['productos']:
+                                        frentes_actual = product.get('frentes_encontrados')
+                                        if frentes_actual is None:
+                                            frentes_actual = product.get('cantidad_frentes_encontrados', 0)
+
                                         data.append({
                                             'Level': level.get('nivel', 'N/A'),
                                             'Product': product.get('nombre', 'Unknown'),
                                             'Found': '✅' if product.get('encontrado', False) else '❌',
                                             'Correct': '✅' if product.get('posicion_correcta', False) else '❌',
                                             'Expected': product.get('frentes_esperados', 0),
-                                            'Actual': product.get('frentes_encontrados', 0)
+                                            'Actual': frentes_actual
                                         })
                         
                         if data:
@@ -753,6 +720,181 @@ AWS_DEFAULT_REGION=us-west-2
                 
                 with st.expander("🔍 Full Error Details"):
                     st.exception(e)
+
+    # Comparison Section - Outside button block to persist across reruns
+    if 'bedrock_result' in st.session_state:
+        st.divider()
+        st.subheader("🔍 Optional: Compare with Expected Results")
+        st.info("📤 Sube un JSON esperado para comparar la salida de Bedrock con los resultados esperados y calcular métricas de precisión del modelo.")
+
+        expected_json_file = st.file_uploader(
+            "Upload Expected JSON (Optional)",
+            type=['json', 'txt'],
+            key="expected_json_comparison",
+            help="Sube el JSON con los resultados esperados para comparar con la salida de Bedrock"
+        )
+
+        if expected_json_file:
+            try:
+                expected_json_content = expected_json_file.read().decode('utf-8')
+                expected_json = json.loads(expected_json_content)
+                st.success("✅ Expected JSON loaded successfully")
+
+                # AI-powered comparison
+                st.subheader("📋 Comparación: Bedrock vs Expected")
+
+                with st.spinner("🤖 Analizando diferencias con IA..."):
+                    bedrock_result = st.session_state['bedrock_result']
+
+                    # Build prompt for AI comparison
+                    comparison_prompt = f"""
+Compara estos dos JSONs y genera un análisis de diferencias detallado.
+
+JSON 1 (Bedrock - Resultado de IA):
+{json.dumps(bedrock_result, indent=2, ensure_ascii=False)}
+
+JSON 2 (Expected - Ground Truth):
+{json.dumps(expected_json, indent=2, ensure_ascii=False)}
+
+Tu tarea:
+1. Compara producto por producto, usando el nombre y posición para hacer el matching
+2. Para cada producto comparado, indica si coinciden los campos: encontrado, posicion_correcta, frentes_encontrados
+3. Cuenta las diferencias totales
+4. Genera un JSON con este formato:
+
+{{
+  "total_productos": <número>,
+  "coincidencias_exactas": <número>,
+  "diferencias_encontrado": <número>,
+  "diferencias_posicion": <número>,
+  "diferencias_frentes": <número>,
+  "productos": [
+    {{
+      "nivel": <número>,
+      "posicion": <número>,
+      "nombre": "<nombre del producto>",
+      "bedrock": {{
+        "encontrado": <true/false>,
+        "posicion_correcta": <true/false>,
+        "frentes_encontrados": <número>
+      }},
+      "expected": {{
+        "encontrado": <true/false>,
+        "posicion_correcta": <true/false>,
+        "frentes_encontrados": <número>
+      }},
+      "matches": {{
+        "encontrado": <true/false>,
+        "posicion_correcta": <true/false>,
+        "frentes_encontrados": <true/false>,
+        "exacto": <true/false>
+      }}
+    }}
+  ]
+}}
+
+IMPORTANTE: Devuelve SOLO el JSON, sin texto adicional.
+"""
+
+                    # Call Bedrock for intelligent comparison
+                    bedrock_client = BedrockClient(
+                        model_id=selected_model['model_id'],
+                        region=aws_region
+                    )
+
+                    # Build request body based on provider
+                    provider = bedrock_client._provider_from_id(bedrock_client.original_model_id)
+
+                    if provider == "anthropic":
+                        body = {
+                            "anthropic_version": "bedrock-2023-05-31",
+                            "max_tokens": 10000,
+                            "temperature": 0.1,
+                            "messages": [{
+                                "role": "user",
+                                "content": comparison_prompt
+                            }]
+                        }
+                    else:
+                        # Generic/Nova format
+                        body = {
+                            "schemaVersion": "messages-v1",
+                            "messages": [{
+                                "role": "user",
+                                "content": [{"inputText": comparison_prompt}]
+                            }],
+                            "inferenceConfig": {"maxTokens": 10000, "temperature": 0.1}
+                        }
+
+                    # Use resolved_model_id (with inference profile)
+                    comparison_response = bedrock_client.client.invoke_model(
+                        modelId=bedrock_client.resolved_model_id,
+                        body=json.dumps(body)
+                    )
+
+                    response_body = json.loads(comparison_response['body'].read())
+
+                    # Extract text and usage
+                    comparison_text = bedrock_client._extract_text(response_body, provider) or ""
+                    comparison_usage = bedrock_client._extract_usage(response_body, provider)
+
+                    # Parse the JSON response
+                    try:
+                        # Extract JSON from response (in case there's extra text)
+                        import re
+                        json_match = re.search(r'\{.*\}', comparison_text, re.DOTALL)
+                        if json_match:
+                            comparison_result = json.loads(json_match.group())
+                        else:
+                            comparison_result = json.loads(comparison_text)
+                    except:
+                        st.error("Error parsing AI comparison response")
+                        comparison_result = {
+                            "total_productos": 0,
+                            "coincidencias_exactas": 0,
+                            "diferencias_encontrado": 0,
+                            "diferencias_posicion": 0,
+                            "diferencias_frentes": 0,
+                            "productos": []
+                        }
+
+                # Display comparison token usage
+                if comparison_usage:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("📥 Tokens Entrada (Comparación)", f"{comparison_usage.get('input_tokens', 0):,}")
+                    with col2:
+                        st.metric("📤 Tokens Salida (Comparación)", f"{comparison_usage.get('output_tokens', 0):,}")
+                    with col3:
+                        st.metric("📊 Total Tokens (Comparación)", f"{comparison_usage.get('total_tokens', 0):,}")
+
+                # Display results
+                st.json(comparison_result)
+
+                # Download button
+                comparison_json_str = json.dumps(comparison_result, indent=2, ensure_ascii=False)
+                st.download_button(
+                    "📥 Descargar Comparación JSON",
+                    comparison_json_str,
+                    f"comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    "application/json",
+                    use_container_width=True
+                )
+
+                # Summary
+                total = comparison_result["total_productos"]
+                matches = comparison_result["coincidencias_exactas"]
+                st.success(f"✅ Coincidencias exactas: {matches}/{total} productos ({matches/total*100:.1f}%)" if total > 0 else "Sin productos")
+
+                if comparison_result["diferencias_encontrado"] > 0:
+                    st.warning(f"⚠️ Diferencias en 'encontrado': {comparison_result['diferencias_encontrado']}")
+                if comparison_result["diferencias_posicion"] > 0:
+                    st.warning(f"⚠️ Diferencias en 'posicion_correcta': {comparison_result['diferencias_posicion']}")
+                if comparison_result["diferencias_frentes"] > 0:
+                    st.warning(f"⚠️ Diferencias en 'frentes_encontrados': {comparison_result['diferencias_frentes']}")
+
+            except Exception as e:
+                st.error(f"❌ Error loading expected JSON: {str(e)}")
 
 if __name__ == "__main__":
     main()
