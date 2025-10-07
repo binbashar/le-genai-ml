@@ -1,0 +1,19 @@
+[project]
+name = "async-streaming-agentcore-demo"
+version = "0.1.0"
+description = "Demo of streaming and async tasks with Amazon Bedrock AgentCore"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "langgraph",
+    "langchain-aws",
+    "langchain-core",
+    "bedrock-agentcore",
+    "boto3",
+    "agentcore>=0.1.6",
+    "bedrock-agentcore-starter-toolkit>=0.1.19",
+]
+
+[tool.setuptools]
+py-modules = ["streaming_agent"]
+
