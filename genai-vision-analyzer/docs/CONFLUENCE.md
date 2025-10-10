@@ -7,7 +7,7 @@
 | **Project Name** | Planogram Compliance Platform |
 | **Version** | 1.0.0 |
 | **Last Updated** | 2025-10-05 |
-| **Owner** | Prisma Team |
+| **Owner** | client Team |
 | **Partner** | Binbash |
 | **Status** | Ready to Deploy |
 
@@ -750,5 +750,5 @@ Anthropic Opus:   $120 - $150
 **Document Version**: 1.0.0
 **Last Review Date**: 2025-10-05
 **Next Review Date**: 2025-11-05
-**Owner**: Prisma Team
+**Owner**: client Team
 **Partner**: Binbash 

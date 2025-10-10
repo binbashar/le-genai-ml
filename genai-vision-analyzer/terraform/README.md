@@ -1,6 +1,6 @@
-# 🏗️ Infraestructura Terraform - Prisma Planogram Analyzer
+# 🏗️ Infraestructura Terraform - client Planogram Analyzer
 
-Este directorio contiene toda la configuración de infraestructura como código (IaC) para el proyecto Prisma Planogram Analyzer, desplegado en AWS.
+Este directorio contiene toda la configuración de infraestructura como código (IaC) para el proyecto client Planogram Analyzer, desplegado en AWS.
 
 ## 📋 Descripción General
 
@@ -57,15 +57,15 @@ Internet → ALB → ECS Fargate → Streamlit App
 
 ```hcl
 # terraform.tfvars
-project_long = "prisma"
-project = "prisma"
+project_long = "client"
+project = "client"
 environment = "planogram-analyzer"
 
 oidc_provider = {
   url       = "https://token.actions.githubusercontent.com"
   audiences = ["sts.amazonaws.com"]
   owner     = "karacas"
-  repos     = ["prismaVisionBinBash"]
+  repos     = ["clientVisionBinBash"]
 }
 ```
 
@@ -122,8 +122,8 @@ aws sts get-caller-identity
 
 4. **Configurar secretos**:
    - Acceder a AWS Secrets Manager
-   - Crear/actualizar el secreto `/prisma-planogram-analyzer`
-   - Agregar la clave `PWD_prisma` con la contraseña deseada
+   - Crear/actualizar el secreto `/client-planogram-analyzer`
+   - Agregar la clave `PWD_client` con la contraseña deseada
 
 ### Despliegue Automático
 
@@ -141,7 +141,7 @@ El despliegue automático se realiza a través de GitHub Actions cuando se hace 
 La aplicación utiliza las siguientes variables de entorno:
 
 - `AWS_DEFAULT_REGION`: Región AWS (us-west-2)
-- `APP_USER`: Usuario de la aplicación (prisma)
+- `APP_USER`: Usuario de la aplicación (client)
 - `APP_PASSWORD`: Contraseña obtenida de Secrets Manager
 
 ### Puertos

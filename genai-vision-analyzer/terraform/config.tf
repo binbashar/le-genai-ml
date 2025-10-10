@@ -17,11 +17,11 @@ terraform {
   }
 
   # backend "s3" {
-  #   bucket         = "prisma-dev-genai-bedrock-poc-tfstate"
+  #   bucket         = "client-dev-genai-bedrock-poc-tfstate"
   #   key            = "terraform.tfstate"
   #   region         = "us-west-2"
   #   encrypt        = true
-  #   dynamodb_table = "prisma-dev-genai-bedrock-poc-tfstate"
+  #   dynamodb_table = "client-dev-genai-bedrock-poc-tfstate"
   # }
 }
 

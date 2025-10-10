@@ -254,7 +254,7 @@ Required IAM permissions:
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd prismaVisionBinBash
+   cd clientVisionBinBash
    ```
 
 2. **Create virtual environment**

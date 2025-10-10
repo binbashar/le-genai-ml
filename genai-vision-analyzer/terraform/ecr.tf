@@ -6,7 +6,7 @@ module "ecr_repositories" {
   # Repository name
   #
   create          = true
-  repository_name = "${local.name}-prisma"
+  repository_name = "${local.name}-client"
 
   repository_image_tag_mutability = "MUTABLE"
 
