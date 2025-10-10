@@ -3,13 +3,13 @@ from langchain_aws import ChatBedrock
 from langchain_core.messages import HumanMessage, SystemMessage
 import random
 
+
 # Define the agent using LangGraph
 def create_agent():
     """Create and configure the LangGraph agent"""
     # Initialize Bedrock Nova Micro model
     llm = ChatBedrock(
-        model_id="us.amazon.nova-micro-v1:0",
-        model_kwargs={"temperature": 0.1}
+        model_id="us.amazon.nova-micro-v1:0", model_kwargs={"temperature": 0.1}
     )
 
     # System message for translation
@@ -37,8 +37,10 @@ def create_agent():
     # Compile the graph
     return graph_builder.compile()
 
+
 # Initialize the agent
 agent = create_agent()
+
 
 def translate(payload):
     """
@@ -52,6 +54,7 @@ def translate(payload):
     # Extract the final message content
     return response["messages"][-1].content
 
+
 if __name__ == "__main__":
     # Example phrases in different languages
     example_phrases = [
@@ -62,12 +65,12 @@ if __name__ == "__main__":
         "Olá, como você está?",
         "こんにちは、お元気ですか？",
         "你好，你好吗？",
-        "Привет, как дела?"
+        "Привет, как дела?",
     ]
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TRANSLATOR AGENT - INTERACTIVE DEMO")
-    print("="*60)
+    print("=" * 60)
     print("\nEnter text to translate to English (Enter for random example):")
     print()
 
@@ -82,4 +85,4 @@ if __name__ == "__main__":
     response = translate({"prompt": user_input})
 
     print(f"✓ Translation: {response}")
-    print("\n" + "="*60 + "\n")
+    print("\n" + "=" * 60 + "\n")

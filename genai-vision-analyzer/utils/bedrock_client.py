@@ -5,14 +5,21 @@ from botocore.config import Config
 from botocore.exceptions import ClientError, NoCredentialsError
 
 INFERENCE_PROFILE_PROVIDERS = (
-    "anthropic.", "amazon.nova-", "meta.", "mistral.", "writer.", "twelvelabs.", "deepseek.",
+    "anthropic.",
+    "amazon.nova-",
+    "meta.",
+    "mistral.",
+    "writer.",
+    "twelvelabs.",
+    "deepseek.",
 )
+
 
 def check_aws_credentials() -> bool:
     """
     Check if AWS credentials are available using boto3's default credential chain.
     This automatically handles both local development (access keys) and AWS environments (task roles).
-    
+
     Returns:
         bool: True if credentials are available, False otherwise
     """
@@ -23,18 +30,20 @@ def check_aws_credentials() -> bool:
             return True
     except Exception:
         pass
-    
+
     return False
+
 
 def _resolve_model_id_for_profile(model_id: str) -> str:
     mid = (model_id or "").strip()
-    if mid.startswith("arn:"):   # ARN de inference profile
+    if mid.startswith("arn:"):  # ARN de inference profile
         return mid
-    if mid.startswith("us."):    # ya es inference profile-id
+    if mid.startswith("us."):  # ya es inference profile-id
         return mid
     if any(mid.startswith(p) for p in INFERENCE_PROFILE_PROVIDERS):
-        return f"us.{mid}"       # modelId → profileId
+        return f"us.{mid}"  # modelId → profileId
     return mid
+
 
 class BedrockClient:
     def __init__(self, model_id: str, region: str = "us-east-1"):
@@ -43,17 +52,21 @@ class BedrockClient:
 
         # Check if AWS credentials are available using boto3's default credential chain
         if not check_aws_credentials():
-            raise ValueError("AWS credentials not found. Ensure credentials are configured via environment variables, AWS credential files, or IAM roles.")
+            raise ValueError(
+                "AWS credentials not found. Ensure credentials are configured via environment variables, AWS credential files, or IAM roles."
+            )
 
-        cfg = Config(connect_timeout=60, read_timeout=300, retries={"max_attempts": 3, "mode": "standard"})
-        
+        cfg = Config(
+            connect_timeout=60,
+            read_timeout=300,
+            retries={"max_attempts": 3, "mode": "standard"},
+        )
+
         try:
             # Let boto3 handle the credential chain automatically
             # It will check environment variables, credential files, IAM roles, etc.
             self.client = boto3.client(
-                "bedrock-runtime",
-                region_name=region,
-                config=cfg
+                "bedrock-runtime", region_name=region, config=cfg
             )
         except NoCredentialsError:
             raise ValueError("AWS credentials are invalid or not properly configured")
@@ -72,13 +85,21 @@ class BedrockClient:
         provider = self._provider_from_id(self.original_model_id)
 
         if provider == "anthropic":
-            body = self._build_anthropic(planogram_b64, realogram_b64, prompt, temperature, max_tokens)
+            body = self._build_anthropic(
+                planogram_b64, realogram_b64, prompt, temperature, max_tokens
+            )
         elif provider == "nova":
-            body = self._build_nova(planogram_b64, realogram_b64, prompt, temperature, max_tokens)
+            body = self._build_nova(
+                planogram_b64, realogram_b64, prompt, temperature, max_tokens
+            )
         elif provider == "meta":
-            body = self._build_llama(planogram_b64, realogram_b64, prompt, temperature, max_tokens)
+            body = self._build_llama(
+                planogram_b64, realogram_b64, prompt, temperature, max_tokens
+            )
         else:
-            body = self._build_generic(planogram_b64, realogram_b64, prompt, temperature, max_tokens)
+            body = self._build_generic(
+                planogram_b64, realogram_b64, prompt, temperature, max_tokens
+            )
 
         try:
             try:
@@ -149,26 +170,52 @@ class BedrockClient:
 
     # -------------------- Builders --------------------
 
-    def _build_anthropic(self, p64: str, r64: str, prompt: str, temp: float, max_tok: int) -> Dict:
+    def _build_anthropic(
+        self, p64: str, r64: str, prompt: str, temp: float, max_tok: int
+    ) -> Dict:
         # Anthropic multimodal (Bedrock)
         return {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tok,
             "temperature": temp,
             "top_p": 0.9,
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Imagen 1 - PLANOGRAMA (disposición esperada de productos):"},
-                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": p64}},
-                    {"type": "text", "text": "Imagen 2 - REALOGRAMA (disposición actual/real de productos):"},
-                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": r64}},
-                    {"type": "text", "text": prompt},
-                ],
-            }],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Imagen 1 - PLANOGRAMA (disposición esperada de productos):",
+                        },
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": p64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": "Imagen 2 - REALOGRAMA (disposición actual/real de productos):",
+                        },
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": r64,
+                            },
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
         }
 
-    def _build_nova(self, p64: str, r64: str, prompt: str, temp: float, max_tok: int) -> Dict:
+    def _build_nova(
+        self, p64: str, r64: str, prompt: str, temp: float, max_tok: int
+    ) -> Dict:
         """
         Amazon Nova (messages-v1) correcto:
         - Bloques de texto con 'inputText'
@@ -176,37 +223,64 @@ class BedrockClient:
         """
         return {
             "schemaVersion": "messages-v1",
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {"inputText": "Imagen 1 - PLANOGRAMA (disposición esperada de productos):"},
-                    {"image": {"format": "jpeg", "source": {"bytes": p64}}},
-                    {"inputText": "Imagen 2 - REALOGRAMA (disposición actual/real de productos):"},
-                    {"image": {"format": "jpeg", "source": {"bytes": r64}}},
-                    {"inputText": prompt},
-                ],
-            }],
-            "inferenceConfig": {"maxTokens": max_tok, "temperature": temp, "topP": 0.9, "topK": 50},
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "inputText": "Imagen 1 - PLANOGRAMA (disposición esperada de productos):"
+                        },
+                        {"image": {"format": "jpeg", "source": {"bytes": p64}}},
+                        {
+                            "inputText": "Imagen 2 - REALOGRAMA (disposición actual/real de productos):"
+                        },
+                        {"image": {"format": "jpeg", "source": {"bytes": r64}}},
+                        {"inputText": prompt},
+                    ],
+                }
+            ],
+            "inferenceConfig": {
+                "maxTokens": max_tok,
+                "temperature": temp,
+                "topP": 0.9,
+                "topK": 50,
+            },
         }
 
-    def _build_llama(self, p64: str, r64: str, prompt: str, temp: float, max_tok: int) -> Dict:
+    def _build_llama(
+        self, p64: str, r64: str, prompt: str, temp: float, max_tok: int
+    ) -> Dict:
         # Tu payload heredado para Llama Vision
-        return {"prompt": prompt, "images": [p64, r64], "max_gen_len": max_tok, "temperature": temp, "top_p": 0.9}
+        return {
+            "prompt": prompt,
+            "images": [p64, r64],
+            "max_gen_len": max_tok,
+            "temperature": temp,
+            "top_p": 0.9,
+        }
 
-    def _build_generic(self, p64: str, r64: str, prompt: str, temp: float, max_tok: int) -> Dict:
+    def _build_generic(
+        self, p64: str, r64: str, prompt: str, temp: float, max_tok: int
+    ) -> Dict:
         # Fallback messages-v1 (acepta inputText/image)
         return {
             "schemaVersion": "messages-v1",
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {"inputText": "Imagen 1 - PLANOGRAMA (disposición esperada de productos):"},
-                    {"image": {"format": "jpeg", "source": {"bytes": p64}}},
-                    {"inputText": "Imagen 2 - REALOGRAMA (disposición actual/real de productos):"},
-                    {"image": {"format": "jpeg", "source": {"bytes": r64}}},
-                    {"inputText": prompt},
-                ],
-            }],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "inputText": "Imagen 1 - PLANOGRAMA (disposición esperada de productos):"
+                        },
+                        {"image": {"format": "jpeg", "source": {"bytes": p64}}},
+                        {
+                            "inputText": "Imagen 2 - REALOGRAMA (disposición actual/real de productos):"
+                        },
+                        {"image": {"format": "jpeg", "source": {"bytes": r64}}},
+                        {"inputText": prompt},
+                    ],
+                }
+            ],
             "inferenceConfig": {"maxTokens": max_tok, "temperature": temp, "topP": 0.9},
         }
 
@@ -215,7 +289,16 @@ class BedrockClient:
     def _extract_text(self, payload: Dict[str, Any], provider: str) -> Optional[str]:
         # Anthropic (Bedrock) → {"content":[{"text":"..."}]}
         if "content" in payload and isinstance(payload["content"], list):
-            return "\n".join([b.get("text", "") for b in payload["content"] if isinstance(b, dict) and "text" in b]) or None
+            return (
+                "\n".join(
+                    [
+                        b.get("text", "")
+                        for b in payload["content"]
+                        if isinstance(b, dict) and "text" in b
+                    ]
+                )
+                or None
+            )
         # Llama heredado → {"generation":"..."}
         if "generation" in payload:
             return payload.get("generation")
@@ -243,7 +326,8 @@ class BedrockClient:
             return {
                 "input_tokens": usage.get("input_tokens", 0),
                 "output_tokens": usage.get("output_tokens", 0),
-                "total_tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+                "total_tokens": usage.get("input_tokens", 0)
+                + usage.get("output_tokens", 0),
             }
         # Nova/generic format
         if "output" in payload:
@@ -253,7 +337,7 @@ class BedrockClient:
                 return {
                     "input_tokens": usage.get("inputTokens", 0),
                     "output_tokens": usage.get("outputTokens", 0),
-                    "total_tokens": usage.get("totalTokens", 0)
+                    "total_tokens": usage.get("totalTokens", 0),
                 }
         # Fallback
         return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
@@ -276,7 +360,7 @@ class BedrockClient:
         start = s.find("{")
         end = s.rfind("}")
         if start != -1 and end != -1 and end > start:
-            snippet = s[start:end+1]
+            snippet = s[start : end + 1]
             try:
                 return json.loads(snippet)
             except Exception:
@@ -284,7 +368,9 @@ class BedrockClient:
         return None
 
     # ---- Normalización A: gondola → diferencias ----
-    def _normalize_gondola_schema(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _normalize_gondola_schema(
+        self, data: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         gondola = data.get("gondola") or {}
         niveles = gondola.get("niveles")
         if not isinstance(niveles, list):
@@ -296,7 +382,11 @@ class BedrockClient:
             try:
                 # E2 → 2; "1" → 1
                 if isinstance(nivel_id, str):
-                    nivel_id = int(re.sub(r"[^0-9]", "", nivel_id)) if re.search(r"\d", nivel_id) else nivel_id
+                    nivel_id = (
+                        int(re.sub(r"[^0-9]", "", nivel_id))
+                        if re.search(r"\d", nivel_id)
+                        else nivel_id
+                    )
             except Exception:
                 pass
 
@@ -310,14 +400,19 @@ class BedrockClient:
                 if tipo or tam:
                     nombre = " ".join([x for x in [nombre_base, tipo, tam] if x])
 
-                out_prods.append({
-                    "posicion_producto": p.get("posicion") or p.get("posicion_producto") or 1,
-                    "nombre": nombre,
-                    "encontrado": p.get("encontrado"),
-                    "posicion_correcta": p.get("posicion_correcta"),
-                    "frentes_esperados": p.get("frentes_esperados") or p.get("frentes_planogramados"),
-                    "frentes_encontrados": p.get("frentes_encontrados", 0),
-                })
+                out_prods.append(
+                    {
+                        "posicion_producto": p.get("posicion")
+                        or p.get("posicion_producto")
+                        or 1,
+                        "nombre": nombre,
+                        "encontrado": p.get("encontrado"),
+                        "posicion_correcta": p.get("posicion_correcta"),
+                        "frentes_esperados": p.get("frentes_esperados")
+                        or p.get("frentes_planogramados"),
+                        "frentes_encontrados": p.get("frentes_encontrados", 0),
+                    }
+                )
 
             difs.append({"nivel": nivel_id, "resultado": {"productos": out_prods}})
 
@@ -332,12 +427,16 @@ class BedrockClient:
             conclusiones.extend([r for r in recs if isinstance(r, str)])
         met = data.get("metricas_cumplimiento")
         if isinstance(met, dict) and met:
-            conclusiones.append(f"Métricas de cumplimiento: {json.dumps(met, ensure_ascii=False)}")
+            conclusiones.append(
+                f"Métricas de cumplimiento: {json.dumps(met, ensure_ascii=False)}"
+            )
 
         return {"diferencias": difs, "conclusiones": conclusiones}
 
     # ---- Normalización B: productos[] plano → diferencias ----
-    def _normalize_flat_products_schema(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _normalize_flat_products_schema(
+        self, data: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         productos = data.get("productos")
         if not isinstance(productos, list):
             return None
@@ -348,13 +447,19 @@ class BedrockClient:
             nivel = p.get("nivel")
             try:
                 if isinstance(nivel, str):
-                    nivel = int(re.sub(r"[^0-9]", "", nivel)) if re.search(r"\d", nivel) else nivel
+                    nivel = (
+                        int(re.sub(r"[^0-9]", "", nivel))
+                        if re.search(r"\d", nivel)
+                        else nivel
+                    )
             except Exception:
                 pass
             by_level.setdefault(nivel, []).append(p)
 
         difs: List[Dict[str, Any]] = []
-        for nivel, plist in sorted(by_level.items(), key=lambda kv: (isinstance(kv[0], int), kv[0])):
+        for nivel, plist in sorted(
+            by_level.items(), key=lambda kv: (isinstance(kv[0], int), kv[0])
+        ):
             out_prods = []
             for p in plist:
                 marca = p.get("marca")
@@ -362,15 +467,24 @@ class BedrockClient:
                 envase = p.get("envase")
                 tam = p.get("tamano") or p.get("tamaño")
                 # armar nombre
-                nombre = " ".join([x for x in [marca, tipo, envase, tam] if x]) if marca else p.get("nombre", "")
-                out_prods.append({
-                    "posicion_producto": p.get("posicion") or p.get("posicion_producto") or 1,
-                    "nombre": nombre or "Producto",
-                    "encontrado": p.get("encontrado"),
-                    "posicion_correcta": p.get("posicion_correcta"),
-                    "frentes_esperados": p.get("frentes_planogramados") or p.get("frentes_esperados"),
-                    "frentes_encontrados": p.get("frentes_encontrados", 0),
-                })
+                nombre = (
+                    " ".join([x for x in [marca, tipo, envase, tam] if x])
+                    if marca
+                    else p.get("nombre", "")
+                )
+                out_prods.append(
+                    {
+                        "posicion_producto": p.get("posicion")
+                        or p.get("posicion_producto")
+                        or 1,
+                        "nombre": nombre or "Producto",
+                        "encontrado": p.get("encontrado"),
+                        "posicion_correcta": p.get("posicion_correcta"),
+                        "frentes_esperados": p.get("frentes_planogramados")
+                        or p.get("frentes_esperados"),
+                        "frentes_encontrados": p.get("frentes_encontrados", 0),
+                    }
+                )
             difs.append({"nivel": nivel, "resultado": {"productos": out_prods}})
 
         conclusiones: List[str] = []
@@ -380,7 +494,9 @@ class BedrockClient:
                     desc = it.get("descripcion") or json.dumps(it, ensure_ascii=False)
                     conclusiones.append(f"No planogramados: {desc}")
         if "porcentaje_cumplimiento" in data:
-            conclusiones.append(f"Porcentaje de cumplimiento reportado: {data['porcentaje_cumplimiento']}")
+            conclusiones.append(
+                f"Porcentaje de cumplimiento reportado: {data['porcentaje_cumplimiento']}"
+            )
         if "observaciones" in data and isinstance(data["observaciones"], str):
             conclusiones.append(data["observaciones"])
 
@@ -404,13 +520,19 @@ class BedrockClient:
         region = getattr(self.client.meta, "region_name", "unknown")
 
         if "isn’t supported" in msg or "isn't supported" in msg:
-            hint = ("Este modelo requiere Inference Profile. Usa 'us.<model_id>' o un ARN de profile. "
-                    "Invoca desde us-east-1/us-east-2/us-west-2 (cross-Region soportado).")
+            hint = (
+                "Este modelo requiere Inference Profile. Usa 'us.<model_id>' o un ARN de profile. "
+                "Invoca desde us-east-1/us-east-2/us-west-2 (cross-Region soportado)."
+            )
             return ValueError(f"Validation Error: {msg} [region={region}]. {hint}")
         if code == "UnrecognizedClientException":
-            return ValueError(f"AWS Authentication Error: {msg}. Verifica credenciales.")
+            return ValueError(
+                f"AWS Authentication Error: {msg}. Verifica credenciales."
+            )
         if code == "AccessDeniedException":
-            return ValueError(f"Access Denied: {msg}. Revisa permisos en Bedrock / profile.")
+            return ValueError(
+                f"Access Denied: {msg}. Revisa permisos en Bedrock / profile."
+            )
         if code == "ValidationException":
             return ValueError(f"Validation Error: {msg}.")
         if code == "ResourceNotFoundException":
@@ -422,7 +544,9 @@ class BedrockClient:
             "error": "Could not parse JSON response",
             "raw_response": raw,
             "diferencias": json_structure.get("diferencias", []),
-            "conclusiones": ["Error: No se pudo parsear la respuesta del modelo como JSON"],
+            "conclusiones": [
+                "Error: No se pudo parsear la respuesta del modelo como JSON"
+            ],
             "_debug": self._debug(),
         }
 
