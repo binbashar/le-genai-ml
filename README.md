@@ -16,6 +16,7 @@ This repo includes the binbash GenAI - ML projects
 ## Workshops
 - ✔️ https://github.com/binbashar/le-genai-agents-bedrock-workshop
 - 📙 https://github.com/aws-samples/aws-genai-llm-chatbot
+- 📙 https://github.com/aws-samples/aws-smart-product-onboarding
 
 ## Chatbots w/ RAG
 - ✔️ https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/genai-llm-rag-bedrock-poc
