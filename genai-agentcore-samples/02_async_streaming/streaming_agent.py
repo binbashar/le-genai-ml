@@ -19,6 +19,7 @@ app = BedrockAgentCoreApp()
 
 class RequestState(TypedDict):
     """State that tracks the request processing pipeline"""
+
     query: str
     category: str | None
     keywords: dict | None
@@ -56,9 +57,7 @@ def create_streaming_agent():
 
         response = llm.invoke([system_msg, HumanMessage(content=state["query"])])
 
-        return {
-            "category": response.content.strip().lower()
-        }
+        return {"category": response.content.strip().lower()}
 
     def extract_keywords(state: RequestState):
         """Extract relevant entities: brands, products, and people"""
@@ -81,9 +80,7 @@ def create_streaming_agent():
         except (json.JSONDecodeError, Exception):
             keywords = {"brands": [], "products": [], "people": []}
 
-        return {
-            "keywords": keywords
-        }
+        return {"keywords": keywords}
 
     # Build graph with parallel execution
     graph_builder = StateGraph(RequestState)
@@ -129,7 +126,7 @@ async def analyze_with_streaming(payload, context):
     if not user_query:
         yield {
             "type": "error",
-            "message": "No query provided. Please include 'query' in payload."
+            "message": "No query provided. Please include 'query' in payload.",
         }
         return
 
@@ -137,41 +134,40 @@ async def analyze_with_streaming(payload, context):
     initial_state: RequestState = {
         "query": user_query,
         "category": None,
-        "keywords": None
+        "keywords": None,
     }
 
     # Show thinking messages during parallel execution
-    yield {
-        "type": "thinking",
-        "message": "🔄 Classifying request..."
-    }
+    yield {"type": "thinking", "message": "🔄 Classifying request..."}
 
-    yield {
-        "type": "thinking",
-        "message": "🔍 Detecting keywords..."
-    }
+    yield {"type": "thinking", "message": "🔍 Detecting keywords..."}
 
     # Execute parallel nodes (async wrapper for blocking call)
     final_state = await asyncio.to_thread(agent.invoke, initial_state)
 
     # Show intermediate results
-    brands = ', '.join(final_state['keywords']['brands']) if final_state['keywords']['brands'] else 'None'
-    products = ', '.join(final_state['keywords']['products']) if final_state['keywords']['products'] else 'None'
+    brands = (
+        ", ".join(final_state["keywords"]["brands"])
+        if final_state["keywords"]["brands"]
+        else "None"
+    )
+    products = (
+        ", ".join(final_state["keywords"]["products"])
+        if final_state["keywords"]["products"]
+        else "None"
+    )
 
     yield {
         "type": "thinking",
-        "message": f"✓ Request classified as: {final_state['category']}"
+        "message": f"✓ Request classified as: {final_state['category']}",
     }
 
     yield {
         "type": "thinking",
-        "message": f"✓ Keywords detected: Brands={brands}, Products={products}"
+        "message": f"✓ Keywords detected: Brands={brands}, Products={products}",
     }
 
-    yield {
-        "type": "thinking",
-        "message": "💬 Streaming answer..."
-    }
+    yield {"type": "thinking", "message": "💬 Streaming answer..."}
 
     # Build context for streaming answer
     context_parts = [
@@ -198,16 +194,18 @@ Provide a helpful response (5-6 sentences) that directly addresses their questio
 
     # Stream tokens as they're generated (using async stream)
     full_response = ""
-    
+
     # Use astream for true async streaming
-    async for chunk in llm_streaming.astream([system_msg, HumanMessage(content=user_query)]):
+    async for chunk in llm_streaming.astream(
+        [system_msg, HumanMessage(content=user_query)]
+    ):
         if chunk.content:
             # Handle Nova Micro's list-based content blocks
             token_text = ""
             if isinstance(chunk.content, list):
                 for block in chunk.content:
-                    if isinstance(block, dict) and 'text' in block:
-                        token_text += block['text']
+                    if isinstance(block, dict) and "text" in block:
+                        token_text += block["text"]
             else:
                 # Fallback for string-based content
                 token_text = chunk.content
@@ -216,7 +214,7 @@ Provide a helpful response (5-6 sentences) that directly addresses their questio
             yield {
                 "type": "stream_token",
                 "token": token_text,
-                "accumulated": full_response
+                "accumulated": full_response,
             }
 
     # Signal completion
@@ -224,10 +222,10 @@ Provide a helpful response (5-6 sentences) that directly addresses their questio
         "type": "final",
         "result": full_response,
         "metadata": {
-            "category": final_state['category'],
-            "brands": final_state['keywords']['brands'],
-            "products": final_state['keywords']['products']
-        }
+            "category": final_state["category"],
+            "brands": final_state["keywords"]["brands"],
+            "products": final_state["keywords"]["products"],
+        },
     }
 
 

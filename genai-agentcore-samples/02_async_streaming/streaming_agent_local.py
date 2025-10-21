@@ -11,6 +11,7 @@ import random
 
 class RequestState(TypedDict):
     """State that tracks the request processing pipeline"""
+
     query: str
     category: str | None
     keywords: dict | None
@@ -48,9 +49,7 @@ def create_streaming_agent():
 
         response = llm.invoke([system_msg, HumanMessage(content=state["query"])])
 
-        return {
-            "category": response.content.strip().lower()
-        }
+        return {"category": response.content.strip().lower()}
 
     def extract_keywords(state: RequestState):
         """Extract relevant entities: brands, products, and people"""
@@ -69,14 +68,13 @@ def create_streaming_agent():
 
         # Parse JSON response
         import json
+
         try:
             keywords = json.loads(response.content)
         except:
             keywords = {"brands": [], "products": [], "people": []}
 
-        return {
-            "keywords": keywords
-        }
+        return {"keywords": keywords}
 
     # Build graph with parallel execution
     graph_builder = StateGraph(RequestState)
@@ -108,15 +106,15 @@ def test_parallel_execution(user_query: str):
         streaming=True,
     )
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("LANGGRAPH PARALLEL EXECUTION DEMO")
-    print("="*60)
+    print("=" * 60)
     print(f"\nQuery: {user_query}\n")
 
     initial_state: RequestState = {
         "query": user_query,
         "category": None,
-        "keywords": None
+        "keywords": None,
     }
 
     # Show progress
@@ -129,8 +127,16 @@ def test_parallel_execution(user_query: str):
 
     # Show intermediate results
     print(f"✓ Request classified as: {final_state['category']}")
-    brands = ', '.join(final_state['keywords']['brands']) if final_state['keywords']['brands'] else 'None'
-    products = ', '.join(final_state['keywords']['products']) if final_state['keywords']['products'] else 'None'
+    brands = (
+        ", ".join(final_state["keywords"]["brands"])
+        if final_state["keywords"]["brands"]
+        else "None"
+    )
+    products = (
+        ", ".join(final_state["keywords"]["products"])
+        if final_state["keywords"]["products"]
+        else "None"
+    )
     print(f"✓ Keywords detected: Brands={brands}, Products={products}")
     print()
 
@@ -159,13 +165,13 @@ Provide a helpful response (5-6 sentences) that directly addresses their questio
             # Handle Nova Micro's list-based content blocks
             if isinstance(chunk.content, list):
                 for block in chunk.content:
-                    if isinstance(block, dict) and 'text' in block:
-                        print(block['text'], end="", flush=True)
+                    if isinstance(block, dict) and "text" in block:
+                        print(block["text"], end="", flush=True)
             else:
                 # Fallback for string-based content
                 print(chunk.content, end="", flush=True)
 
-    print("\n\n" + "="*60 + "\n")
+    print("\n\n" + "=" * 60 + "\n")
 
 
 if __name__ == "__main__":
@@ -178,12 +184,12 @@ if __name__ == "__main__":
         "Suggest improvements for our DynamoDB table that connects to Lambda and API Gateway",
         "Explain the differences between AWS Fargate and ECS on EC2 for Docker containers",
         "Can you help me set up a data pipeline using AWS Glue, Athena, and Redshift?",
-        "What's the best way to deploy a Next.js application on AWS using CloudFront and S3?"
+        "What's the best way to deploy a Next.js application on AWS using CloudFront and S3?",
     ]
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("LANGGRAPH PARALLEL EXECUTION - INTERACTIVE DEMO")
-    print("="*60)
+    print("=" * 60)
     print("\nEnter your query (Enter for random example):")
     print()
 

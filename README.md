@@ -16,12 +16,13 @@ This repo includes the binbash GenAI - ML projects
 ## Workshops
 - ✔️ https://github.com/binbashar/le-genai-agents-bedrock-workshop
 - 📙 https://github.com/aws-samples/aws-genai-llm-chatbot
+- 📙 https://github.com/aws-samples/aws-smart-product-onboarding
 
 ## Chatbots w/ RAG
 - ✔️ https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/genai-llm-rag-bedrock-poc
 - ✔️ https://github.com/binbashar/le-tf-infra-aws/tree/master/data-science/us-east-1/genai-llm-rag-bedrock-full
 
-## Agent | AWS AgentCore
+## Agent | AWS Bedrock AgentCore
 - 🚧 https://github.com/awslabs/amazon-bedrock-agentcore-samples/tree/main
 
 ## Agent | Speech2Text & Text2Speech

@@ -6,55 +6,59 @@ import streamlit as st
 import os
 import anthropic
 
+
 def encode_image_to_base64(image_file):
     """
     Encode an image file to base64 string
-    
+
     Args:
         image_file: The image file from streamlit uploader
-        
+
     Returns:
         base64_encoded: The base64 encoded string of the image
     """
     try:
         image_bytes = image_file.getvalue()
-        base64_encoded = base64.b64encode(image_bytes).decode('utf-8')
+        base64_encoded = base64.b64encode(image_bytes).decode("utf-8")
         return base64_encoded
     except Exception as e:
         st.error(f"Error al codificar la imagen: {str(e)}")
         return None
 
+
 def analyze_planogram_individually(planogram_file):
     """
     Analiza un planograma individualmente para obtener información detallada sobre productos y estructura
-    
+
     Args:
         planogram_file: Archivo de imagen del planograma
-        
+
     Returns:
         response_json: Respuesta JSON con el análisis del planograma
     """
     try:
         # Get API key from environment variable
         anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        
+
         if not anthropic_api_key:
-            st.warning("No se encontró la clave API de Anthropic en las variables de entorno.")
+            st.warning(
+                "No se encontró la clave API de Anthropic en las variables de entorno."
+            )
             return None
-        
+
         # Inicializar cliente de Anthropic con contexto limpio
         client = anthropic.Anthropic(api_key=anthropic_api_key)
-        
+
         # Encode image to base64
         planogram_base64 = encode_image_to_base64(planogram_file)
-        
+
         if not planogram_base64:
             st.error("No se pudo codificar la imagen del planograma")
             return None
-        
+
         # Prompt específico para análisis individual del planograma
         system_message = "Eres un especialista en análisis de planogramas de supermercados. Tu tarea es analizar detalladamente la estructura y productos mostrados."
-        
+
         user_prompt = """Analiza esta imagen de planograma y proporciona un análisis detallado que incluya:
 
 1. **Estructura general:**
@@ -107,36 +111,28 @@ Responde en formato JSON estructurado con la siguiente estructura:
 
         # Preparar mensaje para Claude
         message = [
-            {
-                "type": "text",
-                "text": user_prompt
-            },
+            {"type": "text", "text": user_prompt},
             {
                 "type": "image",
                 "source": {
                     "type": "base64",
-                    "media_type": "image/jpeg", 
-                    "data": planogram_base64
-                }
-            }
+                    "media_type": "image/jpeg",
+                    "data": planogram_base64,
+                },
+            },
         ]
-        
+
         # Llamada a la API con contexto limpio
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",  # Usando el modelo más reciente
             system=system_message,
-            messages=[
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ],
+            messages=[{"role": "user", "content": message}],
             max_tokens=4000,
-            temperature=0.1
+            temperature=0.1,
         )
-        
+
         response_content = response.content[0].text
-        
+
         # Parsear respuesta JSON
         if isinstance(response_content, str):
             try:
@@ -145,56 +141,63 @@ Responde en formato JSON estructurado con la siguiente estructura:
             except json.JSONDecodeError:
                 # Intentar extraer JSON de bloques de código markdown
                 if "```json" in response_content:
-                    json_text = response_content.split("```json")[1].split("```")[0].strip()
+                    json_text = (
+                        response_content.split("```json")[1].split("```")[0].strip()
+                    )
                 elif "```" in response_content:
                     json_text = response_content.split("```")[1].split("```")[0].strip()
                 else:
                     json_text = response_content
-                
+
                 try:
                     result_json = json.loads(json_text)
                     return result_json
                 except:
-                    st.error("No se pudo parsear la respuesta del análisis del planograma")
+                    st.error(
+                        "No se pudo parsear la respuesta del análisis del planograma"
+                    )
                     return None
-        
+
         return None
-        
+
     except Exception as e:
         st.error(f"Error en el análisis del planograma: {str(e)}")
         return None
 
+
 def analyze_realogram_individually(realogram_file):
     """
     Analiza un realograma individualmente para obtener información sobre la situación real
-    
+
     Args:
         realogram_file: Archivo de imagen del realograma
-        
+
     Returns:
         response_json: Respuesta JSON con el análisis del realograma
     """
     try:
         # Get API key from environment variable
         anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        
+
         if not anthropic_api_key:
-            st.warning("No se encontró la clave API de Anthropic en las variables de entorno.")
+            st.warning(
+                "No se encontró la clave API de Anthropic en las variables de entorno."
+            )
             return None
-        
+
         # Inicializar cliente de Anthropic con contexto limpio
         client = anthropic.Anthropic(api_key=anthropic_api_key)
-        
+
         # Encode image to base64
         realogram_base64 = encode_image_to_base64(realogram_file)
-        
+
         if not realogram_base64:
             st.error("No se pudo codificar la imagen del realograma")
             return None
-        
+
         # Prompt específico para análisis individual del realograma
         system_message = "Eres un especialista en análisis de exhibiciones reales en supermercados. Tu tarea es documentar la situación actual de productos en los estantes."
-        
+
         user_prompt = """Analiza esta imagen de realograma (situación real) y proporciona un análisis detallado que incluya:
 
 1. **Estado actual de la exhibición:**
@@ -251,36 +254,28 @@ Responde en formato JSON estructurado con la siguiente estructura:
 
         # Preparar mensaje para Claude
         message = [
-            {
-                "type": "text",
-                "text": user_prompt
-            },
+            {"type": "text", "text": user_prompt},
             {
                 "type": "image",
                 "source": {
                     "type": "base64",
                     "media_type": "image/jpeg",
-                    "data": realogram_base64
-                }
-            }
+                    "data": realogram_base64,
+                },
+            },
         ]
-        
+
         # Llamada a la API con contexto limpio
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",  # Usando el modelo más reciente
             system=system_message,
-            messages=[
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ],
+            messages=[{"role": "user", "content": message}],
             max_tokens=4000,
-            temperature=0.1
+            temperature=0.1,
         )
-        
+
         response_content = response.content[0].text
-        
+
         # Parsear respuesta JSON
         if isinstance(response_content, str):
             try:
@@ -289,60 +284,69 @@ Responde en formato JSON estructurado con la siguiente estructura:
             except json.JSONDecodeError:
                 # Intentar extraer JSON de bloques de código markdown
                 if "```json" in response_content:
-                    json_text = response_content.split("```json")[1].split("```")[0].strip()
+                    json_text = (
+                        response_content.split("```json")[1].split("```")[0].strip()
+                    )
                 elif "```" in response_content:
                     json_text = response_content.split("```")[1].split("```")[0].strip()
                 else:
                     json_text = response_content
-                
+
                 try:
                     result_json = json.loads(json_text)
                     return result_json
                 except:
-                    st.error("No se pudo parsear la respuesta del análisis del realograma")
+                    st.error(
+                        "No se pudo parsear la respuesta del análisis del realograma"
+                    )
                     return None
-        
+
         return None
-        
+
     except Exception as e:
         st.error(f"Error en el análisis del realograma: {str(e)}")
         return None
 
-def compare_planogram_vs_realogram(planogram_file, realogram_file, planogram_analysis, realogram_analysis):
+
+def compare_planogram_vs_realogram(
+    planogram_file, realogram_file, planogram_analysis, realogram_analysis
+):
     """
     Realiza la comparación final entre planograma y realograma utilizando los análisis individuales previos
-    
+
     Args:
         planogram_file: Archivo de imagen del planograma
         realogram_file: Archivo de imagen del realograma
         planogram_analysis: Análisis previo del planograma
         realogram_analysis: Análisis previo del realograma
-        
+
     Returns:
         response_json: Respuesta JSON con la comparación final
     """
     try:
         # Get API key from environment variable
         anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        
+
         if not anthropic_api_key:
-            st.warning("No se encontró la clave API de Anthropic en las variables de entorno.")
+            st.warning(
+                "No se encontró la clave API de Anthropic en las variables de entorno."
+            )
             return get_mock_response()
-        
+
         # Inicializar cliente de Anthropic con contexto completamente limpio
         client = anthropic.Anthropic(api_key=anthropic_api_key)
-        
+
         # Encode images to base64
         planogram_base64 = encode_image_to_base64(planogram_file)
         realogram_base64 = encode_image_to_base64(realogram_file)
-        
+
         if not planogram_base64 or not realogram_base64:
             st.error("No se pudieron codificar las imágenes correctamente")
             return get_mock_response()
-        
+
         # Prompt específico para comparación final
         system_message = "Eres un especialista en compliance de planogramas. Tu tarea es comparar la disposición planificada versus la real y generar un reporte de cumplimiento detallado."
-        
+
         user_prompt = f"""Analiza las siguientes dos imágenes y sus respectivos análisis para generar un reporte de cumplimiento:
 
 **ANÁLISIS PREVIO DEL PLANOGRAMA:**
@@ -413,44 +417,36 @@ Sé preciso en el conteo de frentes y posiciones. Basa tu análisis en la compar
 
         # Preparar mensaje para Claude con contexto limpio
         message = [
+            {"type": "text", "text": user_prompt},
             {
-                "type": "text",
-                "text": user_prompt
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": planogram_base64,
+                },
             },
             {
                 "type": "image",
                 "source": {
                     "type": "base64",
                     "media_type": "image/jpeg",
-                    "data": planogram_base64
-                }
+                    "data": realogram_base64,
+                },
             },
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": realogram_base64
-                }
-            }
         ]
-        
+
         # Llamada a la API con contexto completamente limpio
         response = client.messages.create(
             model="claude-3-5-sonnet-20241022",  # Usando el modelo más reciente
             system=system_message,
-            messages=[
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ],
+            messages=[{"role": "user", "content": message}],
             max_tokens=4000,
-            temperature=0.1
+            temperature=0.1,
         )
-        
+
         response_content = response.content[0].text
-        
+
         # Parsear respuesta JSON
         if isinstance(response_content, str):
             try:
@@ -459,33 +455,36 @@ Sé preciso en el conteo de frentes y posiciones. Basa tu análisis en la compar
             except json.JSONDecodeError:
                 # Intentar extraer JSON de bloques de código markdown
                 if "```json" in response_content:
-                    json_text = response_content.split("```json")[1].split("```")[0].strip()
+                    json_text = (
+                        response_content.split("```json")[1].split("```")[0].strip()
+                    )
                 elif "```" in response_content:
                     json_text = response_content.split("```")[1].split("```")[0].strip()
                 else:
                     json_text = response_content
-                
+
                 try:
                     result_json = json.loads(json_text)
                     return result_json
                 except:
                     st.error("No se pudo parsear la respuesta de la comparación final")
                     return get_mock_response()
-        
+
         return get_mock_response()
-        
+
     except Exception as e:
         st.error(f"Error en la comparación final: {str(e)}")
         return get_mock_response()
 
+
 def send_images_to_model(planogram_file, realogram_file):
     """
     Análisis comparativo directo con Claude Sonnet para detectar correctamente los productos
-    
+
     Args:
         planogram_file: Archivo de imagen del planograma
         realogram_file: Archivo de imagen del realograma
-        
+
     Returns:
         response_json: Respuesta JSON con el análisis comparativo
     """
@@ -493,22 +492,24 @@ def send_images_to_model(planogram_file, realogram_file):
         # Verificar que tenemos la API key
         anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
         if not anthropic_api_key:
-            st.error("FALTA LA CLAVE API DE ANTHROPIC - No se puede hacer análisis real")
+            st.error(
+                "FALTA LA CLAVE API DE ANTHROPIC - No se puede hacer análisis real"
+            )
             return None
-        
+
         # Inicializar cliente con contexto limpio
         client = anthropic.Anthropic(api_key=anthropic_api_key)
-        
+
         # Encode images to base64
         planogram_base64 = encode_image_to_base64(planogram_file)
         realogram_base64 = encode_image_to_base64(realogram_file)
-        
+
         if not planogram_base64 or not realogram_base64:
             st.error("No se pudieron codificar las imágenes correctamente")
             return get_mock_response()
-        
+
         system_message = "Eres un especialista en análisis de planogramas de supermercados. Analiza cuidadosamente ambas imágenes para identificar correctamente los productos presentes."
-        
+
         user_prompt = """Analiza estas dos imágenes de planograma y realograma de una góndola de supermercado.
 
 IMPORTANTE: 
@@ -639,53 +640,47 @@ DEBES analizar y reportar los 6 niveles completos."""
 
         with st.spinner("Analizando imágenes con IA..."):
             message = [
+                {"type": "text", "text": user_prompt},
                 {
-                    "type": "text",
-                    "text": user_prompt
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": planogram_base64,
+                    },
                 },
                 {
                     "type": "image",
                     "source": {
                         "type": "base64",
                         "media_type": "image/jpeg",
-                        "data": planogram_base64
-                    }
+                        "data": realogram_base64,
+                    },
                 },
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/jpeg",
-                        "data": realogram_base64
-                    }
-                }
             ]
-            
+
             response = client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 system=system_message,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": message
-                    }
-                ],
+                messages=[{"role": "user", "content": message}],
                 max_tokens=4000,
-                temperature=0.1
+                temperature=0.1,
             )
-            
+
             # Extraer texto de la respuesta - método simplificado
             try:
                 response_content = response.content[0].text
-                st.info(f"Respuesta recibida del modelo (primeros 200 caracteres): {response_content[:200]}...")
+                st.info(
+                    f"Respuesta recibida del modelo (primeros 200 caracteres): {response_content[:200]}..."
+                )
             except Exception as e:
                 st.error(f"Error al extraer respuesta: {str(e)}")
                 return None
-            
+
             if not response_content:
                 st.error("No se recibió respuesta válida del modelo")
                 return None
-            
+
             # Parsear JSON
             try:
                 result_json = json.loads(response_content)
@@ -693,12 +688,14 @@ DEBES analizar y reportar los 6 niveles completos."""
             except json.JSONDecodeError:
                 # Intentar extraer JSON de markdown
                 if "```json" in response_content:
-                    json_text = response_content.split("```json")[1].split("```")[0].strip()
+                    json_text = (
+                        response_content.split("```json")[1].split("```")[0].strip()
+                    )
                 elif "```" in response_content:
                     json_text = response_content.split("```")[1].split("```")[0].strip()
                 else:
                     json_text = response_content
-                
+
                 try:
                     result_json = json.loads(json_text)
                     return result_json
@@ -707,10 +704,11 @@ DEBES analizar y reportar los 6 niveles completos."""
                     st.text("Respuesta recibida:")
                     st.text(response_content[:500])
                     return get_mock_response()
-        
+
     except Exception as e:
         st.error(f"Error en el análisis: {str(e)}")
         return get_mock_response()
+
 
 def get_mock_response():
     """
@@ -731,7 +729,7 @@ def get_mock_response():
                             "encontrado": True,
                             "posicion_correcta": True,
                             "frentes_esperados": 4,
-                            "frentes_encontrados": 4
+                            "frentes_encontrados": 4,
                         },
                         {
                             "posicion_producto": 2,
@@ -742,7 +740,7 @@ def get_mock_response():
                             "encontrado": True,
                             "posicion_correcta": False,
                             "frentes_esperados": 2,
-                            "frentes_encontrados": 1
+                            "frentes_encontrados": 1,
                         },
                         {
                             "posicion_producto": 3,
@@ -753,10 +751,10 @@ def get_mock_response():
                             "encontrado": False,
                             "posicion_correcta": False,
                             "frentes_esperados": 2,
-                            "frentes_encontrados": 0
-                        }
+                            "frentes_encontrados": 0,
+                        },
                     ]
-                }
+                },
             },
             {
                 "nivel": 2,
@@ -771,7 +769,7 @@ def get_mock_response():
                             "encontrado": True,
                             "posicion_correcta": True,
                             "frentes_esperados": 3,
-                            "frentes_encontrados": 3
+                            "frentes_encontrados": 3,
                         },
                         {
                             "posicion_producto": 2,
@@ -782,27 +780,28 @@ def get_mock_response():
                             "encontrado": True,
                             "posicion_correcta": True,
                             "frentes_esperados": 2,
-                            "frentes_encontrados": 2
-                        }
+                            "frentes_encontrados": 2,
+                        },
                     ]
-                }
-            }
+                },
+            },
         ],
         "conclusiones": [
             "El planograma se encuentra cumplido en un 80%",
             "Se detecta la ausencia de Sprite Regular 2L",
             "Coca-Cola Zero tiene un frente menos de lo esperado",
-            "El resto de los productos cumplen con la ubicación y cantidad de frentes esperados"
-        ]
+            "El resto de los productos cumplen con la ubicación y cantidad de frentes esperados",
+        ],
     }
+
 
 def parse_json_response(json_response):
     """
     Parse the JSON response from the model
-    
+
     Args:
         json_response: The JSON response from the model
-        
+
     Returns:
         parsed_data: The parsed JSON data
     """
@@ -814,5 +813,5 @@ def parse_json_response(json_response):
             return {}
     else:
         parsed_data = json_response
-    
+
     return parsed_data

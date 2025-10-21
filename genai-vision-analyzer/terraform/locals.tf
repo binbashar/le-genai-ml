@@ -7,8 +7,8 @@ locals {
   }
 
   container_definitions = {
-    prisma = {
-      image                     = "574093079661.dkr.ecr.us-west-2.amazonaws.com/prisma-planogram-analyzer-prisma:latest"
+    client = {
+      image                     = "574093079661.dkr.ecr.us-west-2.amazonaws.com/client-planogram-analyzer-client:latest"
       enable_cloudwatch_logging = false
       readonly_root_filesystem  = false
       cpu                       = 512
@@ -27,13 +27,13 @@ locals {
         },
         {
           "name" : "APP_USER"
-          "value" : "prisma"
+          "value" : "client"
         }
       ]
       secrets = [
         {
           "name" : "APP_PASSWORD"
-          "valueFrom" : "${module.secrets.secret_arns["/prisma-planogram-analyzer"]}:PWD_prisma::"
+          "valueFrom" : "${module.secrets.secret_arns["/client-planogram-analyzer"]}:PWD_client::"
         }
       ]
     }

@@ -11,7 +11,7 @@ module "terraform_state_backend" {
   source = "git::https://github.com/binbashar/terraform-aws-tfstate-backend.git?ref=v1.0.28"
 
   # Naming
-  namespace  = "prisma"
+  namespace  = "client"
   stage      = "planogram-compliance-analyzer"
   name       = "tfstate"
   attributes = []

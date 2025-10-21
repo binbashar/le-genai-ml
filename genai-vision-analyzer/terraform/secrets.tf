@@ -5,7 +5,7 @@ module "secrets" {
   unmanaged = true
 
   secrets = {
-    "/prisma-planogram-analyzer" = {
+    "/client-planogram-analyzer" = {
       recovery_window_in_days = 7
       secret_key_value        = {} # values are stored via AWS Console
     }
