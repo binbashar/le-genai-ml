@@ -11,6 +11,7 @@ import json
 import sys
 import uuid
 import os
+import random
 
 
 def get_agent_arn() -> str | None:
@@ -121,20 +122,50 @@ def invoke_streaming_agent(query: str, agent_arn: str | None = None):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: uv run invoke_streaming.py 'Your query here' [agent_arn]")
-        print("\nExamples:")
-        print("  # Using environment variable or .bedrock_agentcore.yaml")
-        print("  uv run invoke_streaming.py 'How does AWS Lambda work?'")
-        print("\n  # Providing ARN explicitly")
-        print("  uv run invoke_streaming.py 'How does AWS Lambda work?' 'arn:aws:bedrock-agentcore:...'")
-        print("\n  # Using environment variable")
-        print("  export AGENT_RUNTIME_ARN='arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/agent-name'")
-        print("  uv run invoke_streaming.py 'How does AWS Lambda work?'")
-        sys.exit(1)
-    
-    # Parse arguments
-    query = sys.argv[1]
-    agent_arn = sys.argv[2] if len(sys.argv) > 2 else None
-    
+    # Example queries for random selection
+    example_queries = [
+        "I'm having issues with AWS Lambda timeouts when using Bedrock models. Can you help?",
+        "What are the best practices for using Amazon S3 with CloudFront CDN?",
+        "How can I optimize costs when running multiple EC2 instances with Auto Scaling?",
+        "I need help integrating AWS Cognito with our React application hosted on Amplify",
+        "Suggest improvements for our DynamoDB table that connects to Lambda and API Gateway",
+        "Explain the differences between AWS Fargate and ECS on EC2 for Docker containers",
+        "Can you help me set up a data pipeline using AWS Glue, Athena, and Redshift?",
+        "What's the best way to deploy a Next.js application on AWS using CloudFront and S3?"
+    ]
+
+    print("\n" + "="*60)
+    print("AGENTCORE RUNTIME - INTERACTIVE STREAMING DEMO")
+    print("="*60)
+    print()
+
+    # Get agent ARN from environment or prompt user
+    agent_arn = get_agent_arn()
+
+    if not agent_arn:
+        print("Agent ARN not found in environment variables.")
+        print("\nYou can get your ARN from: agentcore status")
+        print("Or find it in AWS Console: Bedrock > AgentCore > Runtimes\n")
+        agent_arn = input("Enter Agent Runtime ARN (or press Enter to exit): ").strip()
+
+        if not agent_arn:
+            print("\nExiting. To set ARN automatically, use:")
+            print("  export AGENT_RUNTIME_ARN='arn:aws:bedrock-agentcore:region:account:runtime/name'")
+            sys.exit(0)
+    else:
+        print(f"Using Agent ARN: {agent_arn[:60]}...")
+        print()
+
+    # Get user query
+    print("Enter your query (or press Enter for random example):")
+    print()
+    user_input = input("> ").strip()
+
+    if not user_input:
+        query = random.choice(example_queries)
+        print(f"\n[Selected random query: {query}]\n")
+    else:
+        query = user_input
+
+    # Invoke the streaming agent
     invoke_streaming_agent(query, agent_arn)
