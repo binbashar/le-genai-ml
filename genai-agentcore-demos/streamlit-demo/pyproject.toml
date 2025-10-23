@@ -1,0 +1,9 @@
+[project]
+name = "agentcore-fintech-demo"
+version = "1.0.0"
+description = "AWS AgentCore FinTech Demo - Streamlit Interface"
+requires-python = ">=3.13"
+dependencies = [
+    "streamlit",
+    "boto3",
+]
