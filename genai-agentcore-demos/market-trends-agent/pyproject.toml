@@ -14,6 +14,8 @@ dependencies = [
     "bedrock-agentcore",
     "bedrock-agentcore-starter-toolkit",
     "rich",
+    "aws-opentelemetry-distro>=0.12.1",
+    "aiohttp",
 ]
 
 [project.optional-dependencies]

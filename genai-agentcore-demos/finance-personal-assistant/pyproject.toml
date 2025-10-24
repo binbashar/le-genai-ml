@@ -25,6 +25,7 @@ dependencies = [
     "langgraph>=1.0.1",
     "langchain-aws>=1.0.0",
     "langchain-core>=1.0.0",
+    "aiohttp",
 ]
 
 [project.optional-dependencies]

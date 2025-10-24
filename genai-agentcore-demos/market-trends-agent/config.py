@@ -2,7 +2,7 @@ import os
 from dataclasses import asdict, dataclass
 from enum import Enum
 from functools import lru_cache
-from typing import Any
+from typing import Any, Optional
 
 import boto3
 
@@ -30,7 +30,7 @@ class ModelConfig:
     model_id: str
     temperature: float = 0.1
     max_tokens: int = 4096
-    top_p: float = 0.9
+    top_p: Optional[float] = None
     description: str = ""
     streaming: bool = True
 
@@ -95,16 +95,15 @@ class ModelConfig:
                 "temperature": self.temperature,
             }
         else:
-            # LangChain/LangGraph format (nested model_kwargs)
-            return {
-                "model_id": self.model_id,
-                "model_kwargs": {
-                    "temperature": self.temperature,
-                    "max_tokens": self.max_tokens,
-                    "top_p": self.top_p,
-                },
-                "streaming": self.streaming,
+            # LangChain/LangGraph format (direct parameters)
+            kwargs = {
+                "model": self.model_id,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
             }
+            if self.top_p is not None:
+                kwargs["top_p"] = self.top_p
+            return kwargs
 
 
 # Model Registry - Single source of truth
@@ -136,18 +135,21 @@ MODEL_REGISTRY = {
     BedrockModelCatalog.CLAUDE_HAIKU_45: ModelConfig(
         model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
         temperature=0.1,
+        top_p=None,
         max_tokens=8192,
         description="Fast Claude model for quick responses",
     ),
     BedrockModelCatalog.CLAUDE_SONNET_37: ModelConfig(
         model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         temperature=0.1,
+        top_p=None,
         max_tokens=8192,
         description="Advanced reasoning for complex analysis (prev gen)",
     ),
     BedrockModelCatalog.CLAUDE_SONNET_45: ModelConfig(
         model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         temperature=0.1,
+        top_p=None,
         max_tokens=8192,
         description="Enhanced reasoning for complex analysis (latest)",
     ),

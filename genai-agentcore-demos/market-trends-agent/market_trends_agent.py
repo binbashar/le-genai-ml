@@ -74,7 +74,7 @@ def create_market_trends_agent(session_id: str, actor_id: str):
     ] + memory_tools
     llm_with_tools = model.bind_tools(tools)
 
-    system_message = """You are an expert market intelligence analyst providing real-time market data and personalized investment insights.
+    system_message = """You are an expert market intelligence analyst providing personalized investment insights.
 
 <memory_behavior>
 Both conversation history and broker profile are automatically injected in <context> tags.
@@ -83,8 +83,8 @@ When users share new preferences, use update_broker_financial_interests() to sto
 </memory_behavior>
 
 <tool_usage>
-Market Data: get_stock_data(symbol), search_news(query, news_source)
 Memory: update_broker_financial_interests(info)
+Market Data: get_stock_data(ticker), search_news(query)
 Broker Tools: parse_broker_profile_from_message(), generate_market_summary_for_broker(), get_broker_card_template(), collect_broker_preferences_interactively()
 </tool_usage>
 
@@ -456,3 +456,7 @@ async def market_trends_agent_runtime(payload, context):
     except Exception as e:
         logger.error(f"Error in streaming agent: {e}", exc_info=True)
         yield {"type": "error", "message": f"Agent error: {str(e)}"}
+
+
+if __name__ == "__main__":
+    app.run()

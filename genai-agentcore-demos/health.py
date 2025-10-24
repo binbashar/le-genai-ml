@@ -21,7 +21,7 @@ def test_agent(name: str, agent_dir: Path) -> dict:
         "error": None,
     }
 
-    health_check_script = agent_dir / "health_check.py"
+    health_check_script = agent_dir / "health.py"
     arn_file = agent_dir / ".agent_arn"
 
     if not health_check_script.exists():
@@ -39,7 +39,7 @@ def test_agent(name: str, agent_dir: Path) -> dict:
     try:
         env = os.environ.copy()
         proc = subprocess.run(
-            ["uv", "run", "python", "health_check.py"],
+            ["uv", "run", "python", "health.py"],
             cwd=agent_dir,
             capture_output=True,
             text=True,

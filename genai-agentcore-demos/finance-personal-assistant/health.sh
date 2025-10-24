@@ -1,0 +1,1 @@
+uv run health.py "$@"
