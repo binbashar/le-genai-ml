@@ -138,3 +138,5 @@ desktop.ini
 
 # Agent deployment artifacts
 *.agent_arn
+.claude/
+**/CLAUDE.md
