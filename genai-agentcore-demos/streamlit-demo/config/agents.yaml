@@ -1,0 +1,17 @@
+# Agent runtime configuration for AgentCore demos
+# Contains ARNs and AWS region settings
+
+aws:
+  region: us-west-2
+  timeout_seconds: 120
+
+agents:
+  finance_assistant:
+    name: "Finance Assistant"
+    arn: "arn:aws:bedrock-agentcore:us-west-2:905418344519:runtime/personal_finance_agent-4EJMkjFcLO"
+    description: "Personal financial advisor with budget analysis and investment tools"
+
+  market_trends:
+    name: "Market Trends Agent"
+    arn: "arn:aws:bedrock-agentcore:us-west-2:905418344519:runtime/market_trends_agent-VuvnWl6Gkp"
+    description: "Market intelligence agent with real-time data and broker profile management"

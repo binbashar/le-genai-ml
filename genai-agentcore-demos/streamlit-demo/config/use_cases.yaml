@@ -1,0 +1,52 @@
+# Use case templates for AgentCore FinTech demos
+# Each use case includes a title, persona, and prompt template
+
+finance_assistant:
+  - id: tech_professional_budget
+    title: "Tech Professional - Budget Analysis"
+    persona: "Sarah Chen | $180K/year | Tech Professional | San Francisco"
+    description: "50/30/20 budget analysis with dining overspending check"
+    prompt: "I make $180K annually with $4K in monthly expenses. Create my 50/30/20 budget and analyze if I'm overspending on dining at $1200/month. Should I cut back or is this reasonable for my income?"
+
+  - id: first_time_investor
+    title: "First-Time Investor - Portfolio Planning"
+    persona: "Mike Torres | $95K/year | Marketing Manager | NYC"
+    description: "Conservative portfolio for investment beginner"
+    prompt: "I'm 28 years old making $95K per year. I can save $1000/month and want to start investing for retirement. I've never invested before and want a conservative approach. What budget should I follow and how should I allocate my investments?"
+
+  - id: high_earner_optimization
+    title: "High Earner - Tax Optimization"
+    persona: "Jennifer Park | $350K/year | VP Engineering | Seattle"
+    description: "Advanced budget optimization with tax considerations"
+    prompt: "I earn $350K annually and spend about $8K/month on expenses. I'm maxing out my 401k but want to optimize my budget and explore additional tax-advantaged investment strategies. What's my ideal allocation?"
+
+  - id: family_budget_planning
+    title: "Family Planning - Education Savings"
+    persona: "David & Lisa Wong | $240K/year | Dual Income | Austin"
+    description: "Family budget with college savings goals"
+    prompt: "We're a family of four earning $240K combined. Monthly expenses are $7K including mortgage. We want to save for our kids' college (ages 8 and 10) while maintaining a comfortable lifestyle. Help us create a budget and investment plan."
+
+market_trends:
+  - id: tech_stocks_comparison
+    title: "Tech Giants - 6-Month Comparison"
+    persona: "Institutional Investor"
+    description: "Compare major tech stocks and build growth portfolio"
+    prompt: "Compare NVDA, MSFT, and GOOGL stock performance over the past 6 months. Create a $50K growth-oriented portfolio allocation suitable for a tech professional with high risk tolerance."
+
+  - id: sector_rotation_strategy
+    title: "Sector Rotation - Energy vs Tech"
+    persona: "Wealth Manager"
+    description: "Cross-sector analysis for portfolio rebalancing"
+    prompt: "Analyze the energy sector versus technology sector for Q1 2025. I'm managing a $500K portfolio and considering rotating 20% from tech to energy. What are the trends and risks I should consider?"
+
+  - id: dividend_income_portfolio
+    title: "Dividend Portfolio - Income Generation"
+    persona: "Retiree Portfolio"
+    description: "Conservative dividend-focused portfolio"
+    prompt: "I'm looking to build a $200K dividend income portfolio with monthly cash flow. Compare high-dividend stocks in utilities, REITs, and consumer staples. What allocation would generate stable income with moderate risk?"
+
+  - id: emerging_markets_analysis
+    title: "Emerging Markets - Growth Opportunities"
+    persona: "Hedge Fund Analyst"
+    description: "International diversification analysis"
+    prompt: "Research emerging market opportunities in Asia and Latin America. I have $100K to diversify internationally. Compare market trends, currency risks, and top performers. What's your recommendation for geographic allocation?"
