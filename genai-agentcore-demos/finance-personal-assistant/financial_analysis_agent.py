@@ -3,8 +3,8 @@
 from typing import List
 
 import yfinance as yf
+from config import BedrockModelCatalog, get_bedrock_model
 from strands import Agent, tool
-from strands.models import BedrockModelConverse
 
 # Financial Analysis Agent System Prompt
 FINANCIAL_ANALYSIS_PROMPT = """You are a specialized financial analysis agent focused on investment research and portfolio recommendations. Your role is to:
@@ -15,10 +15,10 @@ FINANCIAL_ANALYSIS_PROMPT = """You are a specialized financial analysis agent fo
 
 You do not provide specific investment advice but rather present analytical data to help users make informed decisions. Always include disclaimers about market risks and the importance of consulting financial advisors."""
 
-bedrock_model = BedrockModelConverse(
-    model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-    region_name="us-west-2",
-    temperature=0.0,  # Deterministic responses for financial advice
+# One-liner: Create Strands BedrockModelConverse
+model = get_bedrock_model(
+    model=BedrockModelCatalog.NOVA_LITE,
+    framework="strands",
 )
 
 
@@ -132,7 +132,7 @@ def compare_stock_performance(symbols: List[str], period: str = "1y") -> str:
 
 # Create the Financial Analysis Agent
 financial_analysis_agent = Agent(
-    model=bedrock_model,  # Using the same bedrock_model from Step 1
+    model=model,
     system_prompt=FINANCIAL_ANALYSIS_PROMPT,
     tools=[get_stock_analysis, create_diversified_portfolio, compare_stock_performance],
     callback_handler=None,

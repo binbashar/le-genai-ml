@@ -22,6 +22,9 @@ dependencies = [
     "pandas>=2.3.2",
     "matplotlib>=3.10.6",
     "yfinance>=0.2.65",
+    "langgraph>=1.0.1",
+    "langchain-aws>=1.0.0",
+    "langchain-core>=1.0.0",
 ]
 
 [project.optional-dependencies]

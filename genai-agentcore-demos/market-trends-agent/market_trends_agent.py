@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from datetime import datetime
@@ -7,7 +6,6 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
-from session_manager import get_actor_id
 from tools import (
     collect_broker_preferences_interactively,
     compose_context,
@@ -30,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Patch OpenTelemetry bug: _decode_tool_use tries to json.loads() already-parsed dicts
 # This happens when Claude returns tool_use blocks with dict inputs
 try:
-    from opentelemetry.instrumentation.botocore.extensions import bedrock_utils
+    from opentelemetry.instrumentation.botocore.extensions import bedrock_utils # type: ignore
 
     original_decode_tool_use = bedrock_utils._decode_tool_use
 
@@ -48,10 +46,6 @@ try:
 except Exception as e:
     logger.warning(f"Could not apply OpenTelemetry patch: {e}")
 
-# Memory setup is now handled in tools/memory_tools.py
-
-
-# Define the agent using LangGraph construction with AgentCore Memory
 def create_market_trends_agent(session_id: str, actor_id: str):
     """Create and configure the LangGraph market trends agent with memory
 
@@ -59,23 +53,17 @@ def create_market_trends_agent(session_id: str, actor_id: str):
         session_id: Session ID for this conversation
         actor_id: Authenticated actor ID for memory operations
     """
-    from langchain_aws import ChatBedrock
+    from config import BedrockModelCatalog, get_bedrock_model
 
-    # Create memory
     memory_client, memory_id = create_memory()
 
-    # Initialize your LLM with Claude Sonnet 4 for advanced reasoning and analysis
-    # Using inference profile for cross-region availability
-    llm = ChatBedrock(
-        model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
-        model_kwargs={"temperature": 0.1},
-        streaming=True,  # Enable streaming for real-time token generation
+    model = get_bedrock_model(
+        model=BedrockModelCatalog.NOVA_LITE,
+        framework="langchain",
     )
 
-    # Create memory tools using the memory_tools module
     memory_tools = create_memory_tools(memory_client, memory_id, session_id, actor_id)
 
-    # Bind tools to the LLM (market data tools + memory tools + conversational broker tools)
     tools = [
         get_stock_data,
         search_news,
@@ -84,9 +72,8 @@ def create_market_trends_agent(session_id: str, actor_id: str):
         get_broker_card_template,
         collect_broker_preferences_interactively,
     ] + memory_tools
-    llm_with_tools = llm.bind_tools(tools)
+    llm_with_tools = model.bind_tools(tools)
 
-    # System message using Claude Sonnet 4 best practices (XML tags, explicit instructions, action-oriented)
     system_message = """You are an expert market intelligence analyst providing real-time market data and personalized investment insights.
 
 <memory_behavior>
@@ -136,18 +123,14 @@ Deliver professional, data-driven analysis tailored to user preferences when ava
                     actor_id=actor_id,
                 )
 
-                # Compose context into XML format
                 context_str = compose_context(context_dict)
 
-                # Inject context into user message if available
                 if context_str:
                     logger.info(
                         f"Injecting {len(context_str)} characters of context from memory"
                     )
-                    # Prepend context to user query
                     latest_user_message.content = context_str + user_query
 
-        # Filter messages more carefully to preserve tool_use/tool_result pairs
         messages_to_filter = filtered_messages
         filtered_messages = []
         i = 0
@@ -473,32 +456,3 @@ async def market_trends_agent_runtime(payload, context):
     except Exception as e:
         logger.error(f"Error in streaming agent: {e}", exc_info=True)
         yield {"type": "error", "message": f"Agent error: {str(e)}"}
-
-
-def market_trends_agent_local(payload):
-    """
-    Invoke the market trends agent with a payload for local testing
-
-    Args:
-        payload (dict): Dictionary containing the user prompt and optional session_id
-
-    Returns:
-        str: The agent's response containing market analysis and data
-    """
-    user_input = payload.get("prompt")
-    session_id = payload.get("session_id")
-
-    if not session_id:
-        session_id = f"local-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-    actor_id = get_actor_id()
-
-    agent = create_market_trends_agent(session_id, actor_id)
-
-    response = agent.invoke({"messages": [HumanMessage(content=user_input)]})
-
-    return response["messages"][-1].content
-
-
-if __name__ == "__main__":
-    app.run()

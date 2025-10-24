@@ -1,10 +1,11 @@
 # Export complete budget agent implementation to Python file
-from strands import Agent, tool
-from strands.models import BedrockModel
-from strands_tools import calculator
-from pydantic import BaseModel, Field
 from typing import List
+
 import matplotlib.pyplot as plt
+from config import BedrockModelCatalog, get_bedrock_model
+from pydantic import BaseModel, Field
+from strands import Agent, tool
+from strands_tools import calculator
 
 
 # Define structured output models for financial data
@@ -12,6 +13,7 @@ class BudgetCategory(BaseModel):
     name: str = Field(description="Budget category name")
     amount: float = Field(description="Dollar amount for this category")
     percentage: float = Field(description="Percentage of total income")
+
 
 
 class FinancialReport(BaseModel):
@@ -37,11 +39,9 @@ When generating financial reports, always provide:
 
 Use structured output when requested to provide comprehensive financial reports."""
 
-# Continue with previous configurations
-bedrock_model = BedrockModel(
-    model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-    region_name="us-west-2",
-    temperature=0.0,  # Deterministic responses for financial advice
+model = get_bedrock_model(
+    model=BedrockModelCatalog.NOVA_LITE,
+    framework="strands",
 )
 
 
@@ -84,7 +84,7 @@ def create_financial_chart(
 
 # Create our complete financial agent
 budget_agent = Agent(
-    model=bedrock_model,
+    model=model,
     system_prompt=BUDGET_SYSTEM_PROMPT,
     tools=[calculate_budget, create_financial_chart, calculator],
     callback_handler=None,

@@ -1,13 +1,11 @@
 # Create AgentCore-compatible deployment file with streaming endpoint
 
-from strands import Agent, tool
-from strands.models import BedrockModel
-from strands.agent.conversation_manager import SummarizingConversationManager
-
-from budget_agent import FinancialReport, budget_agent
-from financial_analysis_agent import financial_analysis_agent
 from bedrock_agentcore import BedrockAgentCoreApp
-
+from budget_agent import FinancialReport, budget_agent
+from config import BedrockModelCatalog, get_bedrock_model
+from financial_analysis_agent import financial_analysis_agent
+from strands import Agent, tool
+from strands.agent.conversation_manager import SummarizingConversationManager
 from utils import get_guardrail_id
 
 app = BedrockAgentCoreApp()
@@ -38,15 +36,24 @@ conversation_manager = SummarizingConversationManager(
     preserve_recent_messages=5,  # Always keep 5 most recent messages
 )
 
-# Continue with previous configurations
-bedrock_model = BedrockModel(
-    model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-    region_name="us-west-2",
-    temperature=0.0,  # Deterministic responses for financial advice
-    guardrail_id=get_guardrail_id(),
-    guardrail_version="DRAFT",
-    guardrail_trace="enabled",
-)
+guardrail_id = get_guardrail_id()
+
+if guardrail_id:
+    guardrails_config = {
+        "guardrail_id": guardrail_id,
+        "guardrail_version": "DRAFT",
+        "guardrail_trace": "enabled",
+    }
+    model = get_bedrock_model(
+        model=BedrockModelCatalog.NOVA_LITE,
+        framework="strands",
+        **guardrails_config,
+    )
+else:
+    model = get_bedrock_model(
+        model=BedrockModelCatalog.NOVA_LITE,
+        framework="strands",
+    )
 
 
 @tool
@@ -79,7 +86,7 @@ def financial_analysis_agent_tool(query: str) -> str:
 
 
 orchestrator_agent = Agent(
-    model=bedrock_model,
+    model=model,
     system_prompt=ORCHESTRATOR_PROMPT,
     tools=[budget_agent_tool, financial_analysis_agent_tool],
     conversation_manager=conversation_manager,

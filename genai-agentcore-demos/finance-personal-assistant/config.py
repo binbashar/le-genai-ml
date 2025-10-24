@@ -192,6 +192,11 @@ def get_client(service_name: str, **kwargs):
     return session.client(service_name, **kwargs)
 
 
+# ============================================================================
+# One-Liner Model Factory (KISS + DRY)
+# ============================================================================
+
+
 def get_bedrock_model(
     framework: str,
     model: BedrockModelCatalog | ModelConfig,
@@ -208,7 +213,7 @@ def get_bedrock_model(
 
     Returns:
         Instantiated model (BedrockModel/BedrockModelConverse for strands,
-        ChatBedrock for langchain) OR raw kwargs for unknown frameworks
+        ChatBedrockConverse for langchain) OR raw kwargs for unknown frameworks
 
     Examples:
         # Strands - Basic
