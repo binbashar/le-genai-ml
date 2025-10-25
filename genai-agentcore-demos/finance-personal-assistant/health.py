@@ -27,6 +27,7 @@ Examples:
   uv run health.py --timeout 120
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -37,12 +38,15 @@ from config import get_client
 
 
 if __name__ == "__main__":
+    # Use AWS_PROFILE env var if set, otherwise fall back to "binbash"
+    aws_profile = os.getenv("AWS_PROFILE", "binbash")
+
     config = AgentHealthConfig(
         agent_name="Finance Personal Assistant",
         agent_dir=str(Path(__file__).parent),
         arn_file=".agent_arn",
         default_prompt="Hello, are you operational?",
-        aws_profile="binbash",
+        aws_profile=aws_profile,
     )
 
     create_health_check_cli(config, get_client_func=get_client)
