@@ -38,9 +38,8 @@ from config import get_client
 
 if __name__ == "__main__":
     config = AgentHealthConfig(
-        agent_name="Market Trends Agent",
+        agent_name="market_trends_agent",
         agent_dir=str(Path(__file__).parent),
-        arn_file=".agent_arn",
         default_prompt="Hello, are you operational?",
         aws_profile="binbash",
     )

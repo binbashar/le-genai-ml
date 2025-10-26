@@ -31,19 +31,25 @@ load_dotenv(find_dotenv(usecwd=True))
 # Import authentication utilities (optional dependency - graceful fallback if not available)
 try:
     # Try relative import first (when imported as a module)
-    from .auth_utils import authenticate, invoke_with_token, load_auth_config
+    from .auth_utils import (
+        authenticate,
+        extract_oauth_config_from_yaml,
+        invoke_with_token,
+    )
 
     AUTH_UTILS_AVAILABLE = True
 except (ImportError, ValueError):
     try:
         # Try absolute import (when run as script or from parent directory)
-        from shared.auth_utils import authenticate, invoke_with_token, load_auth_config
+        from shared.auth_utils import (
+            authenticate,
+            extract_oauth_config_from_yaml,
+            invoke_with_token,
+        )
 
         AUTH_UTILS_AVAILABLE = True
     except ImportError:
         AUTH_UTILS_AVAILABLE = False
-
-
 
 
 # Health Check Constants
@@ -95,9 +101,8 @@ class AgentHealthConfig:
     """Configuration for agent health checks.
 
     Args:
-        agent_name: Human-readable name for the agent
-        agent_dir: Directory containing agent code and configuration
-        arn_file: File containing deployed agent ARN
+        agent_name: Human-readable name for the agent (must match name in .bedrock_agentcore.yaml)
+        agent_dir: Directory containing agent code and .bedrock_agentcore.yaml
         default_prompt: Default test prompt
         aws_profile: AWS profile for authentication
         demo_credentials: Optional demo credentials for testing authenticated agents
@@ -105,7 +110,6 @@ class AgentHealthConfig:
 
     agent_name: str
     agent_dir: str
-    arn_file: str = ".agent_arn"
     default_prompt: str = "Hello, are you operational?"
     aws_profile: str = "binbash"
     demo_credentials: HealthCheckCredentials | None = None
@@ -158,7 +162,9 @@ def create_health_check_cli(
     if args.aws:
         runtime_arn = get_runtime_arn(config)
         if not runtime_arn:
-            print(f"❌ Not deployed: {config.arn_file} not found")
+            print(
+                "❌ Not deployed: .bedrock_agentcore.yaml not found or missing agent ARN"
+            )
             sys.exit(1)
         success = run_health_check_aws(
             config, runtime_arn, timeout=args.timeout, get_client_func=get_client_func
@@ -224,22 +230,29 @@ def _validate_response(response_text: str, elapsed: float) -> bool:
 
 
 def _detect_agent_authentication(agent_dir: str) -> dict | None:
-    """Detect if agent has authentication configured.
+    """Detect OAuth configuration from .bedrock_agentcore.yaml (provider-agnostic).
+
+    Reads JWT authorizer configuration directly from deployment YAML for single source of truth.
+    Supports any OAuth2/OIDC provider: Cognito, Auth0, Okta, custom IDPs.
 
     Args:
-        agent_dir: Directory containing agent configuration
+        agent_dir: Directory containing .bedrock_agentcore.yaml
 
     Returns:
-        Authentication configuration dict if available, None otherwise
+        OAuth configuration dict with discovery_url and client_id, or None if no OAuth configured
+
+    Example return value:
+        {
+            "discovery_url": "https://cognito-idp.us-west-2.amazonaws.com/.../.well-known/openid-configuration",
+            "client_id": "abc123...",
+            "allowed_clients": ["abc123...", ...]
+        }
     """
     if not AUTH_UTILS_AVAILABLE:
         return None
 
-    auth_config_path = Path(agent_dir) / ".auth_config"
-    if not auth_config_path.exists():
-        return None
-
-    return load_auth_config(auth_config_path)
+    yaml_path = Path(agent_dir) / ".bedrock_agentcore.yaml"
+    return extract_oauth_config_from_yaml(yaml_path)
 
 
 def _get_health_check_credentials(config: AgentHealthConfig) -> HealthCheckCredentials:
@@ -771,7 +784,7 @@ def _extract_sse_token(event: dict[str, Any] | str) -> str:
 
 
 def get_runtime_arn(config: AgentHealthConfig) -> str | None:
-    """Read AgentCore Runtime ARN from file.
+    """Read AgentCore Runtime ARN from .bedrock_agentcore.yaml.
 
     Args:
         config: Agent configuration
@@ -779,12 +792,40 @@ def get_runtime_arn(config: AgentHealthConfig) -> str | None:
     Returns:
         Runtime ARN or None if not deployed
     """
-    arn_path = Path(config.agent_dir) / config.arn_file
+    import yaml
 
-    if not arn_path.exists():
+    config_file = Path(config.agent_dir) / ".bedrock_agentcore.yaml"
+
+    if not config_file.exists():
         return None
 
-    return arn_path.read_text().strip()
+    try:
+        with open(config_file) as f:
+            yaml_config = yaml.safe_load(f)
+
+        # Navigate YAML structure: agents.{agent_name}.bedrock_agentcore.agent_arn
+        if "agents" in yaml_config:
+            # Try config.agent_name first, then fall back to default_agent
+            agent_name = config.agent_name
+            if (
+                agent_name not in yaml_config["agents"]
+                and "default_agent" in yaml_config
+            ):
+                agent_name = yaml_config["default_agent"]
+
+            if (
+                agent_name in yaml_config["agents"]
+                and "bedrock_agentcore" in yaml_config["agents"][agent_name]
+                and "agent_arn"
+                in yaml_config["agents"][agent_name]["bedrock_agentcore"]
+            ):
+                return yaml_config["agents"][agent_name]["bedrock_agentcore"][
+                    "agent_arn"
+                ]
+
+        return None
+    except Exception:
+        return None
 
 
 def get_region() -> str:

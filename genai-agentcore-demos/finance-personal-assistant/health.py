@@ -41,9 +41,8 @@ from shared.agentcore_health import (
 
 if __name__ == "__main__":
     config = AgentHealthConfig(
-        agent_name="Finance Personal Assistant",
+        agent_name="finance_personal_assistant",
         agent_dir=str(Path(__file__).parent),
-        arn_file=".agent_arn",
         default_prompt="Hello, are you operational?",
         aws_profile="binbash",
         demo_credentials=HealthCheckCredentials(
