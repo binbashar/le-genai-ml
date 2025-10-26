@@ -7,17 +7,36 @@ Handles IAM role creation, permissions, container deployment, and agent setup
 import argparse
 import json
 import logging
+import sys
 import time
 from pathlib import Path
 
 import boto3
 from config import DEFAULT_REGION, get_region
 
+# Add parent directory to path for shared modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from shared.auth_utils import configure_agent_auth, load_auth_config # type: ignore
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION
+# ============================================================================
+# Authentication is configured per-agent via .auth_config file (local to this directory)
+#
+# To enable authentication for THIS agent:
+#   Run: uv run setup_identity.py --agent market-trends-agent
+#   This creates: .auth_config (gitignored)
+#
+# To disable authentication:
+#   Delete: .auth_config (agent will use IAM)
+#
+# ============================================================================
 
 
 class MarketTrendsAgentDeployer:
@@ -26,6 +45,9 @@ class MarketTrendsAgentDeployer:
     def __init__(self, region: str = None):
         self.region = region or get_region()
         self.iam_client = boto3.client("iam", region_name=self.region)
+        self.agentcore_client = boto3.client(
+            "bedrock-agentcore-control", region_name=self.region
+        )
 
     def create_execution_role(self, role_name: str) -> str:
         """Create IAM execution role with all required permissions"""
@@ -147,6 +169,34 @@ class MarketTrendsAgentDeployer:
             logger.error(f"❌ Failed to create IAM role: {e}")
             raise
 
+    def _configure_auth(self, runtime, auth_config: dict) -> None:
+        """Configure authentication for the runtime (generic - supports multiple providers)"""
+
+        try:
+            # Get runtime ARN from runtime object
+            status = runtime.status()
+            runtime_arn = None
+            if hasattr(status, "agent_arn"):
+                runtime_arn = status.agent_arn
+            elif hasattr(status, "config") and hasattr(status.config, "agent_arn"):
+                runtime_arn = status.config.agent_arn
+
+            if not runtime_arn:
+                logger.error("❌ Could not extract runtime ARN for auth configuration")
+                return
+
+            logger.info(f"   Configuring authentication for runtime: {runtime_arn}")
+
+            # Use generic configure_agent_auth utility
+            configure_agent_auth(self.agentcore_client, runtime_arn, auth_config)
+
+        except Exception as e:
+            logger.error(f"❌ Failed to configure authentication: {e}")
+            logger.error("   The agent is deployed but authentication is NOT enabled")
+            logger.error(
+                "   You may need to configure it manually via AWS Console or API"
+            )
+
     def deploy_agent(
         self,
         agent_name: str,
@@ -214,6 +264,20 @@ class MarketTrendsAgentDeployer:
 
             logger.info("✅ Launch completed")
 
+            auth_config_file = Path(__file__).parent / ".auth_config"
+            auth_config = load_auth_config(auth_config_file)
+
+            if auth_config:
+                provider = auth_config.get("provider", "unknown")
+                logger.info(f"🔐 Authentication configured: {provider}")
+                logger.info(f"   Config file: {auth_config_file}")
+                self._configure_auth(runtime, auth_config)
+            else:
+                logger.info("🔓 Using IAM authentication (no .auth_config found)")
+                logger.info(
+                    "   To enable auth: uv run setup_identity.py --agent market-trends-agent"
+                )
+
             # Step 5: Get status and extract ARN
             logger.info("📊 Getting runtime status...")
             status = runtime.status()
@@ -236,6 +300,21 @@ class MarketTrendsAgentDeployer:
                 logger.info(f"📍 Region: {self.region}")
                 logger.info(f"🔐 Execution Role: {execution_role_arn}")
                 logger.info(f"💾 ARN saved to: {arn_file}")
+
+                auth_config = load_auth_config(Path(__file__).parent / ".auth_config")
+                if auth_config:
+                    provider = auth_config.get("provider", "unknown")
+                    logger.info("\n🔒 Authentication:")
+                    logger.info(f"   Provider: {provider}")
+                    if provider == "cognito":
+                        logger.info(
+                            f"   User Pool: {auth_config.get('user_pool_id', 'N/A')}"
+                        )
+                        logger.info(
+                            f"   Client ID: {auth_config.get('client_id', 'N/A')}"
+                        )
+                else:
+                    logger.info("\n🔓 Authentication: IAM (default)")
 
                 # Show CloudWatch logs info
                 agent_id = runtime_arn.split("/")[-1]

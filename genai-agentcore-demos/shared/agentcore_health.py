@@ -24,6 +24,26 @@ from typing import Any, Protocol
 import aiohttp
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionError
+from dotenv import find_dotenv, load_dotenv
+
+load_dotenv(find_dotenv(usecwd=True))
+
+# Import authentication utilities (optional dependency - graceful fallback if not available)
+try:
+    # Try relative import first (when imported as a module)
+    from .auth_utils import authenticate, invoke_with_token, load_auth_config
+
+    AUTH_UTILS_AVAILABLE = True
+except (ImportError, ValueError):
+    try:
+        # Try absolute import (when run as script or from parent directory)
+        from shared.auth_utils import authenticate, invoke_with_token, load_auth_config
+
+        AUTH_UTILS_AVAILABLE = True
+    except ImportError:
+        AUTH_UTILS_AVAILABLE = False
+
+
 
 
 # Health Check Constants
@@ -56,6 +76,21 @@ class BotoClientFactory(Protocol):
 
 
 @dataclass
+class HealthCheckCredentials:
+    """Credentials for health check authentication.
+
+    Args:
+        username: Username for authentication
+        password: Password for authentication
+        credential_source: Source of credentials (e.g., "demo", "env", "config")
+    """
+
+    username: str
+    password: str
+    credential_source: str = "demo"
+
+
+@dataclass
 class AgentHealthConfig:
     """Configuration for agent health checks.
 
@@ -65,6 +100,7 @@ class AgentHealthConfig:
         arn_file: File containing deployed agent ARN
         default_prompt: Default test prompt
         aws_profile: AWS profile for authentication
+        demo_credentials: Optional demo credentials for testing authenticated agents
     """
 
     agent_name: str
@@ -72,6 +108,7 @@ class AgentHealthConfig:
     arn_file: str = ".agent_arn"
     default_prompt: str = "Hello, are you operational?"
     aws_profile: str = "binbash"
+    demo_credentials: HealthCheckCredentials | None = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -186,6 +223,171 @@ def _validate_response(response_text: str, elapsed: float) -> bool:
     return False
 
 
+def _detect_agent_authentication(agent_dir: str) -> dict | None:
+    """Detect if agent has authentication configured.
+
+    Args:
+        agent_dir: Directory containing agent configuration
+
+    Returns:
+        Authentication configuration dict if available, None otherwise
+    """
+    if not AUTH_UTILS_AVAILABLE:
+        return None
+
+    auth_config_path = Path(agent_dir) / ".auth_config"
+    if not auth_config_path.exists():
+        return None
+
+    return load_auth_config(auth_config_path)
+
+
+def _get_health_check_credentials(config: AgentHealthConfig) -> HealthCheckCredentials:
+    """Get credentials for health check authentication.
+
+    Retrieves credentials from config or environment variables only.
+    Never uses hardcoded defaults for security reasons.
+
+    Args:
+        config: Agent health check configuration
+
+    Returns:
+        HealthCheckCredentials instance
+
+    Raises:
+        ValueError: If credentials are required but not available
+    """
+    # Priority 1: Use credentials from config
+    if config.demo_credentials:
+        return config.demo_credentials
+
+    # Priority 2: Check environment variables
+    username = os.environ.get("AGENTCORE_HEALTH_USERNAME")
+    password = os.environ.get("AGENTCORE_HEALTH_PASSWORD")
+
+    if username and password:
+        return HealthCheckCredentials(
+            username=username,
+            password=password,
+            credential_source="environment",
+        )
+
+    # No hardcoded credentials for security - fail explicitly
+    raise ValueError(
+        "Health check credentials required for authenticated agent. "
+        "Provide credentials via:\n"
+        "  1. AgentHealthConfig.demo_credentials parameter\n"
+        "  2. Environment variables: AGENTCORE_HEALTH_USERNAME, AGENTCORE_HEALTH_PASSWORD\n"
+        "See docs/AUTHENTICATION_GUIDE.md for details."
+    )
+
+
+def _extract_region_from_arn(runtime_arn: str) -> str:
+    """Extract AWS region from AgentCore Runtime ARN.
+
+    Args:
+        runtime_arn: AgentCore Runtime ARN (format: arn:aws:bedrock-agentcore:region:...)
+
+    Returns:
+        AWS region string
+
+    Raises:
+        ValueError: If ARN format is invalid
+    """
+    try:
+        return runtime_arn.split(":")[3]
+    except IndexError:
+        raise ValueError(f"Invalid AgentCore Runtime ARN format: {runtime_arn}")
+
+
+def _invoke_with_iam(
+    config: AgentHealthConfig,
+    runtime_arn: str,
+    prompt: str,
+    session_id: str,
+    start_time: float,
+    timeout: int,
+    get_client_func: BotoClientFactory | None,
+) -> tuple[bool, str, float]:
+    """Invoke agent using IAM-based authentication.
+
+    Args:
+        config: Agent health check configuration
+        runtime_arn: AgentCore Runtime ARN
+        prompt: Test prompt to send
+        session_id: Unique session identifier
+        start_time: Start time for timeout calculation
+        timeout: Response timeout in seconds
+        get_client_func: Optional boto3 client factory
+
+    Returns:
+        Tuple of (success, response_text, elapsed_time)
+    """
+    client = _create_agentcore_client(config, get_client_func, timeout)
+
+    return _invoke_aws_agent(
+        client, runtime_arn, prompt, session_id, start_time, timeout
+    )
+
+
+def _invoke_with_token_auth(
+    auth_config: dict,
+    credentials: HealthCheckCredentials,
+    runtime_arn: str,
+    prompt: str,
+    session_id: str,
+    start_time: float,
+    timeout: int,
+) -> tuple[bool, str, float]:
+    """Invoke agent using token-based authentication.
+
+    Args:
+        auth_config: Authentication configuration
+        credentials: Health check credentials
+        runtime_arn: AgentCore Runtime ARN
+        prompt: Test prompt to send
+        session_id: Unique session identifier
+        start_time: Start time for timeout calculation
+        timeout: Response timeout in seconds
+
+    Returns:
+        Tuple of (success, response_text, elapsed_time)
+    """
+    # Authenticate and get token
+    auth_result = authenticate(auth_config, credentials.username, credentials.password)
+    token = auth_result["AccessToken"]
+
+    # Extract region from ARN
+    region = _extract_region_from_arn(runtime_arn)
+
+    # Invoke with token
+    response = invoke_with_token(
+        agent_arn=runtime_arn,
+        token=token,
+        prompt=prompt,
+        session_id=session_id,
+        region=region,
+        timeout=timeout,
+    )
+
+    # Parse SSE response
+    response_text = ""
+    for line in response.iter_lines():
+        if _check_timeout(start_time, timeout):
+            return False, response_text, timeout
+
+        line_str = line.decode("utf-8") if isinstance(line, bytes) else line
+        event = parse_sse_event(line_str)
+
+        if not event:
+            continue
+
+        response_text += _extract_sse_token(event)
+
+    elapsed = time.time() - start_time
+    return True, response_text, elapsed
+
+
 def run_health_check_aws(
     config: AgentHealthConfig,
     runtime_arn: str,
@@ -194,26 +396,58 @@ def run_health_check_aws(
 ) -> bool:
     """Test agent via AWS AgentCore Runtime.
 
+    Automatically detects and uses appropriate authentication method:
+    - Token-based (JWT) if agent has .auth_config
+    - IAM-based (SigV4) otherwise
+
     Args:
-        config: Agent configuration
+        config: Agent configuration (may include demo credentials)
         runtime_arn: AgentCore Runtime ARN
         timeout: Response timeout in seconds
         get_client_func: Optional function to create boto3 client
 
     Returns:
         True if healthy, False otherwise
+
+    Note:
+        For token-based authentication, credentials MUST be provided via:
+        1. config.demo_credentials parameter
+        2. Environment variables (AGENTCORE_HEALTH_USERNAME, AGENTCORE_HEALTH_PASSWORD)
+
+        Health check will fail with clear error if credentials are not available.
     """
-    prompt, random_session_id, start_time = _setup_health_check(
-        config,
-        session_prefix=HealthCheckConstants.AWS_SESSION_PREFIX,
+    prompt, session_id, start_time = _setup_health_check(
+        config, session_prefix=HealthCheckConstants.AWS_SESSION_PREFIX
     )
 
     try:
-        client = _create_agentcore_client(config, get_client_func, timeout)
+        # Detect authentication configuration
+        auth_config = _detect_agent_authentication(config.agent_dir)
 
-        success, response_text, elapsed = _invoke_aws_agent(
-            client, runtime_arn, prompt, random_session_id, start_time, timeout
-        )
+        if auth_config:
+            # Token-based authentication strategy
+            credentials = _get_health_check_credentials(config)
+
+            success, response_text, elapsed = _invoke_with_token_auth(
+                auth_config=auth_config,
+                credentials=credentials,
+                runtime_arn=runtime_arn,
+                prompt=prompt,
+                session_id=session_id,
+                start_time=start_time,
+                timeout=timeout,
+            )
+        else:
+            # IAM-based authentication strategy
+            success, response_text, elapsed = _invoke_with_iam(
+                config=config,
+                runtime_arn=runtime_arn,
+                prompt=prompt,
+                session_id=session_id,
+                start_time=start_time,
+                timeout=timeout,
+                get_client_func=get_client_func,
+            )
 
         if not success:
             return False
@@ -222,7 +456,7 @@ def run_health_check_aws(
 
     except Exception as e:
         elapsed = time.time() - start_time
-        print(f"  ❌ Client creation failed: {str(e)} [{elapsed:.2f}s]")
+        print(f"  ❌ Invocation failed: {str(e)} [{elapsed:.2f}s]")
         return False
 
 

@@ -1,1 +1,7 @@
 .claude/
+.auth_config
+.cognito_arns
+.users.json
+.demo_users.json
+cdk.out/
+outputs.json

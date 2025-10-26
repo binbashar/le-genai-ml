@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "aws-documentation": {
+            "args": [
+                "awslabs.aws-documentation-mcp-server@latest"
+            ],
+            "command": "uvx",
+            "env": {
+                "AWS_DOCUMENTATION_PARTITION": "aws"
+            },
+            "type": "stdio"
+        }
+    }
+}

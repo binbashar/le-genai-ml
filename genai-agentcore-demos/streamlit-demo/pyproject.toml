@@ -8,4 +8,10 @@ dependencies = [
     "boto3",
     "pyyaml",
     "watchdog>=6.0.0",
+    "requests",
+    "aiohttp",
+    "genai-agentcore-demos",
 ]
+
+[tool.uv.sources]
+genai-agentcore-demos = { path = "../", editable = true }

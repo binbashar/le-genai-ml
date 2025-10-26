@@ -1,19 +1,32 @@
 import json
 import logging
 import re
+import sys
 import time
 import uuid
 from pathlib import Path
 
 import boto3
+import requests
 import streamlit as st
 import yaml
+
+from shared.auth_utils import authenticate, invoke_with_token, load_auth_config
 
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION
+# ============================================================================
+# Authentication is detected DYNAMICALLY per agent:
+# - Each agent has its own .auth_config file
+# - This UI adapts to mixed scenarios (e.g., finance uses Cognito, market uses IAM)
+#
+# ============================================================================
 
 
 # Load configuration files
@@ -38,6 +51,36 @@ agents_config, use_cases_config = load_config()
 AWS_REGION = agents_config["aws"]["region"]
 TIMEOUT_SECONDS = agents_config["aws"]["timeout_seconds"]
 
+
+# Load auth config for each agent dynamically
+@st.cache_resource
+def load_agents_auth_config():
+    """Load authentication configuration for each agent"""
+    return {
+        "finance_assistant": load_auth_config(
+            Path("../finance-personal-assistant/.auth_config")
+        ),
+        "market_trends": load_auth_config(Path("../market-trends-agent/.auth_config")),
+    }
+
+
+AGENTS_AUTH = load_agents_auth_config()
+
+
+def should_use_auth() -> tuple[bool, str]:
+    """Check if any agent requires authentication"""
+    auth_agents = [name for name, config in AGENTS_AUTH.items() if config is not None]
+
+    if auth_agents:
+        return True, f"Authentication enabled for: {', '.join(auth_agents)}"
+    return False, "No authentication configured"
+
+
+def get_agent_auth_config(agent_type: str) -> dict:
+    """Get authentication configuration for specific agent"""
+    return AGENTS_AUTH.get(agent_type)
+
+
 # Page configuration
 st.set_page_config(
     page_title="AWS AgentCore FinTech Demo", page_icon="🏦", layout="centered"
@@ -58,17 +101,95 @@ with st.sidebar:
         st.stop()
 
     st.markdown("---")
-    st.markdown("### Agent Selection")
 
-    # Agent selector
-    agent_type = st.radio(
-        "Select Agent:",
-        ["finance_assistant", "market_trends"],
-        format_func=lambda x: agents_config["agents"][x]["name"],
-        label_visibility="collapsed",
-    )
+    # Authentication (if any agent requires it)
+    use_auth, reason = should_use_auth()
 
-    st.markdown("---")
+    if use_auth:
+        st.markdown("### 🔐 Authentication")
+        logger.info(f"Authentication enabled: {reason}")
+
+        # Check if user is logged in
+        if "auth_token" not in st.session_state:
+            # Login form
+            with st.form("login_form"):
+                username = st.text_input("Username", placeholder="broker_demo")
+                password = st.text_input(
+                    "Password", type="password", placeholder="DemoPass123!"
+                )
+                agent_for_login = st.radio(
+                    "Agent to access:",
+                    ["finance_assistant", "market_trends"],
+                    format_func=lambda x: agents_config["agents"][x]["name"],
+                )
+                submit = st.form_submit_button("Login", use_container_width=True)
+
+                if submit:
+                    if not username or not password:
+                        st.error("Please enter username and password")
+                    else:
+                        # Check if selected agent has authentication configured
+                        auth_config = get_agent_auth_config(agent_for_login)
+
+                        if not auth_config:
+                            st.error(
+                                f"❌ Agent '{agent_for_login}' does not have authentication configured"
+                            )
+                            st.caption(
+                                f"Run `uv run setup_identity.py --agent {agent_for_login}` to configure authentication"
+                            )
+                        else:
+                            try:
+                                # Authenticate using generic auth_utils
+                                with st.spinner("Authenticating..."):
+                                    auth_result = authenticate(
+                                        auth_config, username, password
+                                    )
+
+                                # Store auth token and user info in session
+                                st.session_state["auth_token"] = auth_result[
+                                    "AccessToken"
+                                ]
+                                st.session_state["username"] = username
+                                st.session_state["agent_type"] = agent_for_login
+                                st.success(f"Welcome, {username}!")
+                                st.rerun()
+
+                            except ValueError as e:
+                                st.error(str(e))
+                            except Exception as e:
+                                st.error(f"Authentication failed: {e}")
+                                logger.error(f"Login error: {e}")
+
+            st.stop()  # Don't show agent selector until logged in
+
+        else:
+            # User is logged in - show info and logout
+            st.success(f"✓ Logged in as: {st.session_state.get('username', 'User')}")
+
+            if st.button("Logout", use_container_width=True):
+                # Clear session state
+                for key in ["auth_token", "username", "agent_type"]:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
+
+            # Use the agent type from login
+            agent_type = st.session_state.get("agent_type", "finance_assistant")
+
+        st.markdown("---")
+
+    else:
+        # No authentication - show regular agent selector
+        st.markdown("### Agent Selection")
+
+        agent_type = st.radio(
+            "Select Agent:",
+            ["finance_assistant", "market_trends"],
+            format_func=lambda x: agents_config["agents"][x]["name"],
+            label_visibility="collapsed",
+        )
+
     st.caption("🏦 AWS GenAI Loft FinTech Event")
     st.caption("Built with Amazon Bedrock AgentCore")
 
@@ -213,27 +334,77 @@ if st.button("🚀 Run Agent", type="primary", use_container_width=True):
 
         # Brief spinner only for API connection
         with st.spinner("Connecting to agent..."):
-            # Create Bedrock AgentCore client
-            client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
-            logger.info(f"Created bedrock-agentcore client for region: {AWS_REGION}")
-
             # Generate unique session ID
             session_id = str(uuid.uuid4())
             logger.info(f"Generated session ID: {session_id}")
 
-            # Invoke agent runtime
-            response = client.invoke_agent_runtime(
-                agentRuntimeArn=agent_info["arn"],
-                payload=json.dumps({"prompt": custom_prompt, "session_id": session_id}),
-            )
+            # Check if agent has authentication configured
+            agent_auth_config = get_agent_auth_config(agent_type)
 
-            logger.info("Agent invocation successful, processing event stream")
+            if agent_auth_config:
+                # Agent requires authentication - use HTTP with JWT
+                logger.info(
+                    f"Using {agent_auth_config.get('provider', 'unknown')} authentication with HTTP invocation"
+                )
+
+                auth_token = st.session_state.get("auth_token")
+                if not auth_token:
+                    st.error("Not authenticated. Please refresh the page to login.")
+                    st.stop()
+
+                try:
+                    response = invoke_with_token(
+                        agent_arn=agent_info["arn"],
+                        token=auth_token,
+                        prompt=custom_prompt,
+                        session_id=session_id,
+                        region=AWS_REGION,
+                        timeout=TIMEOUT_SECONDS,
+                    )
+                    logger.info(
+                        "Agent invocation successful (authenticated), processing event stream"
+                    )
+
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 401:
+                        st.error("Authentication token expired. Please login again.")
+                        # Clear session and force re-login
+                        for key in ["auth_token", "username", "agent_type"]:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        st.stop()
+                    else:
+                        raise
+
+            else:
+                # No authentication - use IAM with boto3
+                logger.info("Using IAM authentication with boto3")
+
+                client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
+                logger.info(
+                    f"Created bedrock-agentcore client for region: {AWS_REGION}"
+                )
+
+                response = client.invoke_agent_runtime(
+                    agentRuntimeArn=agent_info["arn"],
+                    payload=json.dumps(
+                        {"prompt": custom_prompt, "session_id": session_id}
+                    ),
+                )
+
+                logger.info(
+                    "Agent invocation successful (IAM), processing event stream"
+                )
 
         # Stream response to temporary placeholder
+        # For authenticated/HTTP: response is already the stream
+        # For IAM/boto3: response["response"] is the stream
+        response_stream = response if agent_auth_config else response["response"]
+
         with temp_placeholder.container():
             response_text = st.write_stream(
                 stream_agent_response(
-                    response["response"], tool_placeholder, TIMEOUT_SECONDS
+                    response_stream, tool_placeholder, TIMEOUT_SECONDS
                 )
             )
 

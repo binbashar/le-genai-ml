@@ -1,9 +1,18 @@
 [project]
 name = "genai-agentcore-demos"
 version = "0.1.0"
-description = "Add your description here"
+description = "Shared utilities for AWS Bedrock AgentCore demos"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "pip>=25.2",
+    "boto3",
+    "pip",
+    "aiohttp",
+    "requests",
+    "python-dotenv",
+    "bedrock-agentcore",
+    "bedrock-agentcore-starter-toolkit",
 ]
+
+[tool.setuptools]
+packages = ["shared"]

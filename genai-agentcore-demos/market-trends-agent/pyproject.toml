@@ -16,6 +16,8 @@ dependencies = [
     "rich",
     "aws-opentelemetry-distro>=0.12.1",
     "aiohttp",
+    "python-dotenv>=1.1.1",
+    "aws-cdk-lib>=2.221.0",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +26,8 @@ dev = [
     "black",
     "flake8",
     "mypy",
+    "aws-cdk-lib",
+    "constructs",
 ]
 
 [build-system]
@@ -40,7 +44,7 @@ dev-dependencies = [
 
 [tool.black]
 line-length = 88
-target-version = ['py310']
+target-version = ['py313']
 
 [tool.mypy]
 python_version = "3.13"

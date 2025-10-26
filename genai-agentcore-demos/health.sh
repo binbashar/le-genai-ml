@@ -1,7 +1,5 @@
 #!/bin/bash
-# Health check for all agents
 
-# Add new agents here
 agents=(
     "market-trends-agent"
     "finance-personal-assistant"

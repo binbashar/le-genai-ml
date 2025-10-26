@@ -3,6 +3,7 @@
 from .agentcore_health import (
     AgentHealthConfig,
     HealthCheckConstants,
+    HealthCheckCredentials,
     create_health_check_cli,
     get_region,
     get_runtime_arn,
@@ -14,6 +15,7 @@ from .agentcore_health import (
 __all__ = [
     "AgentHealthConfig",
     "HealthCheckConstants",
+    "HealthCheckCredentials",
     "create_health_check_cli",
     "get_region",
     "get_runtime_arn",

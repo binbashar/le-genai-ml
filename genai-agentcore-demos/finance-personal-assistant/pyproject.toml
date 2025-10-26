@@ -26,6 +26,8 @@ dependencies = [
     "langchain-aws>=1.0.0",
     "langchain-core>=1.0.0",
     "aiohttp",
+    "aws-cdk-lib",
+    "constructs",
 ]
 
 [project.optional-dependencies]

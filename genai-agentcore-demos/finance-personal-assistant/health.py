@@ -32,9 +32,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from shared.agentcore_health import AgentHealthConfig, create_health_check_cli
 from config import get_client
-
+from shared.agentcore_health import (
+    AgentHealthConfig,
+    HealthCheckCredentials,
+    create_health_check_cli,
+)
 
 if __name__ == "__main__":
     config = AgentHealthConfig(
@@ -43,6 +46,11 @@ if __name__ == "__main__":
         arn_file=".agent_arn",
         default_prompt="Hello, are you operational?",
         aws_profile="binbash",
+        demo_credentials=HealthCheckCredentials(
+            username="broker_demo",
+            password="DemoPass123!",
+            credential_source="demo",
+        ),
     )
 
     create_health_check_cli(config, get_client_func=get_client)
