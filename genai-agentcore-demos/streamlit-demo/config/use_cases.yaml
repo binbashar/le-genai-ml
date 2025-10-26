@@ -1,7 +1,7 @@
 # Use case templates for AgentCore FinTech demos
 # Each use case includes a title, persona, and prompt template
 
-finance_assistant:
+finance_personal_assistant:
   - id: tech_professional_budget
     title: "Tech Professional - Budget Analysis"
     persona: "Sarah Chen | $180K/year | Tech Professional | San Francisco"
@@ -26,7 +26,7 @@ finance_assistant:
     description: "Family budget with college savings goals"
     prompt: "We're a family of four earning $240K combined. Monthly expenses are $7K including mortgage. We want to save for our kids' college (ages 8 and 10) while maintaining a comfortable lifestyle. Help us create a budget and investment plan."
 
-market_trends:
+market_trends_agent:
   - id: tech_stocks_comparison
     title: "Tech Giants - 6-Month Comparison"
     persona: "Institutional Investor"

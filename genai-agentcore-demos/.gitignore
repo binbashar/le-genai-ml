@@ -4,3 +4,4 @@
 .demo_users.json
 cdk.out/
 outputs.json
+streamlit-demo/config/agents.yaml

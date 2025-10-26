@@ -9,11 +9,7 @@ import boto3
 import requests
 import streamlit as st
 import yaml
-from shared.auth_utils import (
-    authenticate,
-    extract_oauth_config_from_ssm,
-    invoke_with_token,
-)
+from shared.auth_utils import authenticate, invoke_with_token
 
 # Configure logging
 logging.basicConfig(
@@ -22,20 +18,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# AUTHENTICATION CONFIGURATION (Per-Agent, AWS Best Practice)
+# AUTHENTICATION CONFIGURATION (Per-Agent)
 # ============================================================================
-# Each agent in agents.yaml has its own auth_mode:
-# - auth_mode: "oauth" → Requires user login with OAuth2/JWT (reads from SSM)
-# - auth_mode: "iam"   → Uses AWS IAM credentials (default, no login)
+# Each agent in agents.yaml has oauth_config:
+# - oauth_config: null → Uses AWS IAM credentials (no login required)
+# - oauth_config: {...} → Requires OAuth2/JWT login
 #
-# OAuth config is read from SSM: /agentcore/{agent_name}/oauth-config
-# This allows Streamlit to be deployed independently without file dependencies
+# OAuth config synced from SSM by sync.py (runs before Streamlit starts)
 #
-# UX Flow (Agent-First Design):
-# 1. User selects agent from selector (🔐 = OAuth, 🔑 = IAM)
-# 2. If OAuth agent → show login form for that specific agent
-# 3. If IAM agent → proceed directly (implicit authentication)
-# 4. Switching agents → re-authenticate if needed (independent auth per agent)
+# UX Flow:
+# 1. User selects agent (🔐 = OAuth, 🔑 = IAM)
+# 2. OAuth agent → show login form
+# 3. IAM agent → proceed directly
 # ============================================================================
 
 
@@ -62,56 +56,9 @@ AWS_REGION = agents_config["aws"]["region"]
 TIMEOUT_SECONDS = agents_config["aws"]["timeout_seconds"]
 
 
-# Load OAuth config for agents with auth_mode="oauth"
-@st.cache_resource
-def load_agents_auth_config():
-    """Load OAuth2 configuration from SSM for agents with auth_mode='oauth' (AWS best practice)"""
-    auth_configs = {}
-
-    for agent_key, agent_info in agents_config["agents"].items():
-        auth_mode = agent_info.get(
-            "auth_mode", "iam"
-        )  # Default to IAM if not specified
-
-        if auth_mode == "oauth":
-            agent_name = agent_info.get("agent_name")
-            if agent_name:
-                # Read OAuth config from SSM: /agentcore/{agent_name}/oauth-config
-                oauth_config = extract_oauth_config_from_ssm(
-                    agent_name=agent_name, region=AWS_REGION
-                )
-                if oauth_config:
-                    auth_configs[agent_key] = oauth_config
-                    logger.info(
-                        f"Loaded OAuth config for {agent_key} from SSM (/agentcore/{agent_name}/oauth-config)"
-                    )
-                else:
-                    logger.warning(
-                        f"Agent {agent_key} has auth_mode='oauth' but no OAuth config found in SSM"
-                    )
-            else:
-                logger.warning(
-                    f"Agent {agent_key} has auth_mode='oauth' but no agent_name specified"
-                )
-        else:
-            logger.debug(
-                f"Agent {agent_key} using IAM authentication (auth_mode='{auth_mode}')"
-            )
-
-    return auth_configs
-
-
-AGENTS_AUTH = load_agents_auth_config()
-
-
 def get_agent_auth_config(agent_type: str) -> dict | None:
     """Get OAuth configuration for specific agent (returns None if agent uses IAM)"""
-    auth_mode = agents_config["agents"][agent_type].get("auth_mode", "iam")
-
-    if auth_mode == "oauth":
-        return AGENTS_AUTH.get(agent_type)
-
-    return None
+    return agents_config["agents"][agent_type].get("oauth_config")
 
 
 # Page configuration
@@ -139,8 +86,7 @@ with st.sidebar:
     # Agent selector with auth mode indicator
     def format_agent_name(agent_key: str) -> str:
         agent_info = agents_config["agents"][agent_key]
-        auth_mode = agent_info.get("auth_mode", "iam")
-        icon = "🔐" if auth_mode == "oauth" else "🔑"
+        icon = "🔐" if agent_info.get("oauth_config") else "🔑"
         return f"{icon} {agent_info['name']}"
 
     selected_agent = st.radio(
@@ -150,13 +96,12 @@ with st.sidebar:
         key="agent_selector",
     )
 
-    # Get selected agent's auth mode
+    # Get selected agent config
     selected_agent_info = agents_config["agents"][selected_agent]
-    auth_mode = selected_agent_info.get("auth_mode", "iam")
     agent_type = selected_agent
 
     # Show authentication status (minimal)
-    if auth_mode == "oauth":
+    if selected_agent_info.get("oauth_config"):
         current_agent_in_session = st.session_state.get("agent_type")
 
         if current_agent_in_session == selected_agent:
@@ -180,13 +125,11 @@ with st.sidebar:
 # MAIN SCREEN: Authentication Gate (for OAuth agents)
 # ============================================================================
 # Check if selected agent requires OAuth and user is not logged in
-auth_mode = agents_config["agents"][agent_type].get("auth_mode", "iam")
+agent_info = agents_config["agents"][agent_type]
 current_agent_in_session = st.session_state.get("agent_type")
 
-if auth_mode == "oauth" and current_agent_in_session != agent_type:
+if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
     # Show login form in main screen (left-aligned)
-    agent_info = agents_config["agents"][agent_type]
-
     # Single clean title with agent name
     st.title(agent_info['name'])
     st.markdown("")
@@ -209,11 +152,7 @@ if auth_mode == "oauth" and current_agent_in_session != agent_type:
                 # Get OAuth config for selected agent
                 auth_config = get_agent_auth_config(agent_type)
 
-                if not auth_config:
-                    agent_name = agent_info.get("agent_name", agent_type)
-                    st.error("❌ OAuth not configured for this agent")
-                    st.caption(f"Missing SSM parameter: `/agentcore/{agent_name}/oauth-config`")
-                else:
+                if auth_config:
                     try:
                         # Authenticate using generic auth_utils
                         with st.spinner("Authenticating..."):

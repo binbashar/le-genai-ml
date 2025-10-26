@@ -291,7 +291,6 @@ def _get_health_check_credentials(config: AgentHealthConfig) -> HealthCheckCrede
         "Provide credentials via:\n"
         "  1. AgentHealthConfig.demo_credentials parameter\n"
         "  2. Environment variables: AGENTCORE_HEALTH_USERNAME, AGENTCORE_HEALTH_PASSWORD\n"
-        "See docs/AUTHENTICATION_GUIDE.md for details."
     )
 
 
