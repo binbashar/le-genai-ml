@@ -8,7 +8,6 @@ Configuration read from .bedrock_agentcore.yaml.
 import json
 import logging
 import re
-import warnings
 from pathlib import Path
 
 import requests
@@ -28,6 +27,106 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════════
 # PUBLIC API - CONFIGURATION EXTRACTION
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+def extract_oauth_config_from_ssm(
+    agent_name: str,
+    region: str = "us-west-2",
+) -> dict | None:
+    """
+    Extract OAuth2 configuration from SSM Parameter Store (AWS best practice).
+
+    This is the recommended method for production deployments as it provides:
+    - Repository isolation (no file dependencies)
+    - Cross-account/cross-region support
+    - Single source of truth (CDK → SSM → All services)
+    - Versioning and audit trail
+    - IAM-based access control
+
+    Args:
+        agent_name: Agent name (e.g., "finance_personal_assistant", "market_trends_agent")
+        region: AWS region where SSM parameter is stored (default: us-west-2)
+
+    Returns:
+        OAuth configuration dict:
+        {
+            "discovery_url": "https://.../.well-known/openid-configuration",
+            "client_id": "abc123...",
+            "allowed_clients": ["abc123...", ...]
+        }
+        Returns None if parameter not found or no OAuth configured.
+
+    Raises:
+        None - returns None on any error for graceful fallback
+
+    Example:
+        >>> config = extract_oauth_config_from_ssm("finance_personal_assistant")
+        >>> if config:
+        ...     token = authenticate(config, "user", "pass")
+
+    SSM Parameter Path:
+        /agentcore/{agent_name}/oauth-config
+
+    SSM Parameter Format (AgentCore format):
+        {
+            "customJWTAuthorizer": {
+                "discoveryUrl": "https://...",
+                "allowedClients": ["client-id"]
+            }
+        }
+    """
+    if not BOTO3_AVAILABLE:
+        logger.debug("boto3 not available - SSM config extraction disabled")
+        return None
+
+    try:
+        ssm = boto3.client("ssm", region_name=region)
+
+        # Read OAuth config from SSM Parameter Store
+        parameter_name = f"/agentcore/{agent_name}/oauth-config"
+        logger.debug(f"Reading OAuth config from SSM: {parameter_name}")
+
+        response = ssm.get_parameter(Name=parameter_name)
+        parameter_value = response["Parameter"]["Value"]
+
+        # Parse JSON value (stored in AgentCore format)
+        config_json = json.loads(parameter_value)
+
+        # Extract customJWTAuthorizer section
+        jwt_auth = config_json.get("customJWTAuthorizer")
+        if not jwt_auth:
+            logger.debug(f"No customJWTAuthorizer in SSM parameter: {parameter_name}")
+            return None
+
+        # Extract standard fields
+        discovery_url = jwt_auth.get("discoveryUrl")
+        allowed_clients = jwt_auth.get("allowedClients", [])
+
+        if not discovery_url or not allowed_clients:
+            logger.debug(f"Incomplete OAuth config in SSM: {parameter_name}")
+            return None
+
+        # Normalize to standard format
+        oauth_config = {
+            "discovery_url": discovery_url,
+            "client_id": allowed_clients[0],  # Primary client ID
+            "allowed_clients": allowed_clients,
+        }
+
+        logger.debug(
+            f"Successfully loaded OAuth config from SSM for agent: {agent_name}"
+        )
+        return oauth_config
+
+    except ssm.exceptions.ParameterNotFound:
+        logger.debug(f"SSM parameter not found: /agentcore/{agent_name}/oauth-config")
+        return None
+    except (KeyError, json.JSONDecodeError, IndexError) as e:
+        logger.debug(f"Error parsing OAuth config from SSM: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Unexpected error reading OAuth config from SSM: {e}")
+        return None
 
 
 def extract_oauth_config_from_yaml(yaml_path: Path) -> dict | None:
@@ -437,7 +536,9 @@ def _oauth2_password_grant(
         # Include error details from provider if available
         try:
             error_data = response.json()
-            error_msg = error_data.get("error_description", error_data.get("error", str(e)))
+            error_msg = error_data.get(
+                "error_description", error_data.get("error", str(e))
+            )
             raise requests.HTTPError(f"OAuth2 token request failed: {error_msg}") from e
         except ValueError:
             raise e

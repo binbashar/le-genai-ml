@@ -8,10 +8,14 @@ aws:
 agents:
   finance_assistant:
     name: "Finance Assistant"
-    arn: "arn:aws:bedrock-agentcore:us-west-2:905418344519:runtime/personal_finance_agent-4EJMkjFcLO"
+    agent_name: "finance_personal_assistant"  # Used for SSM lookup
+    arn: "arn:aws:bedrock-agentcore:us-west-2:905418344519:runtime/finance_personal_assistant-6Y8HCuDcDl"
     description: "Personal financial advisor with budget analysis and investment tools"
+    auth_mode: "oauth"  # Authentication mode: "oauth" (JWT from Cognito/SSM) or "iam" (AWS credentials)
 
   market_trends:
     name: "Market Trends Agent"
+    agent_name: "market_trends_agent"  # Used for SSM lookup
     arn: "arn:aws:bedrock-agentcore:us-west-2:905418344519:runtime/market_trends_agent-VuvnWl6Gkp"
     description: "Market intelligence agent with real-time data and broker profile management"
+    auth_mode: "oauth"

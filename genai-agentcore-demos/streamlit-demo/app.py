@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-import sys
 import time
 import uuid
 from pathlib import Path
@@ -10,8 +9,11 @@ import boto3
 import requests
 import streamlit as st
 import yaml
-
-from shared.auth_utils import authenticate, invoke_with_token, load_auth_config
+from shared.auth_utils import (
+    authenticate,
+    extract_oauth_config_from_ssm,
+    invoke_with_token,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -20,12 +22,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# AUTHENTICATION CONFIGURATION
+# AUTHENTICATION CONFIGURATION (Per-Agent, AWS Best Practice)
 # ============================================================================
-# Authentication is detected DYNAMICALLY per agent:
-# - Each agent has its own .auth_config file
-# - This UI adapts to mixed scenarios (e.g., finance uses Cognito, market uses IAM)
+# Each agent in agents.yaml has its own auth_mode:
+# - auth_mode: "oauth" → Requires user login with OAuth2/JWT (reads from SSM)
+# - auth_mode: "iam"   → Uses AWS IAM credentials (default, no login)
 #
+# OAuth config is read from SSM: /agentcore/{agent_name}/oauth-config
+# This allows Streamlit to be deployed independently without file dependencies
+#
+# UX Flow (Agent-First Design):
+# 1. User selects agent from selector (🔐 = OAuth, 🔑 = IAM)
+# 2. If OAuth agent → show login form for that specific agent
+# 3. If IAM agent → proceed directly (implicit authentication)
+# 4. Switching agents → re-authenticate if needed (independent auth per agent)
 # ============================================================================
 
 
@@ -52,33 +62,56 @@ AWS_REGION = agents_config["aws"]["region"]
 TIMEOUT_SECONDS = agents_config["aws"]["timeout_seconds"]
 
 
-# Load auth config for each agent dynamically
+# Load OAuth config for agents with auth_mode="oauth"
 @st.cache_resource
 def load_agents_auth_config():
-    """Load authentication configuration for each agent"""
-    return {
-        "finance_assistant": load_auth_config(
-            Path("../finance-personal-assistant/.auth_config")
-        ),
-        "market_trends": load_auth_config(Path("../market-trends-agent/.auth_config")),
-    }
+    """Load OAuth2 configuration from SSM for agents with auth_mode='oauth' (AWS best practice)"""
+    auth_configs = {}
+
+    for agent_key, agent_info in agents_config["agents"].items():
+        auth_mode = agent_info.get(
+            "auth_mode", "iam"
+        )  # Default to IAM if not specified
+
+        if auth_mode == "oauth":
+            agent_name = agent_info.get("agent_name")
+            if agent_name:
+                # Read OAuth config from SSM: /agentcore/{agent_name}/oauth-config
+                oauth_config = extract_oauth_config_from_ssm(
+                    agent_name=agent_name, region=AWS_REGION
+                )
+                if oauth_config:
+                    auth_configs[agent_key] = oauth_config
+                    logger.info(
+                        f"Loaded OAuth config for {agent_key} from SSM (/agentcore/{agent_name}/oauth-config)"
+                    )
+                else:
+                    logger.warning(
+                        f"Agent {agent_key} has auth_mode='oauth' but no OAuth config found in SSM"
+                    )
+            else:
+                logger.warning(
+                    f"Agent {agent_key} has auth_mode='oauth' but no agent_name specified"
+                )
+        else:
+            logger.debug(
+                f"Agent {agent_key} using IAM authentication (auth_mode='{auth_mode}')"
+            )
+
+    return auth_configs
 
 
 AGENTS_AUTH = load_agents_auth_config()
 
 
-def should_use_auth() -> tuple[bool, str]:
-    """Check if any agent requires authentication"""
-    auth_agents = [name for name, config in AGENTS_AUTH.items() if config is not None]
+def get_agent_auth_config(agent_type: str) -> dict | None:
+    """Get OAuth configuration for specific agent (returns None if agent uses IAM)"""
+    auth_mode = agents_config["agents"][agent_type].get("auth_mode", "iam")
 
-    if auth_agents:
-        return True, f"Authentication enabled for: {', '.join(auth_agents)}"
-    return False, "No authentication configured"
+    if auth_mode == "oauth":
+        return AGENTS_AUTH.get(agent_type)
 
-
-def get_agent_auth_config(agent_type: str) -> dict:
-    """Get authentication configuration for specific agent"""
-    return AGENTS_AUTH.get(agent_type)
+    return None
 
 
 # Page configuration
@@ -88,85 +121,48 @@ st.set_page_config(
 
 # Sidebar with configuration
 with st.sidebar:
-    st.markdown("### AWS Connection")
-
     # AWS connectivity verification
     try:
         sts = boto3.client("sts", region_name=AWS_REGION)
         identity = sts.get_caller_identity()
-        st.success("✅ Connected")
+        st.success("✅ AWS Connected")
     except Exception:
-        st.error("❌ Not Connected")
-        st.caption("Set AWS_PROFILE environment variable or configure credentials")
+        st.error("❌ AWS Not Connected")
+        st.caption("Set AWS_PROFILE or configure credentials")
         st.stop()
 
     st.markdown("---")
 
-    # Authentication (if any agent requires it)
-    use_auth, reason = should_use_auth()
+    # Agent Selection
+    all_agents = list(agents_config["agents"].keys())
 
-    if use_auth:
-        st.markdown("### 🔐 Authentication")
-        logger.info(f"Authentication enabled: {reason}")
+    # Agent selector with auth mode indicator
+    def format_agent_name(agent_key: str) -> str:
+        agent_info = agents_config["agents"][agent_key]
+        auth_mode = agent_info.get("auth_mode", "iam")
+        icon = "🔐" if auth_mode == "oauth" else "🔑"
+        return f"{icon} {agent_info['name']}"
 
-        # Check if user is logged in
-        if "auth_token" not in st.session_state:
-            # Login form
-            with st.form("login_form"):
-                username = st.text_input("Username", placeholder="broker_demo")
-                password = st.text_input(
-                    "Password", type="password", placeholder="DemoPass123!"
-                )
-                agent_for_login = st.radio(
-                    "Agent to access:",
-                    ["finance_assistant", "market_trends"],
-                    format_func=lambda x: agents_config["agents"][x]["name"],
-                )
-                submit = st.form_submit_button("Login", use_container_width=True)
+    selected_agent = st.radio(
+        "Select Agent",
+        all_agents,
+        format_func=format_agent_name,
+        key="agent_selector",
+    )
 
-                if submit:
-                    if not username or not password:
-                        st.error("Please enter username and password")
-                    else:
-                        # Check if selected agent has authentication configured
-                        auth_config = get_agent_auth_config(agent_for_login)
+    # Get selected agent's auth mode
+    selected_agent_info = agents_config["agents"][selected_agent]
+    auth_mode = selected_agent_info.get("auth_mode", "iam")
+    agent_type = selected_agent
 
-                        if not auth_config:
-                            st.error(
-                                f"❌ Agent '{agent_for_login}' does not have authentication configured"
-                            )
-                            st.caption(
-                                f"Run `uv run setup_identity.py --agent {agent_for_login}` to configure authentication"
-                            )
-                        else:
-                            try:
-                                # Authenticate using generic auth_utils
-                                with st.spinner("Authenticating..."):
-                                    auth_result = authenticate(
-                                        auth_config, username, password
-                                    )
+    # Show authentication status (minimal)
+    if auth_mode == "oauth":
+        current_agent_in_session = st.session_state.get("agent_type")
 
-                                # Store auth token and user info in session
-                                st.session_state["auth_token"] = auth_result[
-                                    "AccessToken"
-                                ]
-                                st.session_state["username"] = username
-                                st.session_state["agent_type"] = agent_for_login
-                                st.success(f"Welcome, {username}!")
-                                st.rerun()
-
-                            except ValueError as e:
-                                st.error(str(e))
-                            except Exception as e:
-                                st.error(f"Authentication failed: {e}")
-                                logger.error(f"Login error: {e}")
-
-            st.stop()  # Don't show agent selector until logged in
-
-        else:
-            # User is logged in - show info and logout
-            st.success(f"✓ Logged in as: {st.session_state.get('username', 'User')}")
-
+        if current_agent_in_session == selected_agent:
+            # User is logged in - show logout button
+            st.markdown("")  # Spacer
+            st.caption(f"Logged in as **{st.session_state.get('username', 'User')}**")
             if st.button("Logout", use_container_width=True):
                 # Clear session state
                 for key in ["auth_token", "username", "agent_type"]:
@@ -174,31 +170,81 @@ with st.sidebar:
                         del st.session_state[key]
                 st.rerun()
 
-            # Use the agent type from login
-            agent_type = st.session_state.get("agent_type", "finance_assistant")
+    st.markdown("---")
 
-        st.markdown("---")
-
-    else:
-        # No authentication - show regular agent selector
-        st.markdown("### Agent Selection")
-
-        agent_type = st.radio(
-            "Select Agent:",
-            ["finance_assistant", "market_trends"],
-            format_func=lambda x: agents_config["agents"][x]["name"],
-            label_visibility="collapsed",
-        )
-
+    # Footer
     st.caption("🏦 AWS GenAI Loft FinTech Event")
     st.caption("Built with Amazon Bedrock AgentCore")
 
-# Title
-st.title("🏦 AWS AgentCore FinTech Demo")
+# ============================================================================
+# MAIN SCREEN: Authentication Gate (for OAuth agents)
+# ============================================================================
+# Check if selected agent requires OAuth and user is not logged in
+auth_mode = agents_config["agents"][agent_type].get("auth_mode", "iam")
+current_agent_in_session = st.session_state.get("agent_type")
+
+if auth_mode == "oauth" and current_agent_in_session != agent_type:
+    # Show login form in main screen (left-aligned)
+    agent_info = agents_config["agents"][agent_type]
+
+    # Single clean title with agent name
+    st.title(agent_info['name'])
+    st.markdown("")
+
+    # Left-aligned login form (max width to match title)
+    with st.form("login_form", clear_on_submit=False):
+        st.markdown("Please enter your credentials to continue:")
+        st.markdown("")
+
+        username = st.text_input("Username", placeholder="broker_demo", key="username_input")
+        password = st.text_input("Password", type="password", placeholder="DemoPass123!", key="password_input")
+
+        st.markdown("")
+        submit = st.form_submit_button("Login", use_container_width=True, type="primary")
+
+        if submit:
+            if not username or not password:
+                st.error("⚠️ Please enter both username and password")
+            else:
+                # Get OAuth config for selected agent
+                auth_config = get_agent_auth_config(agent_type)
+
+                if not auth_config:
+                    agent_name = agent_info.get("agent_name", agent_type)
+                    st.error("❌ OAuth not configured for this agent")
+                    st.caption(f"Missing SSM parameter: `/agentcore/{agent_name}/oauth-config`")
+                else:
+                    try:
+                        # Authenticate using generic auth_utils
+                        with st.spinner("Authenticating..."):
+                            auth_result = authenticate(auth_config, username, password)
+
+                        # Store auth token and user info in session
+                        st.session_state["auth_token"] = auth_result["AccessToken"]
+                        st.session_state["username"] = username
+                        st.session_state["agent_type"] = agent_type
+                        st.success(f"✅ Welcome, {username}!")
+                        time.sleep(0.5)  # Brief pause to show success
+                        st.rerun()
+
+                    except ValueError as e:
+                        st.error(f"❌ {str(e)}")
+                    except Exception as e:
+                        st.error(f"❌ Authentication failed: {e}")
+                        logger.error(f"Login error: {e}")
+
+    st.stop()  # Don't render the rest of the app until logged in
+
+# ============================================================================
+# MAIN SCREEN: Agent Interface (authenticated or IAM)
+# ============================================================================
 
 # Get agent config and use cases
 agent_info = agents_config["agents"][agent_type]
 use_cases = use_cases_config[agent_type]
+
+# Title with agent name
+st.title(agent_info['name'])
 
 # Use case selector
 selected_use_case = st.selectbox(
