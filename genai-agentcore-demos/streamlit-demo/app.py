@@ -58,6 +58,36 @@ def get_agent_auth_config(agent_type: str) -> dict | None:
     return agents_config["agents"][agent_type].get("oauth_config")
 
 
+def get_or_create_session_id(agent_type: str) -> str:
+    """Get session ID from file or create new one"""
+    sessions_dir = Path(__file__).parent / "sessions"
+    sessions_dir.mkdir(exist_ok=True)
+
+    session_file = sessions_dir / f".{agent_type}"
+
+    # Try to read existing session ID
+    if session_file.exists():
+        try:
+            session_id = session_file.read_text().strip()
+            if session_id and len(session_id) >= 33:  # AWS minimum
+                logger.info(f"Loaded session ID for {agent_type}: {session_id}")
+                return session_id
+        except Exception as e:
+            logger.warning(f"Failed to read session file: {e}")
+
+    # Generate new session ID
+    session_id = str(uuid.uuid4())
+
+    # Save to file
+    try:
+        session_file.write_text(session_id)
+        logger.info(f"Created new session ID for {agent_type}: {session_id}")
+    except Exception as e:
+        logger.error(f"Failed to save session file: {e}")
+
+    return session_id
+
+
 # Page configuration
 st.set_page_config(
     page_title="AWS AgentCore FinTech Demo", page_icon="🏦", layout="centered"
@@ -190,7 +220,7 @@ if messages_key not in st.session_state:
     st.session_state[messages_key] = []
 
 if session_id_key not in st.session_state:
-    st.session_state[session_id_key] = str(uuid.uuid4())
+    st.session_state[session_id_key] = get_or_create_session_id(agent_type)
 
 # Display chat messages from history
 for message in st.session_state[messages_key]:

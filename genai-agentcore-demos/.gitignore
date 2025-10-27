@@ -5,3 +5,4 @@
 cdk.out/
 outputs.json
 streamlit-demo/config/agents.yaml
+streamlit-demo/sessions/
