@@ -36,20 +36,17 @@ logger = logging.getLogger(__name__)
 # Load configuration files
 @st.cache_resource
 def load_config():
-    """Load agent and use case configurations"""
+    """Load agent configurations"""
     config_dir = Path(__file__).parent / "config"
 
     with open(config_dir / "agents.yaml", "r") as f:
         agents_config = yaml.safe_load(f)
 
-    with open(config_dir / "use_cases.yaml", "r") as f:
-        use_cases_config = yaml.safe_load(f)
-
-    return agents_config, use_cases_config
+    return agents_config
 
 
 # Load configs
-agents_config, use_cases_config = load_config()
+agents_config = load_config()
 
 # Extract settings
 AWS_REGION = agents_config["aws"]["region"]
@@ -175,34 +172,30 @@ if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
     st.stop()  # Don't render the rest of the app until logged in
 
 # ============================================================================
-# MAIN SCREEN: Agent Interface (authenticated or IAM)
+# MAIN SCREEN: Chat Interface (authenticated or IAM)
 # ============================================================================
 
-# Get agent config and use cases
+# Get agent config
 agent_info = agents_config["agents"][agent_type]
-use_cases = use_cases_config[agent_type]
 
 # Title with agent name
 st.title(agent_info['name'])
 
-# Use case selector
-selected_use_case = st.selectbox(
-    "Choose a scenario:", options=use_cases, format_func=lambda x: x["title"]
-)
+# Initialize session state for this agent
+# Each agent gets its own message history and session ID
+messages_key = f"messages_{agent_type}"
+session_id_key = f"session_id_{agent_type}"
 
-# Display use case details (no expander)
-st.markdown(f"**Persona:** {selected_use_case['persona']}")
-st.markdown(f"**Description:** {selected_use_case['description']}")
-st.markdown("")
+if messages_key not in st.session_state:
+    st.session_state[messages_key] = []
 
-# Editable prompt
-custom_prompt = st.text_area(
-    "Your message:",
-    value=selected_use_case["prompt"],
-    height=120,
-    placeholder="Type your message here...",
-    help="Modify this prompt to experiment with different queries",
-)
+if session_id_key not in st.session_state:
+    st.session_state[session_id_key] = str(uuid.uuid4())
+
+# Display chat messages from history
+for message in st.session_state[messages_key]:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
 
 def escape_latex_chars(text):
@@ -303,130 +296,132 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
                 continue
 
 
-# Run agent button
-if st.button("🚀 Run Agent", type="primary", use_container_width=True):
-    if not custom_prompt.strip():
-        st.warning("Please enter a prompt")
-        st.stop()
+# React to user input
+if prompt := st.chat_input("Type your message here..."):
+    # Get session ID for this agent
+    session_id = st.session_state[session_id_key]
 
-    # Create placeholders
-    st.markdown("---")
-    tool_placeholder = st.empty()  # For tool execution messages
-    temp_placeholder = st.empty()  # Temporary for streaming (will be replaced)
+    # Display user message in chat message container
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-    try:
-        logger.info(f"Starting agent invocation for agent_type: {agent_type}")
+    # Add user message to chat history
+    st.session_state[messages_key].append({"role": "user", "content": prompt})
 
-        # Brief spinner only for API connection
-        with st.spinner("Connecting to agent..."):
-            # Generate unique session ID
-            session_id = str(uuid.uuid4())
-            logger.info(f"Generated session ID: {session_id}")
+    # Display assistant response in chat message container
+    with st.chat_message("assistant"):
+        tool_placeholder = st.empty()  # For tool execution messages
 
-            # Check if agent has authentication configured
-            agent_auth_config = get_agent_auth_config(agent_type)
+        try:
+            logger.info(f"Starting agent invocation for agent_type: {agent_type}")
 
-            if agent_auth_config:
-                # Agent requires authentication - use HTTP with JWT
-                logger.info(
-                    f"Using {agent_auth_config.get('provider', 'unknown')} authentication with HTTP invocation"
-                )
+            # Brief spinner only for API connection
+            with st.spinner("Connecting to agent..."):
+                logger.info(f"Using session ID: {session_id}")
 
-                auth_token = st.session_state.get("auth_token")
-                if not auth_token:
-                    st.error("Not authenticated. Please refresh the page to login.")
-                    st.stop()
+                # Check if agent has authentication configured
+                agent_auth_config = get_agent_auth_config(agent_type)
 
-                try:
-                    response = invoke_with_token(
-                        agent_arn=agent_info["arn"],
-                        token=auth_token,
-                        prompt=custom_prompt,
-                        session_id=session_id,
-                        region=AWS_REGION,
-                        timeout=TIMEOUT_SECONDS,
-                    )
+                if agent_auth_config:
+                    # Agent requires authentication - use HTTP with JWT
                     logger.info(
-                        "Agent invocation successful (authenticated), processing event stream"
+                        f"Using {agent_auth_config.get('provider', 'unknown')} authentication with HTTP invocation"
                     )
 
-                except requests.exceptions.HTTPError as e:
-                    if e.response.status_code == 401:
-                        st.error("Authentication token expired. Please login again.")
-                        # Clear session and force re-login
-                        for key in ["auth_token", "username", "agent_type"]:
-                            if key in st.session_state:
-                                del st.session_state[key]
+                    auth_token = st.session_state.get("auth_token")
+                    if not auth_token:
+                        st.error("Not authenticated. Please refresh the page to login.")
                         st.stop()
-                    else:
-                        raise
 
-            else:
-                # No authentication - use IAM with boto3
-                logger.info("Using IAM authentication with boto3")
+                    try:
+                        response = invoke_with_token(
+                            agent_arn=agent_info["arn"],
+                            token=auth_token,
+                            prompt=prompt,
+                            session_id=session_id,
+                            region=AWS_REGION,
+                            timeout=TIMEOUT_SECONDS,
+                        )
+                        logger.info(
+                            "Agent invocation successful (authenticated), processing event stream"
+                        )
 
-                client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
-                logger.info(
-                    f"Created bedrock-agentcore client for region: {AWS_REGION}"
-                )
+                    except requests.exceptions.HTTPError as e:
+                        if e.response.status_code == 401:
+                            st.error("Authentication token expired. Please login again.")
+                            # Clear session and force re-login
+                            for key in ["auth_token", "username", "agent_type"]:
+                                if key in st.session_state:
+                                    del st.session_state[key]
+                            st.stop()
+                        else:
+                            raise
 
-                response = client.invoke_agent_runtime(
-                    agentRuntimeArn=agent_info["arn"],
-                    payload=json.dumps(
-                        {"prompt": custom_prompt, "session_id": session_id}
-                    ),
-                )
+                else:
+                    # No authentication - use IAM with boto3
+                    logger.info("Using IAM authentication with boto3")
 
-                logger.info(
-                    "Agent invocation successful (IAM), processing event stream"
-                )
+                    client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
+                    logger.info(
+                        f"Created bedrock-agentcore client for region: {AWS_REGION}"
+                    )
 
-        # Stream response to temporary placeholder
-        # For authenticated/HTTP: response is already the stream
-        # For IAM/boto3: response["response"] is the stream
-        response_stream = response if agent_auth_config else response["response"]
+                    response = client.invoke_agent_runtime(
+                        agentRuntimeArn=agent_info["arn"],
+                        payload=json.dumps(
+                            {"prompt": prompt, "session_id": session_id}
+                        ),
+                    )
 
-        with temp_placeholder.container():
+                    logger.info(
+                        "Agent invocation successful (IAM), processing event stream"
+                    )
+
+            # Stream response
+            # For authenticated/HTTP: response is already the stream
+            # For IAM/boto3: response["response"] is the stream
+            response_stream = response if agent_auth_config else response["response"]
+
             response_text = st.write_stream(
                 stream_agent_response(
                     response_stream, tool_placeholder, TIMEOUT_SECONDS
                 )
             )
 
-        # Clear temporary placeholder
-        temp_placeholder.empty()
+            # Post-process: Extract thinking content and display
+            if response_text and response_text.strip():
+                # Extract thinking content using regex
+                thinking_pattern = r"<thinking>(.*?)</thinking>"
+                thinking_matches = re.findall(thinking_pattern, response_text, re.DOTALL)
 
-        # Post-process: Extract thinking content and display
-        if response_text and response_text.strip():
-            # Extract thinking content using regex
-            thinking_pattern = r"<thinking>(.*?)</thinking>"
-            thinking_matches = re.findall(thinking_pattern, response_text, re.DOTALL)
+                # Display thinking in expander if found
+                if thinking_matches:
+                    thinking_content = "\n\n".join(thinking_matches)
+                    with st.expander("💭 Thinking Process", expanded=False):
+                        st.text(thinking_content.strip())
 
-            # Display thinking in expander if found
-            if thinking_matches:
-                thinking_content = "\n\n".join(thinking_matches)
-                with st.expander("💭 Thinking Process", expanded=False):
-                    st.text(thinking_content.strip())
+                # Remove thinking tags from main response
+                cleaned_response = re.sub(
+                    thinking_pattern, "", response_text, flags=re.DOTALL
+                ).strip()
 
-            # Remove thinking tags from main response
-            cleaned_response = re.sub(
-                thinking_pattern, "", response_text, flags=re.DOTALL
-            ).strip()
-
-            # Display cleaned response
-            if cleaned_response:
-                st.markdown(cleaned_response)
-                logger.info(
-                    f"Response complete ({len(cleaned_response)} chars, thinking: {len(thinking_content) if thinking_matches else 0} chars)"
-                )
+                # Add assistant response to chat history
+                if cleaned_response:
+                    st.session_state[messages_key].append({"role": "assistant", "content": cleaned_response})
+                    logger.info(
+                        f"Response complete ({len(cleaned_response)} chars, thinking: {len(thinking_content) if thinking_matches else 0} chars)"
+                    )
+                else:
+                    st.info("No response received")
+                    logger.warning("No response text after removing thinking tags")
             else:
                 st.info("No response received")
-                logger.warning("No response text after removing thinking tags")
-        else:
-            st.info("No response received")
-            logger.warning("No response text received from agent")
+                logger.warning("No response text received from agent")
 
-    except Exception as e:
-        logger.error(f"Error during agent invocation: {str(e)}", exc_info=True)
-        st.error(f"Error: {str(e)}")
-        st.caption("Please check your AWS credentials and agent configuration.")
+        except Exception as e:
+            logger.error(f"Error during agent invocation: {str(e)}", exc_info=True)
+            error_message = f"Error: {str(e)}"
+            st.error(error_message)
+            st.caption("Please check your AWS credentials and agent configuration.")
+            # Add error to chat history
+            st.session_state[messages_key].append({"role": "assistant", "content": error_message})
