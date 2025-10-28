@@ -90,7 +90,10 @@ def main():
         agent_config = get_agent_config(agent_dir)
 
         if agent_config:
+            # Preserve existing config (like capabilities) and update synced fields
+            existing_config = config["agents"].get(key, {})
             config["agents"][key] = {
+                **existing_config,  # Preserve manually added fields
                 "name": format_name(key),
                 "arn": agent_config["arn"],
                 "oauth_config": agent_config["oauth_config"],

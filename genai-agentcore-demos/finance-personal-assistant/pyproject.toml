@@ -28,6 +28,11 @@ dependencies = [
     "aiohttp",
     "aws-cdk-lib",
     "constructs",
+    "Pillow>=10.0.0",  # Image processing for vision capability
+    "PyJWT>=2.10.0",
+    "requests>=2.32.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.1.1",
 ]
 
 [project.optional-dependencies]

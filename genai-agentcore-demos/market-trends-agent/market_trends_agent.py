@@ -272,10 +272,17 @@ Deliver professional, data-driven analysis tailored to user preferences when ava
 
 
 def extract_actor_id(context) -> str:
-    """Extract actor ID from request context."""
-    headers = context.request_headers or {}
-    actor_id = headers.get("X-Amzn-Bedrock-AgentCore-Runtime-User-Id", "demo-user")
-    logger.info(f"[AUTH] Extracted actor_id={actor_id}")
+    """Extract actor ID from request headers.
+
+    Args:
+        context: AgentCore Runtime context object with request_headers
+
+    Returns:
+        User ID from custom header, or 'demo-user' as fallback
+    """
+    headers = getattr(context, "request_headers", {}) or {}
+    actor_id = headers.get("X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id", "demo-user")
+    logger.info(f"[AUTH] Extracted actor_id={actor_id} from request headers")
     return actor_id
 
 
@@ -294,14 +301,19 @@ async def market_trends_agent_runtime(payload, context):
         - final: Complete response with metadata
         - error: Any exceptions
     """
+    logger.info(f"[DEBUG] Context attributes: {dir(context)}")
+    logger.info(f"[DEBUG] Payload keys: {list(payload.keys())}")
+
     user_input = payload.get("prompt")
-    session_id = payload.get("session_id")
+
+    # Session ID from context (provided by AgentCore Runtime)
+    session_id = context.session_id
 
     if not session_id or len(session_id) < 33:
         session_id = str(uuid.uuid4())
         logger.warning(f"No valid session_id provided, generated: {session_id}")
 
-    # Extract actor ID from context (demo: always "demo-user")
+    # Extract actor ID from request headers (custom header)
     actor_id = extract_actor_id(context)
 
     try:

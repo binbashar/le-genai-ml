@@ -11,6 +11,7 @@ import requests
 import streamlit as st
 import yaml
 from shared.auth_utils import authenticate, invoke_with_token
+from utils import vision_utils
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 # FEATURE FLAGS
 # ============================================================================
 ENABLE_HEALTH_BADGES = True
+ENABLE_VISION_CAPABILITY = True  # Image upload and analysis for supported agents
 
 # ============================================================================
 # INVOCATION MODES (priority order)
@@ -75,13 +77,17 @@ def get_agent_endpoint_url(agent_type: str) -> str | None:
     return agent_cfg.get("endpoint_url")
 
 
-def invoke_local_endpoint(endpoint_url: str, prompt: str, session_id: str, timeout: int):
+def invoke_local_endpoint(endpoint_url: str, prompt: str, session_id: str, timeout: int, image_base64: str = None):
     """HTTP POST to local endpoint with streaming response"""
     payload = {
         "prompt": prompt,
         "session_id": session_id,
         "actor_id": "streamlit-user",
     }
+
+    # Add image if provided (vision capability)
+    if image_base64:
+        payload["image_base64"] = image_base64
 
     response = requests.post(
         f"{endpoint_url}/invocations",
@@ -369,6 +375,11 @@ for message in st.session_state[messages_key]:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# Vision capability - file uploader (feature flag controlled)
+uploaded_file = None
+if ENABLE_VISION_CAPABILITY and vision_utils.should_enable_vision(agent_type, agents_config):
+    uploaded_file = vision_utils.render_image_uploader(agent_type, username)
+
 
 def escape_latex_chars(text):
     """
@@ -481,9 +492,18 @@ if prompt := st.chat_input("Type your message here..."):
     # Get session ID for this agent
     session_id = st.session_state[session_id_key]
 
+    # Process uploaded image if present (vision capability)
+    image_base64 = None
+    if ENABLE_VISION_CAPABILITY and uploaded_file:
+        image_base64 = vision_utils.process_image_to_base64(uploaded_file)
+        if image_base64 is None:
+            st.stop()  # Stop if image processing failed
+
     # Display user message in chat message container
     with st.chat_message("user"):
         st.markdown(prompt)
+        if ENABLE_VISION_CAPABILITY and uploaded_file:
+            vision_utils.render_attached_image_in_chat(uploaded_file)
 
     # Add user message to chat history
     st.session_state[messages_key].append({"role": "user", "content": prompt})
@@ -510,6 +530,7 @@ if prompt := st.chat_input("Type your message here..."):
                         prompt=prompt,
                         session_id=session_id,
                         timeout=TIMEOUT_SECONDS,
+                        image_base64=image_base64,  # Vision capability
                     )
 
                 elif agent_auth_config:
@@ -531,6 +552,7 @@ if prompt := st.chat_input("Type your message here..."):
                             session_id=session_id,
                             region=AWS_REGION,
                             timeout=TIMEOUT_SECONDS,
+                            image_base64=image_base64,  # Vision capability
                         )
                         logger.info(
                             "Agent invocation successful (authenticated), processing event stream"
@@ -556,11 +578,15 @@ if prompt := st.chat_input("Type your message here..."):
                         f"Created bedrock-agentcore client for region: {AWS_REGION}"
                     )
 
+                    # Build payload with optional image
+                    payload_dict = {"prompt": prompt, "session_id": session_id}
+                    if image_base64:
+                        payload_dict["image_base64"] = image_base64
+                        logger.info(f"Image included in IAM payload (size: {len(image_base64)} bytes)")
+
                     response = client.invoke_agent_runtime(
                         agentRuntimeArn=agent_info["arn"],
-                        payload=json.dumps(
-                            {"prompt": prompt, "session_id": session_id}
-                        ),
+                        payload=json.dumps(payload_dict),
                     )
 
                     logger.info(

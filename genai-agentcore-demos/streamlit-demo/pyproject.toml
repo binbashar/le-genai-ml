@@ -11,6 +11,7 @@ dependencies = [
     "requests",
     "aiohttp",
     "genai-agentcore-demos",
+    "Pillow>=10.0.0",  # Image processing for vision capability
 ]
 
 [tool.uv.sources]

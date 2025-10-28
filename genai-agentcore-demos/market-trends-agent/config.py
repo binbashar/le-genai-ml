@@ -185,7 +185,8 @@ def get_region() -> str:
 @lru_cache(maxsize=1)
 def get_boto3_session() -> boto3.Session:
     """Get or create a cached boto3 session."""
-    return boto3.Session(region_name=get_region())
+    profile_name = os.environ.get("AWS_PROFILE")
+    return boto3.Session(profile_name=profile_name, region_name=get_region())
 
 
 def get_client(service_name: str, **kwargs):

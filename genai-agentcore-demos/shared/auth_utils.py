@@ -441,6 +441,7 @@ def invoke_with_token(
     session_id: str,
     region: str,
     timeout: int = 120,
+    image_base64: str = None,
 ) -> requests.Response:
     """
     Invoke AgentCore Runtime with bearer token (HTTP invocation).
@@ -491,27 +492,31 @@ def invoke_with_token(
     # Construct endpoint URL
     url = f"https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{arn_encoded}/invocations"
 
-    # Headers with bearer token and user ID
+    # Headers with bearer token and user ID as custom header
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
         "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": session_id,
-        "X-Amzn-Bedrock-AgentCore-Runtime-User-Id": user_id,
+        "X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id": user_id,
     }
 
     # Query parameters
     params = {"qualifier": "DEFAULT"}
 
-    # Request payload
+    # Request payload (user_id now in header, not payload)
     payload = {
         "prompt": prompt,
-        "session_id": session_id,
     }
+
+    # Add image if provided (vision capability)
+    if image_base64:
+        payload["image_base64"] = image_base64
+        logger.info(f"Image included in payload (size: {len(image_base64)} bytes)")
 
     logger.info(f"Invoking agent via HTTP: {url}")
     logger.info(f"User ID: {user_id}, Session ID: {session_id}")
     logger.debug(f"Headers: {headers}")
-    logger.debug(f"Payload: {payload}")
+    logger.debug(f"Payload keys: {list(payload.keys())}")
 
     # Make HTTP POST request with streaming
     response = requests.post(
