@@ -148,19 +148,20 @@ def check_aws_health(agent_info: dict, auth_config: dict | None, auth_token: str
         return False, "error", None
 
 
-def get_or_create_session_id(agent_type: str) -> str:
+def get_or_create_session_id(agent_type: str, username: str) -> str:
     """Get session ID from file or create new one"""
     sessions_dir = Path(__file__).parent / "sessions"
     sessions_dir.mkdir(exist_ok=True)
 
-    session_file = sessions_dir / f".{agent_type}"
+    session_file = sessions_dir / f".{agent_type}_{username}"
+    logger.info(f"[SESSION] Using session file: {session_file}")
 
     # Try to read existing session ID
     if session_file.exists():
         try:
             session_id = session_file.read_text().strip()
             if session_id and len(session_id) >= 33:  # AWS minimum
-                logger.info(f"Loaded session ID for {agent_type}: {session_id}")
+                logger.info(f"Loaded session ID for {agent_type}/{username}: {session_id}")
                 return session_id
         except Exception as e:
             logger.warning(f"Failed to read session file: {e}")
@@ -171,7 +172,7 @@ def get_or_create_session_id(agent_type: str) -> str:
     # Save to file
     try:
         session_file.write_text(session_id)
-        logger.info(f"Created new session ID for {agent_type}: {session_id}")
+        logger.info(f"Created new session ID for {agent_type}/{username}: {session_id}")
     except Exception as e:
         logger.error(f"Failed to save session file: {e}")
 
@@ -251,10 +252,7 @@ with st.sidebar:
             st.markdown("")  # Spacer
             st.caption(f"Logged in as **{st.session_state.get('username', 'User')}**")
             if st.button("Logout", use_container_width=True):
-                # Clear session state
-                for key in ["auth_token", "username", "agent_type"]:
-                    if key in st.session_state:
-                        del st.session_state[key]
+                st.session_state.clear()
                 st.rerun()
 
     st.markdown("---")
@@ -356,14 +354,15 @@ st.title(agent_info['name'])
 
 # Initialize session state for this agent
 # Each agent gets its own message history and session ID
-messages_key = f"messages_{agent_type}"
-session_id_key = f"session_id_{agent_type}"
+username = st.session_state.get("username", "anonymous")
+messages_key = f"messages_{agent_type}_{username}"
+session_id_key = f"session_id_{agent_type}_{username}"
 
 if messages_key not in st.session_state:
     st.session_state[messages_key] = []
 
 if session_id_key not in st.session_state:
-    st.session_state[session_id_key] = get_or_create_session_id(agent_type)
+    st.session_state[session_id_key] = get_or_create_session_id(agent_type, username)
 
 # Display chat messages from history
 for message in st.session_state[messages_key]:

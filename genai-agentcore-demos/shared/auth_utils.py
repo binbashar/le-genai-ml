@@ -10,6 +10,7 @@ import logging
 import re
 from pathlib import Path
 
+import jwt
 import requests
 
 logger = logging.getLogger(__name__)
@@ -209,6 +210,62 @@ def extract_oauth_config_from_yaml(yaml_path: Path) -> dict | None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def decode_jwt_token(token: str) -> dict:
+    """Decode JWT token without signature verification.
+
+    AgentCore Runtime validates the token signature, so we skip verification
+    here to avoid needing JWKS keys.
+
+    Args:
+        token: JWT access token
+
+    Returns:
+        Decoded token claims dict
+
+    Raises:
+        ValueError: If token cannot be decoded
+
+    Example:
+        >>> decoded = decode_jwt_token(access_token)
+        >>> user_id = decoded.get("sub")
+        >>> username = decoded.get("cognito:username")
+    """
+    try:
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        logger.debug(f"Decoded JWT claims: {list(decoded.keys())}")
+        return decoded
+    except jwt.PyJWTError as e:
+        raise ValueError(f"Failed to decode JWT token: {e}")
+
+
+def extract_user_id_from_token(token: str) -> str:
+    """Extract user ID from JWT token's 'sub' claim.
+
+    The 'sub' (subject) claim contains the user's unique identifier.
+
+    Args:
+        token: JWT access token
+
+    Returns:
+        User ID from 'sub' claim
+
+    Raises:
+        ValueError: If 'sub' claim not found
+
+    Example:
+        >>> user_id = extract_user_id_from_token(access_token)
+        >>> print(user_id)  # e.g., "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    """
+    decoded = decode_jwt_token(token)
+    user_id = decoded.get("sub")
+
+    if not user_id:
+        raise ValueError("JWT token missing 'sub' claim")
+
+    logger.info(f"[AUTH] Extracted user_id from JWT: {user_id}")
+    return user_id
+
+
 def authenticate_with_oauth2(
     discovery_url: str,
     client_id: str,
@@ -388,6 +445,9 @@ def invoke_with_token(
     """
     Invoke AgentCore Runtime with bearer token (HTTP invocation).
 
+    Automatically extracts user ID from JWT token's 'sub' claim and passes it
+    in the X-Amzn-Bedrock-AgentCore-Runtime-User-Id header for memory isolation.
+
     Args:
         agent_arn: Agent runtime ARN
         token: Bearer token (JWT from OAuth provider)
@@ -401,6 +461,7 @@ def invoke_with_token(
 
     Raises:
         requests.HTTPError: If invocation fails
+        ValueError: If JWT token is invalid or missing 'sub' claim
 
     Example:
         >>> response = invoke_with_token(
@@ -416,6 +477,9 @@ def invoke_with_token(
     import urllib.parse
     import uuid
 
+    # Extract user ID from JWT token
+    user_id = extract_user_id_from_token(token)
+
     # Ensure session_id meets AWS minimum length requirement (33 chars)
     if len(session_id) < 33:
         session_id = f"{session_id}-{uuid.uuid4()}"
@@ -427,11 +491,12 @@ def invoke_with_token(
     # Construct endpoint URL
     url = f"https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{arn_encoded}/invocations"
 
-    # Headers with bearer token
+    # Headers with bearer token and user ID
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
         "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": session_id,
+        "X-Amzn-Bedrock-AgentCore-Runtime-User-Id": user_id,
     }
 
     # Query parameters
@@ -440,9 +505,11 @@ def invoke_with_token(
     # Request payload
     payload = {
         "prompt": prompt,
+        "session_id": session_id,
     }
 
     logger.info(f"Invoking agent via HTTP: {url}")
+    logger.info(f"User ID: {user_id}, Session ID: {session_id}")
     logger.debug(f"Headers: {headers}")
     logger.debug(f"Payload: {payload}")
 

@@ -271,25 +271,12 @@ Deliver professional, data-driven analysis tailored to user preferences when ava
     return graph_builder.compile()
 
 
-def extract_actor_id(context) -> str:  # noqa: ARG001
-    """
-    Extract actor ID from request context.
-
-    For demo purposes, returns hardcoded 'demo-user'.
-    In production, extract from authenticated request headers:
-
-    Example production implementation:
-        headers = context.request_headers or {}
-        return headers.get('X-Amzn-Bedrock-AgentCore-Runtime-User-Id', 'demo-user')
-
-    Args:
-        context: AgentCore Runtime context object (unused in demo mode)
-
-    Returns:
-        str: Actor ID for memory operations
-    """
-    # Demo mode: hardcoded actor for simplicity
-    return "demo-user"
+def extract_actor_id(context) -> str:
+    """Extract actor ID from request context."""
+    headers = context.request_headers or {}
+    actor_id = headers.get("X-Amzn-Bedrock-AgentCore-Runtime-User-Id", "demo-user")
+    logger.info(f"[AUTH] Extracted actor_id={actor_id}")
+    return actor_id
 
 
 @app.entrypoint

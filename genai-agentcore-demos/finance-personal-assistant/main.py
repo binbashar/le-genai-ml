@@ -171,14 +171,11 @@ def financial_analysis_agent_tool(query: str) -> str:
 
 
 def extract_actor_id(context) -> str:
-    """Extract actor ID from request context.
-
-    For demo purposes, returns hardcoded 'demo-user'.
-    In production with OAuth, extract from authenticated request headers:
-        headers = context.request_headers or {}
-        return headers.get('X-Amzn-Bedrock-AgentCore-Runtime-User-Id', 'demo-user')
-    """
-    return "demo-user"
+    """Extract actor ID from request context."""
+    headers = context.request_headers or {}
+    actor_id = headers.get("X-Amzn-Bedrock-AgentCore-Runtime-User-Id", "demo-user")
+    logger.info(f"[AUTH] Extracted actor_id={actor_id}")
+    return actor_id
 
 
 @app.entrypoint
