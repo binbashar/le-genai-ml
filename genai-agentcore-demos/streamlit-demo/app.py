@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -18,19 +19,26 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# AUTHENTICATION CONFIGURATION (Per-Agent)
+# FEATURE FLAGS
 # ============================================================================
-# Each agent in agents.yaml has oauth_config:
-# - oauth_config: null → Uses AWS IAM credentials (no login required)
-# - oauth_config: {...} → Requires OAuth2/JWT login
-#
-# OAuth config synced from SSM by sync.py (runs before Streamlit starts)
-#
-# UX Flow:
-# 1. User selects agent (🔐 = OAuth, 🔑 = IAM)
-# 2. OAuth agent → show login form
-# 3. IAM agent → proceed directly
+ENABLE_HEALTH_BADGES = True
+
 # ============================================================================
+# INVOCATION MODES (priority order)
+# ============================================================================
+# 1. AGENTCORE_LOCAL_MODE env var → Local HTTP (./demo.sh --local)
+# 2. oauth_config → AWS with JWT
+# 3. Default → AWS with IAM
+# ============================================================================
+
+# Health check configuration
+HEALTH_CONFIG = {
+    "timeout": 5,
+    "test_prompt": "ping",
+    "local": {"color": "#10b981", "tooltip": "Connected to local environment"},
+    "live": {"color": "#3b82f6", "tooltip": "Connected to live environment"},
+    "error": {"color": "#ef4444", "tooltip": "Connection error"}
+}
 
 
 # Load configuration files
@@ -56,6 +64,88 @@ TIMEOUT_SECONDS = agents_config["aws"]["timeout_seconds"]
 def get_agent_auth_config(agent_type: str) -> dict | None:
     """Get OAuth configuration for specific agent (returns None if agent uses IAM)"""
     return agents_config["agents"][agent_type].get("oauth_config")
+
+
+def get_agent_endpoint_url(agent_type: str) -> str | None:
+    """Get endpoint_url from config or environment"""
+    agent_cfg = agents_config["agents"][agent_type]
+    if os.getenv("AGENTCORE_LOCAL_MODE"):
+        local_port = agent_cfg.get("local_port", 8080)
+        return f"http://localhost:{local_port}"
+    return agent_cfg.get("endpoint_url")
+
+
+def invoke_local_endpoint(endpoint_url: str, prompt: str, session_id: str, timeout: int):
+    """HTTP POST to local endpoint with streaming response"""
+    payload = {
+        "prompt": prompt,
+        "session_id": session_id,
+        "actor_id": "streamlit-user",
+    }
+
+    response = requests.post(
+        f"{endpoint_url}/invocations",
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        stream=True,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return response
+
+
+def check_local_health(endpoint_url: str) -> tuple[bool, str, int | None]:
+    """Check local endpoint health via /ping"""
+    try:
+        response = requests.get(
+            f"{endpoint_url}/ping",
+            timeout=HEALTH_CONFIG["timeout"]
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("status") == "Healthy":
+                return True, "local", 200
+        return False, "error", response.status_code
+    except Exception:
+        return False, "error", None
+
+
+def check_aws_health(agent_info: dict, auth_config: dict | None, auth_token: str | None) -> tuple[bool, str, int | None]:
+    """Check AWS endpoint health via /invocations endpoint.
+
+    Note: AWS AgentCore Runtime does not expose a /ping endpoint (only local Docker does).
+    We must use /invocations with a minimal prompt for health checks.
+    """
+    try:
+        if auth_config and auth_token:
+            logger.debug("AWS health check: Using OAuth/JWT authentication")
+            response = invoke_with_token(
+                agent_arn=agent_info["arn"],
+                token=auth_token,
+                prompt=HEALTH_CONFIG["test_prompt"],
+                session_id="health-check",
+                region=AWS_REGION,
+                timeout=HEALTH_CONFIG["timeout"],
+            )
+            if response.status_code == 200:
+                return True, "live", 200
+            return False, "error", response.status_code
+        else:
+            logger.debug("AWS health check: Using IAM authentication")
+            client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
+            response = client.invoke_agent_runtime(
+                agentRuntimeArn=agent_info["arn"],
+                payload=json.dumps({"prompt": HEALTH_CONFIG["test_prompt"], "session_id": "health-check"}),
+            )
+            if response.get("response"):
+                return True, "live", 200
+            return False, "error", None
+    except requests.exceptions.HTTPError as e:
+        logger.debug(f"AWS health check HTTPError: {e}, status: {e.response.status_code if e.response else None}")
+        return False, "error", e.response.status_code if e.response else None
+    except Exception as e:
+        logger.debug(f"AWS health check failed: {e}")
+        return False, "error", None
 
 
 def get_or_create_session_id(agent_type: str) -> str:
@@ -127,6 +217,31 @@ with st.sidebar:
     selected_agent_info = agents_config["agents"][selected_agent]
     agent_type = selected_agent
 
+    # Run health check if needed (only for IAM agents or authenticated OAuth agents)
+    current_agent_in_session = st.session_state.get("agent_type")
+    is_oauth_agent = selected_agent_info.get("oauth_config") is not None
+    is_authenticated = current_agent_in_session == agent_type
+
+    if ENABLE_HEALTH_BADGES and (not is_oauth_agent or is_authenticated):
+        health_key = f"health_status_{agent_type}"
+        status_code_key = f"health_status_code_{agent_type}"
+
+        # Run health check once if not already done
+        if health_key not in st.session_state:
+            try:
+                local_endpoint = get_agent_endpoint_url(agent_type)
+                if local_endpoint:
+                    success, state, status_code = check_local_health(local_endpoint)
+                else:
+                    agent_auth_config = get_agent_auth_config(agent_type)
+                    auth_token = st.session_state.get("auth_token") if agent_auth_config else None
+                    success, state, status_code = check_aws_health(selected_agent_info, agent_auth_config, auth_token)
+                st.session_state[health_key] = state
+                st.session_state[status_code_key] = status_code
+            except Exception:
+                st.session_state[health_key] = "error"
+                st.session_state[status_code_key] = None
+
     # Show authentication status (minimal)
     if selected_agent_info.get("oauth_config"):
         current_agent_in_session = st.session_state.get("agent_type")
@@ -147,6 +262,33 @@ with st.sidebar:
     # Footer
     st.caption("🏦 AWS GenAI Loft FinTech Event")
     st.caption("Built with Amazon Bedrock AgentCore")
+
+    # Health status badge (if enabled)
+    if ENABLE_HEALTH_BADGES and (not is_oauth_agent or is_authenticated):
+        health_key = f"health_status_{agent_type}"
+        status_code_key = f"health_status_code_{agent_type}"
+
+        if health_key in st.session_state:
+            status = st.session_state[health_key]
+            status_code = st.session_state.get(status_code_key)
+            config = HEALTH_CONFIG[status]
+            status_text = "Healthy" if status != "error" else "Connection error"
+
+            # Build tooltip with status code if available
+            tooltip = config["tooltip"]
+            if status == "error" and status_code:
+                tooltip = f"{tooltip} (HTTP {status_code})"
+
+            st.markdown(
+                f"""
+                <div style="display: flex; align-items: center; gap: 8px; margin: 0.5rem 0;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background: {config['color']}; flex-shrink: 0;"
+                         title="{tooltip}"></div>
+                    <span style="font-size: 0.875rem; color: #6b7280;">Status: {status_text}</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
 # ============================================================================
 # MAIN SCREEN: Authentication Gate (for OAuth agents)
@@ -207,8 +349,9 @@ if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
 
 # Get agent config
 agent_info = agents_config["agents"][agent_type]
+local_endpoint = get_agent_endpoint_url(agent_type)
 
-# Title with agent name
+# Agent title
 st.title(agent_info['name'])
 
 # Initialize session state for this agent
@@ -280,6 +423,14 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
                         tool_placeholder.caption(f"🔧 {tool_msg}")
                         logger.info(f"Tool: {tool_msg}")
 
+                # Handle error events from the agent
+                elif isinstance(event, dict) and "error" in event:
+                    error_type = event.get("error_type", "Unknown")
+                    error_msg = event.get("message", event.get("error", "Unknown error"))
+                    logger.error(f"Agent error: {error_type} - {error_msg}")
+                    # Display error to user using a formatted error message
+                    yield f"\n\n**⚠️ Agent Error ({error_type}):**\n\n{error_msg}\n\n"
+
                 # Yield response tokens (with escaping and header formatting)
                 elif isinstance(event, str):
                     token = escape_latex_chars(event)
@@ -349,10 +500,20 @@ if prompt := st.chat_input("Type your message here..."):
             with st.spinner("Connecting to agent..."):
                 logger.info(f"Using session ID: {session_id}")
 
-                # Check if agent has authentication configured
                 agent_auth_config = get_agent_auth_config(agent_type)
 
-                if agent_auth_config:
+                if local_endpoint:
+                    # Local endpoint
+                    logger.info(f"Using endpoint: {local_endpoint}")
+
+                    response = invoke_local_endpoint(
+                        endpoint_url=local_endpoint,
+                        prompt=prompt,
+                        session_id=session_id,
+                        timeout=TIMEOUT_SECONDS,
+                    )
+
+                elif agent_auth_config:
                     # Agent requires authentication - use HTTP with JWT
                     logger.info(
                         f"Using {agent_auth_config.get('provider', 'unknown')} authentication with HTTP invocation"
@@ -408,9 +569,9 @@ if prompt := st.chat_input("Type your message here..."):
                     )
 
             # Stream response
-            # For authenticated/HTTP: response is already the stream
+            # For local/authenticated/HTTP: response is already the stream
             # For IAM/boto3: response["response"] is the stream
-            response_stream = response if agent_auth_config else response["response"]
+            response_stream = response if (local_endpoint or agent_auth_config) else response["response"]
 
             response_text = st.write_stream(
                 stream_agent_response(
@@ -441,6 +602,14 @@ if prompt := st.chat_input("Type your message here..."):
                     logger.info(
                         f"Response complete ({len(cleaned_response)} chars, thinking: {len(thinking_content) if thinking_matches else 0} chars)"
                     )
+
+                    # Sync health status to healthy after successful invocation
+                    if ENABLE_HEALTH_BADGES:
+                        health_key = f"health_status_{agent_type}"
+                        status_code_key = f"health_status_code_{agent_type}"
+                        state = "local" if local_endpoint else "live"
+                        st.session_state[health_key] = state
+                        st.session_state[status_code_key] = 200
                 else:
                     st.info("No response received")
                     logger.warning("No response text after removing thinking tags")

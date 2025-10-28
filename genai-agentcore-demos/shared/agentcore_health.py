@@ -225,7 +225,7 @@ def _validate_response(response_text: str, elapsed: float) -> bool:
     if len(response_text) > HealthCheckConstants.MIN_RESPONSE_LENGTH:
         print(f"  ✓ ok [{elapsed:.2f}s]")
         return True
-    print(f"  ❌ error [{elapsed:.2f}s]")
+    print(f"  ❌ error: response too short ({len(response_text)} chars, minimum {HealthCheckConstants.MIN_RESPONSE_LENGTH}) [{elapsed:.2f}s]")
     return False
 
 
@@ -365,39 +365,59 @@ def _invoke_with_token_auth(
     Returns:
         Tuple of (success, response_text, elapsed_time)
     """
-    # Authenticate and get token
-    auth_result = authenticate(auth_config, credentials.username, credentials.password)
-    token = auth_result["AccessToken"]
+    try:
+        # Authenticate and get token
+        auth_result = authenticate(auth_config, credentials.username, credentials.password)
+        token = auth_result["AccessToken"]
 
-    # Extract region from ARN
-    region = _extract_region_from_arn(runtime_arn)
+        # Extract region from ARN
+        region = _extract_region_from_arn(runtime_arn)
 
-    # Invoke with token
-    response = invoke_with_token(
-        agent_arn=runtime_arn,
-        token=token,
-        prompt=prompt,
-        session_id=session_id,
-        region=region,
-        timeout=timeout,
-    )
+        # Invoke with token
+        response = invoke_with_token(
+            agent_arn=runtime_arn,
+            token=token,
+            prompt=prompt,
+            session_id=session_id,
+            region=region,
+            timeout=timeout,
+        )
 
-    # Parse SSE response
-    response_text = ""
-    for line in response.iter_lines():
-        if _check_timeout(start_time, timeout):
-            return False, response_text, timeout
+        # Check HTTP status code
+        if response.status_code != 200:
+            elapsed = time.time() - start_time
+            print(f"  ❌ HTTP {response.status_code}: {response.text[:200]} [{elapsed:.2f}s]")
+            return False, "", elapsed
 
-        line_str = line.decode("utf-8") if isinstance(line, bytes) else line
-        event = parse_sse_event(line_str)
+        # Parse SSE response
+        response_text = ""
+        for line in response.iter_lines():
+            if _check_timeout(start_time, timeout):
+                return False, response_text, timeout
 
-        if not event:
-            continue
+            line_str = line.decode("utf-8") if isinstance(line, bytes) else line
+            event = parse_sse_event(line_str)
 
-        response_text += _extract_sse_token(event)
+            if not event:
+                continue
 
-    elapsed = time.time() - start_time
-    return True, response_text, elapsed
+            # Check for error events
+            if isinstance(event, dict) and "error" in event:
+                elapsed = time.time() - start_time
+                error_type = event.get("error_type", "Error")
+                error_msg = event.get("error", "Unknown error")
+                print(f"  ❌ Agent error ({error_type}): {error_msg} [{elapsed:.2f}s]")
+                return False, "", elapsed
+
+            response_text += _extract_sse_token(event)
+
+        elapsed = time.time() - start_time
+        return True, response_text, elapsed
+
+    except Exception as e:
+        elapsed = time.time() - start_time
+        print(f"  ❌ Token auth failed ({type(e).__name__}): {str(e)} [{elapsed:.2f}s]")
+        return False, "", elapsed
 
 
 def run_health_check_aws(
@@ -555,6 +575,14 @@ def _invoke_aws_agent(
 
             if not event:
                 continue
+
+            # Check for error events
+            if isinstance(event, dict) and "error" in event:
+                elapsed = time.time() - start_time
+                error_type = event.get("error_type", "Error")
+                error_msg = event.get("error", "Unknown error")
+                print(f"  ❌ Agent error ({error_type}): {error_msg} [{elapsed:.2f}s]")
+                return False, "", elapsed
 
             response_text += _extract_sse_token(event)
 

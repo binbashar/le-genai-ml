@@ -17,7 +17,7 @@ You do not provide specific investment advice but rather present analytical data
 
 # One-liner: Create Strands BedrockModelConverse
 model = get_bedrock_model(
-    model=BedrockModelCatalog.NOVA_LITE,
+    model=BedrockModelCatalog.CLAUDE_SONNET_45,
     framework="strands",
 )
 

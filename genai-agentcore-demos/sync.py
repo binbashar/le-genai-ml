@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Sync agent config from deployments to Streamlit"""
+
 from pathlib import Path
 
 import yaml
@@ -79,8 +80,9 @@ def main():
     with open(agents_yaml) as f:
         config = yaml.safe_load(f)
 
-    # Clear agents section - start fresh each sync
-    config["agents"] = {}
+    # Only clear/update agents we're syncing - preserve others
+    if "agents" not in config:
+        config["agents"] = {}
 
     for agent_dir_name in AGENTS:
         agent_dir = root / agent_dir_name
@@ -96,6 +98,9 @@ def main():
             auth_mode = "oauth" if agent_config["oauth_config"] else "iam"
             print(f"✓ {key}: {agent_config['arn'].split('/')[-1]} ({auth_mode})")
         else:
+            # Remove from config if it exists but is not deployed
+            if key in config["agents"]:
+                del config["agents"][key]
             print(f"⚠ {key}: not deployed, skipping")
 
     with open(agents_yaml, "w") as f:

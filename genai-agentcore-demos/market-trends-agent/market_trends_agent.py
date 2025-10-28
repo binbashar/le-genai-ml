@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+import uuid
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 # Patch OpenTelemetry bug: _decode_tool_use tries to json.loads() already-parsed dicts
 # This happens when Claude returns tool_use blocks with dict inputs
 try:
-    from opentelemetry.instrumentation.botocore.extensions import bedrock_utils # type: ignore
+    from opentelemetry.instrumentation.botocore.extensions import ( # type: ignore
+        bedrock_utils,
+    )
 
     original_decode_tool_use = bedrock_utils._decode_tool_use
 
@@ -45,6 +47,7 @@ try:
     logger.info("✅ Applied OpenTelemetry bedrock_utils patch for tool_use handling")
 except Exception as e:
     logger.warning(f"Could not apply OpenTelemetry patch: {e}")
+
 
 def create_market_trends_agent(session_id: str, actor_id: str):
     """Create and configure the LangGraph market trends agent with memory
@@ -307,9 +310,9 @@ async def market_trends_agent_runtime(payload, context):
     user_input = payload.get("prompt")
     session_id = payload.get("session_id")
 
-    if not session_id:
-        session_id = f"default-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        logger.warning(f"No session_id provided, using generated: {session_id}")
+    if not session_id or len(session_id) < 33:
+        session_id = str(uuid.uuid4())
+        logger.warning(f"No valid session_id provided, generated: {session_id}")
 
     # Extract actor ID from context (demo: always "demo-user")
     actor_id = extract_actor_id(context)

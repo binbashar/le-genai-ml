@@ -40,7 +40,7 @@ When generating financial reports, always provide:
 Use structured output when requested to provide comprehensive financial reports."""
 
 model = get_bedrock_model(
-    model=BedrockModelCatalog.NOVA_LITE,
+    model=BedrockModelCatalog.CLAUDE_SONNET_45,
     framework="strands",
 )
 

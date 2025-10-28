@@ -103,23 +103,39 @@ def delete_guardrail(guardrail_id=None):
 def get_guardrail_id():
     """
     Get the guardrail ID for the Bitcoin advice guardrail.
-    
+    Verifies the guardrail exists and is usable in Bedrock before returning its ID.
+
     Returns:
-        str or None: The guardrail ID if found, None otherwise
+        str or None: The guardrail ID if found and verified, None otherwise
     """
     guardrail_name = "guardrail-no-bitcoin-advice"
-    
+
     try:
+        # First, list guardrails to find by name
         existing_guardrails = bedrock_client.list_guardrails()
+        guardrail_id = None
+
         for guardrail in existing_guardrails.get("guardrails", []):
             if guardrail.get("name") == guardrail_name:
                 guardrail_id = guardrail.get("id")
-                print(f"Found guardrail '{guardrail_name}' with ID: {guardrail_id}")
-                return guardrail_id
-        
-        print(f"Guardrail '{guardrail_name}' not found")
-        return None
-        
+                break
+
+        if not guardrail_id:
+            print(f"Guardrail '{guardrail_name}' not found in list")
+            return None
+
+        # Verify the guardrail actually exists by fetching its details
+        try:
+            bedrock_client.get_guardrail(guardrailIdentifier=guardrail_id)
+            print(f"Found and verified guardrail '{guardrail_name}' with ID: {guardrail_id}")
+            return guardrail_id
+        except bedrock_client.exceptions.ResourceNotFoundException:
+            print(f"Guardrail '{guardrail_name}' (ID: {guardrail_id}) was found in list but doesn't actually exist in Bedrock")
+            return None
+        except Exception as verify_error:
+            print(f"Error verifying guardrail '{guardrail_name}' (ID: {guardrail_id}): {verify_error}")
+            return None
+
     except Exception as e:
         print(f"Error finding guardrail: {e}")
         return None

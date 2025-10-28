@@ -220,6 +220,19 @@ class ExecutionRoleStack(Stack):
             )
         )
 
+        # Bedrock Guardrails
+        role.add_to_policy(
+            iam.PolicyStatement(
+                sid="BedrockGuardrails",
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "bedrock:ListGuardrails",
+                    "bedrock:GetGuardrail",
+                ],
+                resources=["*"],  # ListGuardrails doesn't support resource-level permissions
+            )
+        )
+
         # AgentCore Code Interpreter
         role.add_to_policy(
             iam.PolicyStatement(
