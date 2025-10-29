@@ -34,37 +34,6 @@ def should_enable_vision(agent_type: str, agents_config: dict) -> bool:
     return capabilities.get("vision", False)
 
 
-def render_image_uploader(agent_type: str, username: str) -> Optional[st.file_uploader]:
-    """Render the image upload widget.
-
-    Args:
-        agent_type: Agent identifier for unique widget key
-        username: Username for unique widget key
-
-    Returns:
-        Uploaded file object or None
-    """
-    uploaded_file = st.file_uploader(
-        "📎 Attach image (optional)",
-        type=["png", "jpg", "jpeg"],
-        key=f"image_upload_{agent_type}_{username}",
-        help="Upload receipts, invoices, or financial documents for analysis"
-    )
-
-    if uploaded_file:
-        # Display preview
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.image(uploaded_file, width=150, caption="Preview")
-        with col2:
-            file_size_kb = len(uploaded_file.getvalue()) / 1024
-            st.caption(f"📊 {uploaded_file.name} ({file_size_kb:.1f}KB)")
-            if file_size_kb > WARNING_SIZE_KB:
-                st.warning("⚠️ Large image - processing may take longer")
-
-    return uploaded_file
-
-
 def process_image_to_base64(uploaded_file) -> Optional[str]:
     """Process uploaded image and encode to base64.
 

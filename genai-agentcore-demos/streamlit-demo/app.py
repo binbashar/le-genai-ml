@@ -88,6 +88,11 @@ def invoke_local_endpoint(endpoint_url: str, prompt: str, session_id: str, timeo
     # Add image if provided (vision capability)
     if image_base64:
         payload["image_base64"] = image_base64
+        logger.info(f"[VISION DEBUG] Added image_base64 to payload (length: {len(image_base64)})")
+    else:
+        logger.info("[VISION DEBUG] No image_base64 to add to payload")
+
+    logger.info(f"[VISION DEBUG] Payload keys being sent: {list(payload.keys())}")
 
     response = requests.post(
         f"{endpoint_url}/invocations",
@@ -375,11 +380,6 @@ for message in st.session_state[messages_key]:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Vision capability - file uploader (feature flag controlled)
-uploaded_file = None
-if ENABLE_VISION_CAPABILITY and vision_utils.should_enable_vision(agent_type, agents_config):
-    uploaded_file = vision_utils.render_image_uploader(agent_type, username)
-
 
 def escape_latex_chars(text):
     """
@@ -487,26 +487,39 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
                 continue
 
 
-# React to user input
-if prompt := st.chat_input("Type your message here..."):
-    # Get session ID for this agent
+prompt = st.chat_input(
+    "Type your message here...",
+    accept_file=True if (ENABLE_VISION_CAPABILITY and vision_utils.should_enable_vision(agent_type, agents_config)) else False,
+    file_type=["png", "jpg", "jpeg"] if (ENABLE_VISION_CAPABILITY and vision_utils.should_enable_vision(agent_type, agents_config)) else None,
+)
+
+if prompt:
+    prompt_text = prompt.text if hasattr(prompt, 'text') else prompt
+    uploaded_files = prompt.files if hasattr(prompt, 'files') else []
+    uploaded_file = uploaded_files[0] if uploaded_files else None
+
+    logger.info(f"[VISION DEBUG] uploaded_files count: {len(uploaded_files)}")
+    logger.info(f"[VISION DEBUG] uploaded_file is None: {uploaded_file is None}")
+    if uploaded_file:
+        logger.info(f"[VISION DEBUG] File name: {uploaded_file.name}, size: {len(uploaded_file.getvalue())} bytes")
+
     session_id = st.session_state[session_id_key]
 
-    # Process uploaded image if present (vision capability)
     image_base64 = None
     if ENABLE_VISION_CAPABILITY and uploaded_file:
         image_base64 = vision_utils.process_image_to_base64(uploaded_file)
+        logger.info(f"[VISION DEBUG] image_base64 is None: {image_base64 is None}")
+        if image_base64:
+            logger.info(f"[VISION DEBUG] image_base64 length: {len(image_base64)} chars")
         if image_base64 is None:
-            st.stop()  # Stop if image processing failed
+            st.stop()
 
-    # Display user message in chat message container
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(prompt_text)
         if ENABLE_VISION_CAPABILITY and uploaded_file:
             vision_utils.render_attached_image_in_chat(uploaded_file)
 
-    # Add user message to chat history
-    st.session_state[messages_key].append({"role": "user", "content": prompt})
+    st.session_state[messages_key].append({"role": "user", "content": prompt_text})
 
     # Display assistant response in chat message container
     with st.chat_message("assistant"):
@@ -522,15 +535,14 @@ if prompt := st.chat_input("Type your message here..."):
                 agent_auth_config = get_agent_auth_config(agent_type)
 
                 if local_endpoint:
-                    # Local endpoint
                     logger.info(f"Using endpoint: {local_endpoint}")
 
                     response = invoke_local_endpoint(
                         endpoint_url=local_endpoint,
-                        prompt=prompt,
+                        prompt=prompt_text,
                         session_id=session_id,
                         timeout=TIMEOUT_SECONDS,
-                        image_base64=image_base64,  # Vision capability
+                        image_base64=image_base64,
                     )
 
                 elif agent_auth_config:
@@ -548,11 +560,11 @@ if prompt := st.chat_input("Type your message here..."):
                         response = invoke_with_token(
                             agent_arn=agent_info["arn"],
                             token=auth_token,
-                            prompt=prompt,
+                            prompt=prompt_text,
                             session_id=session_id,
                             region=AWS_REGION,
                             timeout=TIMEOUT_SECONDS,
-                            image_base64=image_base64,  # Vision capability
+                            image_base64=image_base64,
                         )
                         logger.info(
                             "Agent invocation successful (authenticated), processing event stream"
@@ -570,7 +582,6 @@ if prompt := st.chat_input("Type your message here..."):
                             raise
 
                 else:
-                    # No authentication - use IAM with boto3
                     logger.info("Using IAM authentication with boto3")
 
                     client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
@@ -578,8 +589,7 @@ if prompt := st.chat_input("Type your message here..."):
                         f"Created bedrock-agentcore client for region: {AWS_REGION}"
                     )
 
-                    # Build payload with optional image
-                    payload_dict = {"prompt": prompt, "session_id": session_id}
+                    payload_dict = {"prompt": prompt_text, "session_id": session_id}
                     if image_base64:
                         payload_dict["image_base64"] = image_base64
                         logger.info(f"Image included in IAM payload (size: {len(image_base64)} bytes)")

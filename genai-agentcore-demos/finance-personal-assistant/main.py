@@ -1,10 +1,12 @@
 # Create AgentCore-compatible deployment file with streaming endpoint
 
+from __future__ import annotations
+
 import logging
 import uuid
+from typing import Any
 
 from bedrock_agentcore import BedrockAgentCoreApp
-from bedrock_agentcore.memory import MemoryClient
 from bedrock_agentcore.memory.integrations.strands.config import (
     AgentCoreMemoryConfig,
     RetrievalConfig,
@@ -15,6 +17,7 @@ from bedrock_agentcore.memory.integrations.strands.session_manager import (
 from budget_agent import FinancialReport, budget_agent
 from config import BedrockModelCatalog, get_bedrock_model, get_region
 from financial_analysis_agent import financial_analysis_agent
+from memory_config import FINANCE_MEMORY_CONFIG, RETRIEVAL_CONFIG, Memory
 from strands import Agent, tool
 from strands.agent.conversation_manager import SummarizingConversationManager
 from utils import get_guardrail_id
@@ -68,6 +71,11 @@ When a user asks a question:
 3. Synthesize the responses into a coherent, comprehensive answer
 4. Provide actionable next steps when possible"""
 
+# Initialize memory and session manager
+region = get_region()
+
+memory = Memory(region_name=region, config=FINANCE_MEMORY_CONFIG)
+
 # Add conversation management to maintain context
 conversation_manager = SummarizingConversationManager(
     summary_ratio=0.3,  # Summarize 30% of messages when context reduction is needed
@@ -94,69 +102,6 @@ else:
         framework="strands",
     )
     logger.info("No guardrails configured, proceeding without guardrails")
-
-
-def create_or_get_memory(region: str) -> str:
-    """Create or retrieve AgentCore Memory with LTM strategies."""
-    logger.info("[+] Initializing AgentCore Memory with 3 LTM strategies")
-    try:
-        client = MemoryClient(region_name=region)
-
-        # Check if memory already exists to avoid ValidationException in logs
-        # Note: list_memories() returns memory IDs, not names
-        memory_name = "FinancePersonalAssistantMemory"
-        existing_memories = client.list_memories()
-
-        # Memory IDs are in format: "MemoryName-RandomId"
-        existing_memory = next(
-            (m for m in existing_memories if m.get("id", "").startswith(memory_name)),
-            None,
-        )
-
-        if existing_memory:
-            memory_id = existing_memory["id"]
-            logger.info(f"[✓] Using existing memory: {memory_id}")
-        else:
-            # Memory doesn't exist, create it
-            memory = client.create_memory_and_wait(
-                name=memory_name,
-                description="Personal finance assistant with user preferences, budget data, and conversation summaries",
-                strategies=[
-                    {
-                        "userPreferenceMemoryStrategy": {
-                            "name": "UserPreferences",
-                            "description": "User's name, financial goals, preferences, risk tolerance",
-                            "namespaces": [
-                                "finance-assistant/user/{actorId}/preferences"
-                            ],
-                        }
-                    },
-                    {
-                        "semanticMemoryStrategy": {
-                            "name": "BudgetFacts",
-                            "description": "Budget amounts, spending patterns, income sources, financial constraints",
-                            "namespaces": ["finance-assistant/user/{actorId}/facts"],
-                        }
-                    },
-                    {
-                        "summaryMemoryStrategy": {
-                            "name": "SessionSummaries",
-                            "description": "Conversation summaries and financial planning session outcomes",
-                            "namespaces": [
-                                "finance-assistant/user/{actorId}/summaries/{sessionId}"
-                            ],
-                        }
-                    },
-                ],
-                event_expiry_days=90,
-            )
-            memory_id = memory["id"]
-            logger.info("[✓] Memory created successfully (90-day retention)")
-
-        return memory_id
-    except Exception as e:
-        logger.error(f"[✗] Memory initialization failed: {type(e).__name__}")
-        raise
 
 
 @tool
@@ -246,6 +191,16 @@ def format_vision_data(data: dict) -> str:
 @app.entrypoint
 async def invoke(payload, context):
     """Your AI agent function with memory and vision support"""
+    logger.info(f"[VISION DEBUG] Received payload keys: {list(payload.keys())}")
+    logger.info(f"[VISION DEBUG] image_base64 in payload: {'image_base64' in payload}")
+    if "image_base64" in payload:
+        logger.info(
+            f"[VISION DEBUG] image_base64 type: {type(payload['image_base64'])}"
+        )
+        logger.info(
+            f"[VISION DEBUG] image_base64 length: {len(payload.get('image_base64', ''))} chars"
+        )
+
     # AWS provides session_id via context (not payload)
     # This works for all invocation types: OAuth, IAM, local, CLI
     session_id = context.session_id
@@ -310,44 +265,18 @@ Keywords: {keywords_str}
 
 {user_message}"""
 
-    # Initialize memory
-    region = get_region()
-    memory_id = create_or_get_memory(region)
-
-    # Configure LTM retrieval
-    retrieval_config = {
-        "finance-assistant/user/{actorId}/preferences": RetrievalConfig(
-            top_k=5,
-            relevance_score=0.7,
+    session_manager = AgentCoreMemorySessionManager(
+        agentcore_memory_config=AgentCoreMemoryConfig(
+            memory_id=memory.memory_id,
+            session_id=session_id,
+            actor_id=actor_id,
         ),
-        "finance-assistant/user/{actorId}/facts": RetrievalConfig(
-            top_k=10,
-            relevance_score=0.5,
-        ),
-        "finance-assistant/user/{actorId}/summaries/{sessionId}": RetrievalConfig(
-            top_k=3,
-            relevance_score=0.6,
-        ),
-    }
-    logger.info(
-        "[*] LTM retrieval configured: 3 strategies (preferences, facts, summaries)"
+        retrieval_config={
+            namespace: RetrievalConfig(**config)
+            for namespace, config in RETRIEVAL_CONFIG.items()
+        },
+        region_name=region,
     )
-
-    # Create session manager
-    try:
-        session_manager = AgentCoreMemorySessionManager(
-            agentcore_memory_config=AgentCoreMemoryConfig(
-                memory_id=memory_id,
-                session_id=session_id,
-                actor_id=actor_id,
-            ),
-            retrieval_config=retrieval_config,
-            region_name=region,
-        )
-        logger.info("[✓] Session manager created: STM + LTM enabled")
-    except Exception as e:
-        logger.error(f"[✗] Session manager creation failed: {type(e).__name__}")
-        raise
 
     # Create orchestrator agent with memory
     orchestrator_agent = Agent(

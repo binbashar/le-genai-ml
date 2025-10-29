@@ -67,23 +67,23 @@ class ModelConfig:
             return cls(**config_dict)
         return base_config
 
-    def to_bedrock_kwargs(self, framework: str = "langchain") -> dict[str, Any]:
+    def to_bedrock_kwargs(self, framework: str = "strands") -> dict[str, Any]:
         """
         Convert config to kwargs for different frameworks.
 
         Args:
-            framework: "langchain" for LangGraph/LangChain ChatBedrock,
-                      "strands" for Strands BedrockModel/BedrockModelConverse
+            framework: "strands" for Strands BedrockModel
+                       "langchain" for LangGraph/LangChain ChatBedrockConverse
 
         Returns:
             Dictionary ready to unpack into model constructor
 
         Examples:
-            # LangChain/LangGraph (market-trends-agent)
+            # LangGraph/LangChain
             config = ModelConfig.from_enum(BedrockModelCatalog.NOVA_LITE)
             llm = ChatBedrock(**config.to_bedrock_kwargs("langchain"))
 
-            # Strands (finance-personal-assistant)
+            # Strands
             config = ModelConfig.from_enum(BedrockModelCatalog.NOVA_LITE)
             model = BedrockModel(**config.to_bedrock_kwargs("strands"))
         """
@@ -95,7 +95,7 @@ class ModelConfig:
                 "temperature": self.temperature,
             }
         else:
-            # LangChain/LangGraph format (nested model_kwargs)
+            # LangGraph/LangChain format (nested model_kwargs)
             return {
                 "model_id": self.model_id,
                 "model_kwargs": {
@@ -107,7 +107,6 @@ class ModelConfig:
             }
 
 
-# Model Registry - Single source of truth
 MODEL_REGISTRY = {
     BedrockModelCatalog.NOVA_MICRO: ModelConfig(
         model_id="us.amazon.nova-micro-v1:0",
@@ -147,15 +146,15 @@ MODEL_REGISTRY = {
     ),
     BedrockModelCatalog.CLAUDE_SONNET_45: ModelConfig(
         model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-        temperature=0.1,
-        max_tokens=8192,
+        temperature=0.3,
+        max_tokens=4096,
         description="Enhanced reasoning for complex analysis (latest)",
     ),
 }
 
 
 # ============================================================================
-# AWS Configuration with Smart Detection
+# AWS Configuration
 # ============================================================================
 
 DEFAULT_REGION = "us-west-2"
@@ -194,7 +193,7 @@ def get_client(service_name: str, **kwargs):
 
 
 # ============================================================================
-# One-Liner Model Factory (KISS + DRY)
+# Bedrock Model Factory
 # ============================================================================
 
 

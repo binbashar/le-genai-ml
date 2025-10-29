@@ -61,7 +61,7 @@ def create_market_trends_agent(session_id: str, actor_id: str):
     memory_client, memory_id = create_memory()
 
     model = get_bedrock_model(
-        model=BedrockModelCatalog.NOVA_LITE,
+        model=BedrockModelCatalog.CLAUDE_SONNET_45,
         framework="langchain",
     )
 
