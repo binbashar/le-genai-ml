@@ -9,7 +9,7 @@ echo ""
 export AWS_PROFILE=binbash
 
 # Run the working memory test
-uv run tests/test_memory_final_working.py
+uv run ./test_memory_final_working.py
 
 exit_code=$?
 

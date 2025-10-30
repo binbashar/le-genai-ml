@@ -6,3 +6,14 @@ cdk.out/
 outputs.json
 streamlit-demo/config/agents.yaml
 streamlit-demo/sessions/
+
+# Session memories (ephemeral)
+.memories/
+
+# Gateway deployment artifacts
+agentcore-gateway/gateway_outputs.json
+
+# M2M OAuth credentials (SECRETS - DO NOT COMMIT)
+agentcore-gateway/m2m_config.json
+
+tests/sessions/

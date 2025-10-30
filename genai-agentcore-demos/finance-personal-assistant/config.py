@@ -271,6 +271,89 @@ def get_bedrock_model(
 
 
 # ============================================================================
+# Guardrails Configuration
+# ============================================================================
+
+
+@lru_cache(maxsize=1)
+def get_guardrail_config() -> dict[str, str] | None:
+    """
+    Get guardrail configuration if available.
+
+    Returns:
+        Dict with guardrail_id, guardrail_version, guardrail_trace
+        or None if guardrails not configured
+
+    Example:
+        >>> config = get_guardrail_config()
+        >>> if config:
+        ...     print(f"Guardrails enabled: {config['guardrail_id']}")
+        ... else:
+        ...     print("No guardrails configured")
+    """
+    from utils.guardrail import get_guardrail_id
+
+    guardrail_id = get_guardrail_id()
+    if not guardrail_id:
+        return None
+
+    return {
+        "guardrail_id": guardrail_id,
+        "guardrail_version": "DRAFT",
+        "guardrail_trace": "enabled",
+    }
+
+
+def get_bedrock_model_with_guardrails(
+    framework: str,
+    model: BedrockModelCatalog | ModelConfig,
+    **kwargs,
+):
+    """
+    Get Bedrock model with automatic guardrail configuration.
+
+    Combines get_bedrock_model() with automatic guardrail discovery.
+    If guardrails exist, they're automatically applied. Otherwise,
+    model is returned without guardrails.
+
+    Args:
+        framework: "strands" or "langchain"
+        model: BedrockModelCatalog enum or ModelConfig instance
+        **kwargs: Additional config overrides (temperature, etc.)
+
+    Returns:
+        Instantiated model with guardrails if available
+
+    Example:
+        # Automatically applies guardrails if configured
+        model = get_bedrock_model_with_guardrails(
+            "strands",
+            BedrockModelCatalog.CLAUDE_SONNET_45
+        )
+
+        # With custom temperature
+        model = get_bedrock_model_with_guardrails(
+            "langchain",
+            BedrockModelCatalog.NOVA_LITE,
+            temperature=0.5
+        )
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    guardrail_config = get_guardrail_config()
+
+    if guardrail_config:
+        kwargs.update(guardrail_config)
+        logger.info(f"Guardrails enabled with ID: {guardrail_config['guardrail_id']}")
+    else:
+        logger.info("No guardrails configured, proceeding without guardrails")
+
+    return get_bedrock_model(framework, model, **kwargs)
+
+
+# ============================================================================
 # Convenience Functions
 # ============================================================================
 
@@ -284,3 +367,45 @@ def get_model_info(model: BedrockModelCatalog) -> str:
     """Get human-readable model information."""
     config = MODEL_REGISTRY[model]
     return f"{model.value}: {config.description}"
+
+
+# ============================================================================
+# AgentCore Gateway Configuration
+# ============================================================================
+
+
+def get_gateway_endpoint() -> str | None:
+    """
+    Get AgentCore Gateway endpoint from environment or deployment outputs.
+
+    Returns:
+        Gateway MCP endpoint URL or None if not configured
+
+    Precedence:
+        1. AGENTCORE_GATEWAY_ENDPOINT environment variable
+        2. ../agentcore-gateway/gateway_outputs.json file
+        3. None (Gateway not configured)
+    """
+    # Try environment variable first
+    endpoint = os.getenv('AGENTCORE_GATEWAY_ENDPOINT')
+    if endpoint:
+        return endpoint
+
+    # Try to load from gateway deployment outputs
+    try:
+        import json
+        from pathlib import Path
+
+        outputs_file = Path(__file__).parent.parent / 'agentcore-gateway' / 'gateway_outputs.json'
+
+        if outputs_file.exists():
+            with open(outputs_file) as f:
+                outputs = json.load(f)
+
+            # Return MCP endpoint (includes /mcp path)
+            return outputs.get('gateway_mcp_endpoint')
+
+    except Exception:
+        pass
+
+    return None

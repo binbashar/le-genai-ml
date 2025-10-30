@@ -1,0 +1,16 @@
+{
+  "name": "calculate_budget",
+  "description": "Calculate 50/30/20 budget breakdown for given monthly income. Returns allocation for Needs (50%), Wants (30%), and Savings (20%). Monthly income must be non-negative.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "monthly_income": {
+        "type": "number",
+        "description": "Monthly income amount in dollars (must be non-negative)"
+      }
+    },
+    "required": [
+      "monthly_income"
+    ]
+  }
+}
