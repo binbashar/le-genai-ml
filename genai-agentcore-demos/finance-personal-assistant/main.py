@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import uuid
 
 from bedrock_agentcore import BedrockAgentCoreApp
 from bedrock_agentcore.memory.integrations.strands.config import (
@@ -16,7 +15,8 @@ from bedrock_agentcore.memory.integrations.strands.session_manager import (
 from budget_agent import FinancialReport, budget_agent
 from config import (
     BedrockModelCatalog,
-    get_bedrock_model_with_guardrails,
+    get_bedrock_model,
+    get_guardrail_config,
     get_region,
 )
 from financial_analysis_agent import financial_analysis_agent
@@ -24,6 +24,7 @@ from memory_config import FINANCE_MEMORY_CONFIG, RETRIEVAL_CONFIG, Memory
 from strands import Agent, tool
 from strands.agent.conversation_manager import SummarizingConversationManager
 from utils.gateway import create_mcp_client
+from utils.memory_retrieval import retrieve_and_inject_memories
 from utils.session_manager import extract_session_context
 from utils.vision_analyzer import analyze_image
 from utils.vision_context import inject_vision_context
@@ -39,14 +40,12 @@ ORCHESTRATOR_PROMPT = """You are a comprehensive financial advisor orchestrator 
 
 Your specialized agents are:
 1. **budget_agent_tool**: Generates comprehensive financial reports with budget breakdowns and recommendations. Use for creating budgets, analyzing spending patterns, and providing savings advice. Note: This tool generates reports but does NOT track or store transactions.
-2. **financial_analysis_agent_tool**: Handles investment analysis, stock research, portfolio creation, and performance comparisons
+2. **financial_analysis_agent_tool**: Handles investment analysis, stock research, portfolio creation, and performance comparisons.
 
 <memory_behavior>
 You have access to conversation history and user profile information.
 Use the user's name and previous topics naturally in responses.
 When users share personal details, financial goals, or budget info, remember them for future conversations.
-
-E.g. John: "Hi, again!" -> "Hello John, how is your financial presentation going?"
 </memory_behavior>
 
 <vision_capability>
@@ -73,14 +72,45 @@ Guidelines for using your agents:
 
 When a user asks a question:
 1. Determine which agent(s) are most appropriate
-2. Call the relevant agent(s) with focused queries
-3. Synthesize the responses into a coherent, comprehensive answer
-4. Provide actionable next steps when possible"""
+2. Send status to the user to avoid waiting for the response (e.g., "I'm thinking...\n")
+3. Call the relevant agent(s) with focused queries
+4. Synthesize the responses into a coherent, comprehensive answer
+5. Provide actionable next steps when possible
 
-# Initialize memory and session manager
+<tone_and_language>
+- Use a friendly, professional, and engaging tone and language.
+- Be randomly iterative between explanatory, formal, and ultra concise responses.
+- Prefer line breaks and short sentences over mid-term/long-term sentences.
+</tone_and_language>
+
+<structured_options_format>
+Only apply this format if you are requesting or asking a list of follow-up questions.
+At the end of your response, add an XML formatted list of very concise options.
+The user can click on the options to send back to you.
+IMPORTANT: Only add options at the end of your response.
+
+E.g.
+<options>
+<option>What is my current balance?</option>
+<option>What is my spending trend?</option>
+</options>
+
+</structured_options_format>
+"""
+
+# Initialize region at module load
 region = get_region()
 
-memory = Memory(region_name=region, config=FINANCE_MEMORY_CONFIG)
+# Lazy initialization - memory created on first request (prevents race conditions)
+_memory_instance = None
+
+
+def get_memory() -> Memory:
+    """Get or create memory instance (lazy initialization to prevent parallel creation)"""
+    global _memory_instance
+    if _memory_instance is None:
+        _memory_instance = Memory(region_name=region, config=FINANCE_MEMORY_CONFIG)
+    return _memory_instance
 
 # Add conversation management to maintain context
 conversation_manager = SummarizingConversationManager(
@@ -88,10 +118,9 @@ conversation_manager = SummarizingConversationManager(
     preserve_recent_messages=5,  # Always keep 5 most recent messages
 )
 
-# Model with automatic guardrail configuration (AWS SDK-style)
-model = get_bedrock_model_with_guardrails(
+model = get_bedrock_model(
     framework="strands",
-    model=BedrockModelCatalog.CLAUDE_SONNET_45,
+    model=BedrockModelCatalog.CLAUDE_HAIKU_45,
 )
 
 
@@ -138,7 +167,8 @@ async def invoke(payload, context):
         )
 
     # Extract session and actor context from AgentCore Runtime
-    session_ctx = extract_session_context(context)
+    # Pass payload to extract actor_id (works for both OAuth and IAM)
+    session_ctx = extract_session_context(context, payload)
     session_id = session_ctx.session_id
     actor_id = session_ctx.actor_id
 
@@ -150,6 +180,46 @@ async def invoke(payload, context):
 
     # Get user message from payload
     user_message = payload["prompt"]
+
+    # Check for document upload (PDF or CSV)
+    document_base64 = payload.get("document_base64")
+    filename = payload.get("filename", "").lower()
+
+    if document_base64 and filename:
+        logger.info(f"[DOCUMENT] Document detected: {filename}")
+
+        # Handle PDF: Convert to image and process with vision
+        if filename.endswith(".pdf"):
+            from utils.pdf_processor import pdf_first_page_to_image
+
+            logger.info("[DOCUMENT] Converting PDF to image...")
+            converted_image = pdf_first_page_to_image(document_base64)
+
+            if converted_image:
+                # Set as image_base64 for vision processing
+                payload["image_base64"] = converted_image
+                logger.info("[DOCUMENT] PDF converted successfully, will process with vision")
+            else:
+                logger.warning("[DOCUMENT] PDF conversion failed")
+                user_message = "[Document Error: Could not process PDF file]\n\n" + user_message
+
+        # Handle CSV: Convert to text and inject into message
+        elif filename.endswith(".csv"):
+            from utils.csv_processor import csv_to_text
+
+            logger.info("[DOCUMENT] Converting CSV to text...")
+            csv_text = csv_to_text(document_base64)
+
+            if csv_text:
+                # Inject CSV content directly into user message
+                user_message = f"""[CSV File Data]
+{csv_text}
+
+User Query: {user_message}"""
+                logger.info(f"[DOCUMENT] CSV processed: {len(csv_text)} characters")
+            else:
+                logger.warning("[DOCUMENT] CSV processing failed")
+                user_message = "[Document Error: Could not process CSV file]\n\n" + user_message
 
     # Check for image in payload (vision preprocessing)
     image_base64 = payload.get("image_base64")
@@ -172,6 +242,67 @@ async def invoke(payload, context):
     # Inject vision context (handles all status cases)
     user_message = inject_vision_context(user_message, vision_result)
 
+    # ========================================================================
+    # GUARDRAIL PRE-CHECK: Validate user input BEFORE agent processing
+    # This prevents blocked content from contaminating conversation history
+    # ========================================================================
+    guardrail_config = get_guardrail_config()
+    if guardrail_config:
+        from utils.guardrail_sanitize import apply_guardrail_text
+
+        logger.info("=" * 70)
+        logger.info("[GUARDRAIL PRE-CHECK] Validating user input before processing")
+        logger.info(f"  • Guardrail ID: {guardrail_config.get('guardrail_id', 'N/A')}")
+        logger.info(f"  • Guardrail Version: {guardrail_config.get('guardrail_version', 'N/A')}")
+
+        pre_check_result = apply_guardrail_text(
+            text=user_message,
+            guardrail_id=guardrail_config.get("guardrail_id"),
+            guardrail_arn=guardrail_config.get("guardrail_arn"),
+            guardrail_version=guardrail_config.get("guardrail_version", "1"),
+            source="INPUT",
+            region_name=get_region(),
+        )
+
+        if not pre_check_result["is_safe"]:
+            # User input blocked - return intervention message WITHOUT invoking agent
+            logger.warning("=" * 70)
+            logger.warning("[GUARDRAIL PRE-CHECK] ⚠️  User input BLOCKED")
+            logger.warning(f"  • Actor ID: {actor_id}")
+            logger.warning(f"  • Session ID: {session_id}")
+            logger.warning(f"  • Action: {pre_check_result.get('action', 'UNKNOWN')}")
+            if pre_check_result.get("action_reason"):
+                logger.warning(f"  • Reason: {pre_check_result['action_reason']}")
+            logger.warning("  • Agent invocation SKIPPED (prevents conversation history contamination)")
+            logger.warning("=" * 70)
+
+            # Return intervention message and stop (no agent invocation)
+            # Use "final" type so Streamlit displays the message
+            yield {
+                "type": "final",
+                "result": "I can't assist with that request.",
+                "finish_reason": "guardrail_intervened",
+            }
+            return
+
+        logger.info("[GUARDRAIL PRE-CHECK] ✅ User input ALLOWED - proceeding to agent")
+        logger.info("=" * 70)
+
+    # Get or create memory (lazy initialization)
+    memory = get_memory()
+
+    # Retrieve and inject LTM memories into user message
+    user_message = retrieve_and_inject_memories(
+        memory_client=memory._client,
+        memory_id=memory.memory_id,
+        actor_id=actor_id,
+        user_message=user_message,
+        namespaces={
+            "finance-assistant/user/{actorId}/preferences": 5,
+            "finance-assistant/user/{actorId}/facts": 10,
+        },
+    )
+
     session_manager = AgentCoreMemorySessionManager(
         agentcore_memory_config=AgentCoreMemoryConfig(
             memory_id=memory.memory_id,
@@ -193,17 +324,7 @@ async def invoke(payload, context):
     if mcp_client:
         agent_tools.append(mcp_client)
 
-    # Log agent configuration
-    logger.info("=" * 70)
-    logger.info("[✓] Agent Configuration Complete")
-    logger.info(f"  • Session ID: {session_id}")
-    logger.info(f"  • Actor ID: {actor_id}")
-    logger.info(f"  • Memory ID: {memory.memory_id}")
-    logger.info(
-        f"  • Tools: {len(agent_tools)} ({'embedded + Gateway' if mcp_client else 'embedded only'})"
-    )
-    logger.info("=" * 70)
-
+    # Create orchestrator agent
     orchestrator_agent = Agent(
         model=model,
         system_prompt=ORCHESTRATOR_PROMPT,
@@ -212,7 +333,8 @@ async def invoke(payload, context):
         session_manager=session_manager,
     )
 
-    # Stream response (user_message already set above, potentially with vision context)
+    logger.info(f"Agent invoked for session {session_id}, actor {actor_id}")
+
     async for event in orchestrator_agent.stream_async(user_message):
         if "data" in event:
             yield event["data"]

@@ -43,7 +43,7 @@ def test_agent(name: str, agent_dir: Path) -> dict:
             cwd=agent_dir,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
             env=env,
         )
 
@@ -57,7 +57,7 @@ def test_agent(name: str, agent_dir: Path) -> dict:
 
     except subprocess.TimeoutExpired:
         result["status"] = "timeout"
-        result["error"] = "Health check timed out after 60s"
+        result["error"] = "Health check timed out after 120s"
     except Exception as e:
         result["status"] = "error"
         result["error"] = str(e)

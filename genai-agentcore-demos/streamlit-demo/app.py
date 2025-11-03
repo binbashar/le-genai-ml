@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 import re
 import time
 import uuid
@@ -9,9 +10,10 @@ from pathlib import Path
 import boto3
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 from shared.auth_utils import authenticate, invoke_with_token
-from utils import vision_utils
+from utils import document_utils, vision_utils
 
 # Configure logging
 logging.basicConfig(
@@ -24,6 +26,28 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 ENABLE_HEALTH_BADGES = True
 ENABLE_VISION_CAPABILITY = True  # Image upload and analysis for supported agents
+
+# ============================================================================
+# AGENT NAME EMOJI MAPPING
+# ============================================================================
+# Universal emoji list for all agents (finance + smart AI mix)
+AGENT_EMOJIS = [
+    "💰",
+    "💼",
+    "📊",
+    "📈",
+    "🏦",
+    "💹",
+    "⚡️",
+    "🌟",
+]
+
+
+def get_agent_display_name(agent_type: str, base_name: str) -> str:
+    """Add a random emoji prefix to agent name"""
+    emoji = random.choice(AGENT_EMOJIS)
+    return f"{emoji} {base_name}"
+
 
 # ============================================================================
 # INVOCATION MODES (priority order)
@@ -39,20 +63,132 @@ HEALTH_CONFIG = {
     "test_prompt": "ping",
     "local": {"color": "#10b981", "tooltip": "Connected to local environment"},
     "live": {"color": "#3b82f6", "tooltip": "Connected to live environment"},
-    "error": {"color": "#ef4444", "tooltip": "Connection error"}
+    "error": {"color": "#ef4444", "tooltip": "Connection error"},
 }
+
+
+# ============================================================================
+# TOKEN PERSISTENCE (Browser localStorage)
+# ============================================================================
+def store_token_in_browser(token: str, username: str, agent_type: str):
+    """Store JWT token and auth metadata in browser's localStorage"""
+    auth_data = {
+        "token": token,
+        "username": username,
+        "agent_type": agent_type,
+        "stored_at": time.time(),
+    }
+    components.html(
+        f"""
+        <script>
+            localStorage.setItem('agentcore_auth', JSON.stringify({json.dumps(auth_data)}));
+        </script>
+        """,
+        height=0,
+    )
+
+
+def get_token_from_browser():
+    """Retrieve auth data from browser's localStorage"""
+    # Use timestamp in HTML to ensure fresh reads
+    timestamp = int(time.time() * 1000)
+
+    result = components.html(
+        f"""
+        <script>
+            // Unique timestamp to force execution: {timestamp}
+            const authData = localStorage.getItem('agentcore_auth');
+            if (authData) {{
+                const parsed = JSON.parse(authData);
+                // Send back to Streamlit via parent.postMessage
+                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: parsed}}, '*');
+            }} else {{
+                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: null}}, '*');
+            }}
+        </script>
+        """,
+        height=0,
+    )
+    return result
+
+
+def clear_token_from_browser():
+    """Clear stored token from browser's localStorage"""
+    components.html(
+        """
+        <script>
+            localStorage.removeItem('agentcore_auth');
+        </script>
+        """,
+        height=0,
+    )
+
+
+def validate_token(token: str) -> bool:
+    """Validate JWT token expiry without signature verification"""
+    try:
+        import base64
+
+        # Decode JWT payload (second part)
+        parts = token.split(".")
+        if len(parts) != 3:
+            return False
+
+        # Add padding if needed
+        payload = parts[1]
+        padding = 4 - len(payload) % 4
+        if padding != 4:
+            payload += "=" * padding
+
+        decoded = base64.urlsafe_b64decode(payload)
+        payload_data = json.loads(decoded)
+
+        # Check expiry
+        exp = payload_data.get("exp")
+        if not exp:
+            return False
+
+        # Add 5 minute buffer before actual expiry
+        return time.time() < (exp - 300)
+    except Exception as e:
+        logger.error(f"Token validation error: {e}")
+        return False
 
 
 # Load configuration files
 @st.cache_resource
 def load_config():
-    """Load agent configurations"""
+    """
+    Load agent configurations with SSM auto-discovery.
+
+    Loads static config from YAML (name, capabilities) and merges with
+    runtime config from SSM (ARN, OAuth config).
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from shared.ssm_utils import get_all_agent_configs
+
     config_dir = Path(__file__).parent / "config"
 
+    # Load static config from YAML
     with open(config_dir / "agents.yaml", "r") as f:
-        agents_config = yaml.safe_load(f)
+        static_config = yaml.safe_load(f)
 
-    return agents_config
+    # Get runtime config from SSM (ARN + OAuth)
+    region = static_config["aws"]["region"]
+    runtime_configs = get_all_agent_configs(region=region)
+
+    # Merge runtime config into static config
+    for agent_name, runtime_config in runtime_configs.items():
+        if agent_name in static_config["agents"]:
+            static_config["agents"][agent_name]["arn"] = runtime_config["arn"]
+            static_config["agents"][agent_name]["oauth_config"] = runtime_config.get(
+                "oauth_config"
+            )
+            logger.debug(f"Merged SSM config for agent: {agent_name}")
+
+    return static_config
 
 
 # Load configs
@@ -77,7 +213,15 @@ def get_agent_endpoint_url(agent_type: str) -> str | None:
     return agent_cfg.get("endpoint_url")
 
 
-def invoke_local_endpoint(endpoint_url: str, prompt: str, session_id: str, timeout: int, image_base64: str = None):
+def invoke_local_endpoint(
+    endpoint_url: str,
+    prompt: str,
+    session_id: str,
+    timeout: int,
+    image_base64: str = None,
+    document_base64: str = None,
+    filename: str = None,
+):
     """HTTP POST to local endpoint with streaming response"""
     payload = {
         "prompt": prompt,
@@ -88,11 +232,19 @@ def invoke_local_endpoint(endpoint_url: str, prompt: str, session_id: str, timeo
     # Add image if provided (vision capability)
     if image_base64:
         payload["image_base64"] = image_base64
-        logger.info(f"[VISION DEBUG] Added image_base64 to payload (length: {len(image_base64)})")
-    else:
-        logger.info("[VISION DEBUG] No image_base64 to add to payload")
+        logger.info(
+            f"[VISION DEBUG] Added image_base64 to payload (length: {len(image_base64)})"
+        )
 
-    logger.info(f"[VISION DEBUG] Payload keys being sent: {list(payload.keys())}")
+    # Add document if provided (PDF/CSV support)
+    if document_base64 and filename:
+        payload["document_base64"] = document_base64
+        payload["filename"] = filename
+        logger.info(
+            f"[DOCUMENT] Added document to payload: {filename} (length: {len(document_base64)})"
+        )
+
+    logger.info(f"[DOCUMENT] Payload keys being sent: {list(payload.keys())}")
 
     response = requests.post(
         f"{endpoint_url}/invocations",
@@ -109,8 +261,7 @@ def check_local_health(endpoint_url: str) -> tuple[bool, str, int | None]:
     """Check local endpoint health via /ping"""
     try:
         response = requests.get(
-            f"{endpoint_url}/ping",
-            timeout=HEALTH_CONFIG["timeout"]
+            f"{endpoint_url}/ping", timeout=HEALTH_CONFIG["timeout"]
         )
         if response.status_code == 200:
             data = response.json()
@@ -121,7 +272,9 @@ def check_local_health(endpoint_url: str) -> tuple[bool, str, int | None]:
         return False, "error", None
 
 
-def check_aws_health(agent_info: dict, auth_config: dict | None, auth_token: str | None) -> tuple[bool, str, int | None]:
+def check_aws_health(
+    agent_info: dict, auth_config: dict | None, auth_token: str | None
+) -> tuple[bool, str, int | None]:
     """Check AWS endpoint health via /invocations endpoint.
 
     Note: AWS AgentCore Runtime does not expose a /ping endpoint (only local Docker does).
@@ -146,48 +299,44 @@ def check_aws_health(agent_info: dict, auth_config: dict | None, auth_token: str
             client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
             response = client.invoke_agent_runtime(
                 agentRuntimeArn=agent_info["arn"],
-                payload=json.dumps({"prompt": HEALTH_CONFIG["test_prompt"], "session_id": "health-check"}),
+                payload=json.dumps(
+                    {
+                        "prompt": HEALTH_CONFIG["test_prompt"],
+                        "session_id": "health-check",
+                    }
+                ),
             )
             if response.get("response"):
                 return True, "live", 200
             return False, "error", None
     except requests.exceptions.HTTPError as e:
-        logger.debug(f"AWS health check HTTPError: {e}, status: {e.response.status_code if e.response else None}")
+        logger.debug(
+            f"AWS health check HTTPError: {e}, status: {e.response.status_code if e.response else None}"
+        )
         return False, "error", e.response.status_code if e.response else None
     except Exception as e:
         logger.debug(f"AWS health check failed: {e}")
         return False, "error", None
 
 
-def get_or_create_session_id(agent_type: str, username: str) -> str:
-    """Get session ID from file or create new one"""
+def create_new_session_id() -> str:
+    """Generate a new session ID for fresh conversations"""
+    session_id = str(uuid.uuid4())
+    logger.info(f"Created new session ID: {session_id}")
+    return session_id
+
+
+def clear_session_file(agent_type: str, username: str):
+    """Remove persisted session file on logout"""
     sessions_dir = Path(__file__).parent / "sessions"
-    sessions_dir.mkdir(exist_ok=True)
-
     session_file = sessions_dir / f".{agent_type}_{username}"
-    logger.info(f"[SESSION] Using session file: {session_file}")
 
-    # Try to read existing session ID
     if session_file.exists():
         try:
-            session_id = session_file.read_text().strip()
-            if session_id and len(session_id) >= 33:  # AWS minimum
-                logger.info(f"Loaded session ID for {agent_type}/{username}: {session_id}")
-                return session_id
+            session_file.unlink()
+            logger.info(f"Cleared session file for {agent_type}/{username}")
         except Exception as e:
-            logger.warning(f"Failed to read session file: {e}")
-
-    # Generate new session ID
-    session_id = str(uuid.uuid4())
-
-    # Save to file
-    try:
-        session_file.write_text(session_id)
-        logger.info(f"Created new session ID for {agent_type}/{username}: {session_id}")
-    except Exception as e:
-        logger.error(f"Failed to save session file: {e}")
-
-    return session_id
+            logger.warning(f"Failed to clear session file: {e}")
 
 
 # Page configuration
@@ -197,6 +346,9 @@ st.set_page_config(
 
 # Sidebar with configuration
 with st.sidebar:
+    # ============================================================================
+    # SECTION 1: Connection Status
+    # ============================================================================
     # AWS connectivity verification
     try:
         sts = boto3.client("sts", region_name=AWS_REGION)
@@ -207,25 +359,9 @@ with st.sidebar:
         st.caption("Set AWS_PROFILE or configure credentials")
         st.stop()
 
-    st.markdown("---")
-
-    # Agent Selection
+    # Get selected agent config (needed for health check)
     all_agents = list(agents_config["agents"].keys())
-
-    # Agent selector with auth mode indicator
-    def format_agent_name(agent_key: str) -> str:
-        agent_info = agents_config["agents"][agent_key]
-        icon = "🔐" if agent_info.get("oauth_config") else "🔑"
-        return f"{icon} {agent_info['name']}"
-
-    selected_agent = st.radio(
-        "Select Agent",
-        all_agents,
-        format_func=format_agent_name,
-        key="agent_selector",
-    )
-
-    # Get selected agent config
+    selected_agent = st.session_state.get("agent_selector_value", all_agents[0])
     selected_agent_info = agents_config["agents"][selected_agent]
     agent_type = selected_agent
 
@@ -246,37 +382,21 @@ with st.sidebar:
                     success, state, status_code = check_local_health(local_endpoint)
                 else:
                     agent_auth_config = get_agent_auth_config(agent_type)
-                    auth_token = st.session_state.get("auth_token") if agent_auth_config else None
-                    success, state, status_code = check_aws_health(selected_agent_info, agent_auth_config, auth_token)
+                    auth_token = (
+                        st.session_state.get("auth_token")
+                        if agent_auth_config
+                        else None
+                    )
+                    success, state, status_code = check_aws_health(
+                        selected_agent_info, agent_auth_config, auth_token
+                    )
                 st.session_state[health_key] = state
                 st.session_state[status_code_key] = status_code
             except Exception:
                 st.session_state[health_key] = "error"
                 st.session_state[status_code_key] = None
 
-    # Show authentication status (minimal)
-    if selected_agent_info.get("oauth_config"):
-        current_agent_in_session = st.session_state.get("agent_type")
-
-        if current_agent_in_session == selected_agent:
-            # User is logged in - show logout button
-            st.markdown("")  # Spacer
-            st.caption(f"Logged in as **{st.session_state.get('username', 'User')}**")
-            if st.button("Logout", use_container_width=True):
-                st.session_state.clear()
-                st.rerun()
-
-    st.markdown("---")
-
-    # Footer
-    st.caption("🏦 AWS GenAI Loft FinTech Event")
-    st.caption("Built with Amazon Bedrock AgentCore")
-
-    # Health status badge (if enabled)
-    if ENABLE_HEALTH_BADGES and (not is_oauth_agent or is_authenticated):
-        health_key = f"health_status_{agent_type}"
-        status_code_key = f"health_status_code_{agent_type}"
-
+        # Display health status badge (below AWS Connected with extra margin)
         if health_key in st.session_state:
             status = st.session_state[health_key]
             status_code = st.session_state.get(status_code_key)
@@ -290,14 +410,122 @@ with st.sidebar:
 
             st.markdown(
                 f"""
-                <div style="display: flex; align-items: center; gap: 8px; margin: 0.5rem 0;">
-                    <div style="width: 10px; height: 10px; border-radius: 50%; background: {config['color']}; flex-shrink: 0;"
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 1rem;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background: {config["color"]}; flex-shrink: 0;"
                          title="{tooltip}"></div>
                     <span style="font-size: 0.875rem; color: #6b7280;">Status: {status_text}</span>
                 </div>
                 """,
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
+
+    st.markdown("---")
+
+    # ============================================================================
+    # SECTION 2: Agent Selection & Authentication
+    # ============================================================================
+    # Auto-restore session from browser storage (if available)
+    if "auth_restore_attempted" not in st.session_state:
+        st.session_state["auth_restore_attempted"] = True
+        stored_auth = get_token_from_browser()
+
+        if stored_auth and isinstance(stored_auth, dict):
+            token = stored_auth.get("token")
+            username = stored_auth.get("username")
+            agent_type_stored = stored_auth.get("agent_type")
+
+            # Check if localStorage user differs from current session user
+            current_username = st.session_state.get("username")
+            if current_username and current_username != username:
+                # Different user detected - clear session state for security
+                logger.warning(
+                    f"User mismatch: session={current_username}, storage={username}. Clearing session."
+                )
+                st.session_state.clear()
+                st.session_state["auth_restore_attempted"] = (
+                    True  # Prevent infinite loop
+                )
+
+            # Validate token before restoring
+            if token and username and agent_type_stored and validate_token(token):
+                logger.info(f"Restored session from browser storage: {username}")
+                st.session_state["auth_token"] = token
+                st.session_state["username"] = username
+                st.session_state["agent_type"] = agent_type_stored
+                # Note: session_id is NOT restored - fresh session on each page load
+                st.rerun()
+            else:
+                # Token expired or invalid - clear it
+                logger.info("Stored token expired or invalid, clearing storage")
+                clear_token_from_browser()
+
+    # Check if user is logged into an OAuth agent
+    current_agent_in_session = st.session_state.get("agent_type")
+
+    # Track if we show any content in this section (for separator logic)
+    show_section_separator = False
+
+    if current_agent_in_session:
+        # User is logged in - show only logout section
+        st.caption(f"Logged in as **{st.session_state.get('username', 'User')}**")
+        if st.button("Logout", use_container_width=True):
+            # Get current user info before clearing
+            username = st.session_state.get("username")
+            agent_type = st.session_state.get("agent_type")
+
+            # Clear browser storage
+            clear_token_from_browser()
+
+            # Clear session files (if any)
+            if username and agent_type:
+                clear_session_file(agent_type, username)
+
+            # Clear session state
+            st.session_state.clear()
+            st.rerun()
+        show_section_separator = True
+
+        # Set agent_type from logged-in session
+        agent_type = current_agent_in_session
+        selected_agent_info = agents_config["agents"][agent_type]
+    else:
+        # Not logged in - show agent selector (only if multiple agents available)
+        if len(all_agents) == 1:
+            # Only one agent - auto-select without showing selector
+            selected_agent = all_agents[0]
+            show_section_separator = False
+        else:
+            # Multiple agents - show selector
+            def format_agent_name(agent_key: str) -> str:
+                agent_info = agents_config["agents"][agent_key]
+                icon = "🔐" if agent_info.get("oauth_config") else "🔑"
+                display_name = get_agent_display_name(agent_key, agent_info["name"])
+                return f"{icon} {display_name}"
+
+            selected_agent = st.radio(
+                "Select Agent",
+                all_agents,
+                format_func=format_agent_name,
+                key="agent_selector",
+            )
+            show_section_separator = True
+
+        # Update session state for health check tracking
+        st.session_state["agent_selector_value"] = selected_agent
+
+        # Get selected agent config
+        selected_agent_info = agents_config["agents"][selected_agent]
+        agent_type = selected_agent
+
+    # Only show separator if we displayed content in this section
+    if show_section_separator:
+        st.markdown("---")
+
+    # ============================================================================
+    # SECTION 3: Footer
+    # ============================================================================
+    st.caption("🏦 AWS GenAI Loft 2025")
+    st.caption("Built by binbash with ❤️")
 
 # ============================================================================
 # MAIN SCREEN: Authentication Gate (for OAuth agents)
@@ -309,7 +537,7 @@ current_agent_in_session = st.session_state.get("agent_type")
 if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
     # Show login form in main screen (left-aligned)
     # Single clean title with agent name
-    st.title(agent_info['name'])
+    st.title(get_agent_display_name(agent_type, agent_info["name"]))
     st.markdown("")
 
     # Left-aligned login form (max width to match title)
@@ -317,11 +545,20 @@ if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
         st.markdown("Please enter your credentials to continue:")
         st.markdown("")
 
-        username = st.text_input("Username", placeholder="broker_demo", key="username_input")
-        password = st.text_input("Password", type="password", placeholder="DemoPass123!", key="password_input")
+        username = st.text_input(
+            "Username", placeholder="broker_demo", key="username_input"
+        )
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="DemoPass123!",
+            key="password_input",
+        )
 
         st.markdown("")
-        submit = st.form_submit_button("Login", use_container_width=True, type="primary")
+        submit = st.form_submit_button(
+            "Login", use_container_width=True, type="primary"
+        )
 
         if submit:
             if not username or not password:
@@ -337,9 +574,14 @@ if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
                             auth_result = authenticate(auth_config, username, password)
 
                         # Store auth token and user info in session
-                        st.session_state["auth_token"] = auth_result["AccessToken"]
+                        access_token = auth_result["AccessToken"]
+                        st.session_state["auth_token"] = access_token
                         st.session_state["username"] = username
                         st.session_state["agent_type"] = agent_type
+
+                        # Persist token to browser storage
+                        store_token_in_browser(access_token, username, agent_type)
+
                         st.success(f"✅ Welcome, {username}!")
                         time.sleep(0.5)  # Brief pause to show success
                         st.rerun()
@@ -360,27 +602,10 @@ if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
 agent_info = agents_config["agents"][agent_type]
 local_endpoint = get_agent_endpoint_url(agent_type)
 
-# Agent title
-st.title(agent_info['name'])
 
-# Initialize session state for this agent
-# Each agent gets its own message history and session ID
-username = st.session_state.get("username", "anonymous")
-messages_key = f"messages_{agent_type}_{username}"
-session_id_key = f"session_id_{agent_type}_{username}"
-
-if messages_key not in st.session_state:
-    st.session_state[messages_key] = []
-
-if session_id_key not in st.session_state:
-    st.session_state[session_id_key] = get_or_create_session_id(agent_type, username)
-
-# Display chat messages from history
-for message in st.session_state[messages_key]:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
 def escape_latex_chars(text):
     """
     Escape characters that trigger LaTeX rendering in Streamlit.
@@ -388,8 +613,58 @@ def escape_latex_chars(text):
     """
     # Escape dollar signs to prevent LaTeX interpretation
     text = re.sub(r"\$", r"\\$", text)
-
     return text
+
+
+def clean_agent_response(text):
+    """
+    Remove XML tags from agent responses (thinking, options).
+    Used for displaying messages from chat history.
+    """
+    if not text:
+        return text
+    # Remove thinking tags
+    text = re.sub(r"<thinking>(.*?)</thinking>", "", text, flags=re.DOTALL)
+    # Remove options tags
+    text = re.sub(r"<options>(.*?)</options>", "", text, flags=re.DOTALL)
+    return text.strip()
+
+
+def render_option_buttons(options_list, agent_type, message_idx):
+    """
+    Render option buttons for a message.
+    Uses message index for stable button keys across reruns.
+
+    Args:
+        options_list: List of option strings to display as buttons
+        agent_type: Current agent type for session state key
+        message_idx: Index of this message in history (for stable keys)
+    """
+    if not options_list:
+        return
+
+    # Custom CSS to align button text to the left
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stHorizontalBlock"] button[kind="secondary"] p {
+            text-align: left !important;
+        }
+        </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    # Stack buttons vertically (one per row)
+    for idx, option in enumerate(options_list):
+        # Key uses message_idx (stable) instead of message count (unstable)
+        if st.button(
+            option,
+            key=f"opt_{agent_type}_msg{message_idx}_opt{idx}",
+            use_container_width=True,
+        ):
+            st.session_state[f"selected_option_{agent_type}"] = option
+            st.rerun()
 
 
 # Generator function for st.write_stream()
@@ -426,6 +701,20 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
                     event_type = event.get("type", "unknown")
                     logger.debug(f"EVENT: type={event_type}, keys={list(event.keys())}")
 
+                # Debug: Log raw event data to see options
+                if isinstance(event, str) and "<option" in event.lower():
+                    logger.info(
+                        f"[OPTIONS DEBUG STREAM] Found option in string event: {event[:100]}"
+                    )
+                elif (
+                    isinstance(event, dict)
+                    and event.get("token")
+                    and "<option" in event.get("token", "").lower()
+                ):
+                    logger.info(
+                        f"[OPTIONS DEBUG STREAM] Found option in token: {event.get('token')[:100]}"
+                    )
+
                 # Handle tool messages (side effect - updates UI)
                 if isinstance(event, dict) and event.get("type") == "thinking":
                     tool_msg = event.get("message", "")
@@ -436,7 +725,9 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
                 # Handle error events from the agent
                 elif isinstance(event, dict) and "error" in event:
                     error_type = event.get("error_type", "Unknown")
-                    error_msg = event.get("message", event.get("error", "Unknown error"))
+                    error_msg = event.get(
+                        "message", event.get("error", "Unknown error")
+                    )
                     logger.error(f"Agent error: {error_type} - {error_msg}")
                     # Display error to user using a formatted error message
                     yield f"\n\n**⚠️ Agent Error ({error_type}):**\n\n{error_msg}\n\n"
@@ -487,37 +778,113 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
                 continue
 
 
-prompt = st.chat_input(
-    "Type your message here...",
-    accept_file=True if (ENABLE_VISION_CAPABILITY and vision_utils.should_enable_vision(agent_type, agents_config)) else False,
-    file_type=["png", "jpg", "jpeg"] if (ENABLE_VISION_CAPABILITY and vision_utils.should_enable_vision(agent_type, agents_config)) else None,
-)
+# Agent title
+st.title(get_agent_display_name(agent_type, agent_info["name"]))
+
+# Initialize session state for this agent
+# Each agent gets its own message history and session ID
+username = st.session_state.get("username", "anonymous")
+messages_key = f"messages_{agent_type}_{username}"
+session_id_key = f"session_id_{agent_type}_{username}"
+
+if messages_key not in st.session_state:
+    st.session_state[messages_key] = []
+
+if session_id_key not in st.session_state:
+    # Create fresh session ID for each login (not persisted across logins)
+    st.session_state[session_id_key] = create_new_session_id()
+
+# Display chat messages from history
+for msg_idx, message in enumerate(st.session_state[messages_key]):
+    with st.chat_message(message["role"]):
+        # Clean any XML tags from historical messages (defensive cleanup)
+        cleaned_content = (
+            clean_agent_response(message["content"])
+            if message["role"] == "assistant"
+            else message["content"]
+        )
+        st.markdown(cleaned_content)
+
+        # Render option buttons if this message has options metadata
+        if (
+            message["role"] == "assistant"
+            and "options" in message
+            and message["options"]
+        ):
+            render_option_buttons(message["options"], agent_type, msg_idx)
+
+
+# Check for selected option (from button click)
+selected_option_key = f"selected_option_{agent_type}"
+if selected_option_key in st.session_state:
+    prompt = st.session_state[selected_option_key]
+    del st.session_state[selected_option_key]  # Clear after reading
+else:
+    # Check if agent supports file uploads (vision for images, documents for PDF/CSV)
+    supports_vision = ENABLE_VISION_CAPABILITY and vision_utils.should_enable_vision(
+        agent_type, agents_config
+    )
+    supports_documents = document_utils.should_enable_documents(
+        agent_type, agents_config
+    )
+    accepts_files = supports_vision or supports_documents
+
+    # Determine allowed file types
+    allowed_types = []
+    if supports_vision:
+        allowed_types.extend(["png", "jpg", "jpeg"])
+    if supports_documents:
+        allowed_types.extend(["pdf", "csv"])
+
+    prompt = st.chat_input(
+        "Type your message here...",
+        accept_file=accepts_files,
+        file_type=allowed_types if allowed_types else None,
+    )
 
 if prompt:
-    prompt_text = prompt.text if hasattr(prompt, 'text') else prompt
-    uploaded_files = prompt.files if hasattr(prompt, 'files') else []
+    logger.info("[OPTIONS DEBUG] ===== NEW MESSAGE HANDLER START =====")
+    prompt_text = prompt.text if hasattr(prompt, "text") else prompt
+    uploaded_files = prompt.files if hasattr(prompt, "files") else []
     uploaded_file = uploaded_files[0] if uploaded_files else None
 
     logger.info(f"[VISION DEBUG] uploaded_files count: {len(uploaded_files)}")
     logger.info(f"[VISION DEBUG] uploaded_file is None: {uploaded_file is None}")
     if uploaded_file:
-        logger.info(f"[VISION DEBUG] File name: {uploaded_file.name}, size: {len(uploaded_file.getvalue())} bytes")
+        logger.info(
+            f"[VISION DEBUG] File name: {uploaded_file.name}, size: {len(uploaded_file.getvalue())} bytes"
+        )
 
     session_id = st.session_state[session_id_key]
 
     image_base64 = None
-    if ENABLE_VISION_CAPABILITY and uploaded_file:
-        image_base64 = vision_utils.process_image_to_base64(uploaded_file)
-        logger.info(f"[VISION DEBUG] image_base64 is None: {image_base64 is None}")
-        if image_base64:
-            logger.info(f"[VISION DEBUG] image_base64 length: {len(image_base64)} chars")
-        if image_base64 is None:
-            st.stop()
+    document_base64 = None
+    filename = None
+
+    if uploaded_file:
+        file_type = document_utils.get_file_type_from_name(uploaded_file.name)
+        logger.info(
+            f"[DOCUMENT] Uploaded file type: {file_type}, name: {uploaded_file.name}"
+        )
+
+        if file_type == "image":
+            # Process as image (existing vision capability)
+            image_base64 = vision_utils.process_image_to_base64(uploaded_file)
+            if image_base64 is None:
+                st.stop()
+        elif file_type in ["pdf", "csv"]:
+            # Process as document (new multi-format support)
+            result = document_utils.process_document_to_base64(uploaded_file)
+            if result:
+                document_base64, filename = result
+            else:
+                st.stop()
 
     with st.chat_message("user"):
         st.markdown(prompt_text)
-        if ENABLE_VISION_CAPABILITY and uploaded_file:
-            vision_utils.render_attached_image_in_chat(uploaded_file)
+        if uploaded_file:
+            file_type = document_utils.get_file_type_from_name(uploaded_file.name)
+            document_utils.render_attached_document_in_chat(uploaded_file, file_type)
 
     st.session_state[messages_key].append({"role": "user", "content": prompt_text})
 
@@ -543,6 +910,8 @@ if prompt:
                         session_id=session_id,
                         timeout=TIMEOUT_SECONDS,
                         image_base64=image_base64,
+                        document_base64=document_base64,
+                        filename=filename,
                     )
 
                 elif agent_auth_config:
@@ -565,6 +934,8 @@ if prompt:
                             region=AWS_REGION,
                             timeout=TIMEOUT_SECONDS,
                             image_base64=image_base64,
+                            document_base64=document_base64,
+                            filename=filename,
                         )
                         logger.info(
                             "Agent invocation successful (authenticated), processing event stream"
@@ -572,12 +943,19 @@ if prompt:
 
                     except requests.exceptions.HTTPError as e:
                         if e.response.status_code == 401:
-                            st.error("Authentication token expired. Please login again.")
-                            # Clear session and force re-login
-                            for key in ["auth_token", "username", "agent_type"]:
-                                if key in st.session_state:
-                                    del st.session_state[key]
-                            st.stop()
+                            st.error(
+                                "Authentication token expired. Please login again."
+                            )
+                            # Get user info before clearing
+                            username = st.session_state.get("username")
+                            agent_type_val = st.session_state.get("agent_type")
+
+                            # Clear browser storage and session
+                            clear_token_from_browser()
+                            if username and agent_type_val:
+                                clear_session_file(agent_type_val, username)
+                            st.session_state.clear()
+                            st.rerun()
                         else:
                             raise
 
@@ -589,10 +967,29 @@ if prompt:
                         f"Created bedrock-agentcore client for region: {AWS_REGION}"
                     )
 
-                    payload_dict = {"prompt": prompt_text, "session_id": session_id}
+                    # For IAM mode: use 'anonymous' actor_id for memory isolation
+                    # (No OAuth login, so no username available)
+                    actor_id = "anonymous"
+
+                    payload_dict = {
+                        "prompt": prompt_text,
+                        "session_id": session_id,
+                        "actor_id": actor_id,  # Pass actor_id in payload
+                    }
                     if image_base64:
                         payload_dict["image_base64"] = image_base64
-                        logger.info(f"Image included in IAM payload (size: {len(image_base64)} bytes)")
+                        logger.info(
+                            f"Image included in IAM payload (size: {len(image_base64)} bytes)"
+                        )
+
+                    if document_base64 and filename:
+                        payload_dict["document_base64"] = document_base64
+                        payload_dict["filename"] = filename
+                        logger.info(
+                            f"Document included in IAM payload: {filename} (size: {len(document_base64)} bytes)"
+                        )
+
+                    logger.info(f"IAM mode: Using actor_id='{actor_id}'")
 
                     response = client.invoke_agent_runtime(
                         agentRuntimeArn=agent_info["arn"],
@@ -606,19 +1003,70 @@ if prompt:
             # Stream response
             # For local/authenticated/HTTP: response is already the stream
             # For IAM/boto3: response["response"] is the stream
-            response_stream = response if (local_endpoint or agent_auth_config) else response["response"]
-
-            response_text = st.write_stream(
-                stream_agent_response(
-                    response_stream, tool_placeholder, TIMEOUT_SECONDS
-                )
+            response_stream = (
+                response
+                if (local_endpoint or agent_auth_config)
+                else response["response"]
             )
 
-            # Post-process: Extract thinking content and display
+            logger.info("[OPTIONS DEBUG] About to start streaming response")
+
+            # Accumulate response text manually (st.write_stream returns None)
+            message_placeholder = st.empty()
+            response_text = ""
+            token_count = 0
+            for token in stream_agent_response(
+                response_stream, tool_placeholder, TIMEOUT_SECONDS
+            ):
+                response_text += token
+                token_count += 1
+                message_placeholder.markdown(response_text + "▌")
+
+            logger.info(
+                f"[OPTIONS DEBUG] Loop ended, processed {token_count} tokens, total {len(response_text)} chars"
+            )
+
+            # Post-process: Extract thinking content and options, then clean display
             if response_text and response_text.strip():
+                logger.info("[OPTIONS DEBUG] Entering post-process block")
+                logger.info(
+                    f"[OPTIONS DEBUG] Full response length: {len(response_text)}"
+                )
+                logger.info(
+                    f"[OPTIONS DEBUG] Response preview: {response_text[:200]}..."
+                )
+
                 # Extract thinking content using regex
                 thinking_pattern = r"<thinking>(.*?)</thinking>"
-                thinking_matches = re.findall(thinking_pattern, response_text, re.DOTALL)
+                thinking_matches = re.findall(
+                    thinking_pattern, response_text, re.DOTALL
+                )
+
+                # Extract options content using regex
+                options_pattern = r"<options>(.*?)</options>"
+                options_matches = re.findall(options_pattern, response_text, re.DOTALL)
+                logger.info(
+                    f"[OPTIONS DEBUG] Found {len(options_matches)} options blocks"
+                )
+
+                if options_matches:
+                    logger.info(
+                        f"[OPTIONS DEBUG] Options block content: {options_matches[0][:300]}"
+                    )
+
+                # Remove thinking and options tags from main response
+                cleaned_response = re.sub(
+                    thinking_pattern, "", response_text, flags=re.DOTALL
+                )
+                cleaned_response = re.sub(
+                    options_pattern, "", cleaned_response, flags=re.DOTALL
+                ).strip()
+                logger.info(
+                    f"[OPTIONS DEBUG] Cleaned response length: {len(cleaned_response)}"
+                )
+
+                # Update placeholder with cleaned response (removes XML tags)
+                message_placeholder.markdown(cleaned_response)
 
                 # Display thinking in expander if found
                 if thinking_matches:
@@ -626,14 +1074,32 @@ if prompt:
                     with st.expander("💭 Thinking Process", expanded=False):
                         st.text(thinking_content.strip())
 
-                # Remove thinking tags from main response
-                cleaned_response = re.sub(
-                    thinking_pattern, "", response_text, flags=re.DOTALL
-                ).strip()
+                # Parse individual <option> tags
+                options_list = []
+                if options_matches:
+                    option_pattern = r"<option>(.*?)</option>"
+                    options_list = re.findall(
+                        option_pattern, options_matches[0], re.DOTALL
+                    )
+                    options_list = [opt.strip() for opt in options_list if opt.strip()]
+                    logger.info(
+                        f"[OPTIONS DEBUG] Parsed {len(options_list)} individual options"
+                    )
+                    logger.info(f"[OPTIONS DEBUG] Options list: {options_list}")
 
-                # Add assistant response to chat history
+                # Display option buttons if found (will also be rendered from history on rerun)
+                if options_list:
+                    msg_idx = len(
+                        st.session_state[messages_key]
+                    )  # Index for this new message
+                    render_option_buttons(options_list, agent_type, msg_idx)
+
+                # Add assistant response to chat history with options metadata
                 if cleaned_response:
-                    st.session_state[messages_key].append({"role": "assistant", "content": cleaned_response})
+                    message_data = {"role": "assistant", "content": cleaned_response}
+                    if options_list:
+                        message_data["options"] = options_list
+                    st.session_state[messages_key].append(message_data)
                     logger.info(
                         f"Response complete ({len(cleaned_response)} chars, thinking: {len(thinking_content) if thinking_matches else 0} chars)"
                     )
@@ -658,4 +1124,6 @@ if prompt:
             st.error(error_message)
             st.caption("Please check your AWS credentials and agent configuration.")
             # Add error to chat history
-            st.session_state[messages_key].append({"role": "assistant", "content": error_message})
+            st.session_state[messages_key].append(
+                {"role": "assistant", "content": error_message}
+            )

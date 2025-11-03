@@ -10,9 +10,9 @@ This Gateway infrastructure enables agents to access tools deployed as serverles
 
 - **MCP Protocol**: JSON-RPC 2.0 based tool invocation
 - **Serverless Tools**: Lambda functions with auto-scaling
-- **OAuth2/JWT Auth**: Cognito integration (optional)
+- **OAuth2/JWT Auth**: Cognito M2M authentication (built-in)
 - **Generic & Reusable**: Serves multiple agents
-- **IaC Ready**: Python boto3 with easy CDK migration path
+- **AWS CDK**: Production-ready infrastructure as code
 
 ## Architecture
 
@@ -45,39 +45,41 @@ This Gateway infrastructure enables agents to access tools deployed as serverles
 
 - AWS credentials configured (AWS_PROFILE=binbash or default)
 - Python 3.13+
-- `uv` package manager (or pip)
+- AWS CDK CLI installed (`npm install -g aws-cdk`)
 - Bedrock AgentCore access in your AWS account
 
 ### 1. Deploy Gateway Infrastructure
 
 ```bash
-cd agentcore-gateway
+cd agentcore-gateway/cdk
 
-# Install dependencies
-uv sync
+# Deploy all CDK stacks
+./deploy.sh
 
-# Deploy (creates IAM roles, Lambda, Gateway, target)
-uv run python deploy.py
+# Or with specific AWS profile
+./deploy.sh --profile your-profile-name
 ```
 
 **What gets created:**
-- IAM Lambda execution role (`AgentCoreGatewayLambdaExecutionRole`)
-- IAM Gateway service role (`AgentCoreGatewayServiceRole`)
+- Cognito User Pool with M2M client for authentication
 - Lambda function (`agentcore-gateway-calculate-budget`)
-- AgentCore Gateway (`agentcore-mcp-gateway`)
+- AgentCore Gateway with OAuth JWT authorizer
 - Gateway target (`budget_tools`)
-- Deployment outputs (`gateway_outputs.json`)
+- SSM parameters (`/agentcore/agentcore-gateway/config`)
+- Secrets Manager entry for M2M credentials
+- Local deployment outputs (`gateway_outputs.json`, `m2m_config.json`)
 
 ### 2. Test Gateway
 
 ```bash
-# Option 1: Direct Gateway test (requires Cognito token if OAuth enabled)
-uv run python scripts/test_gateway.py
+# Test M2M authentication flow
+cd ..
+uv run python scripts/test_m2m_auth.py
 
-# Option 2: Get Cognito token instructions
-uv run python scripts/get_token.py
+# Check Gateway configuration
+uv run python scripts/check_gateway_config.py
 
-# Option 3: Test via agent (recommended)
+# Test via agent (recommended)
 cd ../finance-personal-assistant
 ./health.sh
 ```
@@ -85,14 +87,9 @@ cd ../finance-personal-assistant
 ### 3. Cleanup (Optional)
 
 ```bash
-# Preview what will be deleted
-uv run python scripts/cleanup.py --dry-run
-
-# Delete all resources
-uv run python scripts/cleanup.py
-
-# Keep IAM roles
-uv run python scripts/cleanup.py --skip-iam
+# Destroy all CDK stacks
+cd agentcore-gateway/cdk
+cdk destroy --all
 ```
 
 ## Project Structure
@@ -100,17 +97,20 @@ uv run python scripts/cleanup.py --skip-iam
 ```
 agentcore-gateway/
 ├── README.md                       # This file
+├── CLAUDE.md                       # Development guidance
 ├── pyproject.toml                  # Dependencies
-├── config.py                       # Configuration constants
-├── deploy.py                       # Main deployment script
 ├── gateway_outputs.json            # Deployment outputs (generated)
+├── m2m_config.json                 # M2M credentials (generated, keep secure)
 │
-├── infrastructure/                 # IaC modules (boto3, CDK-ready)
-│   ├── __init__.py
-│   ├── iam.py                      # IAM roles and policies
-│   ├── lambda_deploy.py            # Lambda packaging and deployment
-│   ├── gateway.py                  # Gateway creation and configuration
-│   └── cognito.py                  # Cognito integration (auto-detect)
+├── cdk/                            # AWS CDK infrastructure
+│   ├── app.py                      # CDK app entry point
+│   ├── deploy.sh                   # Deployment script
+│   ├── post_deploy.py              # SSM/Secrets publishing
+│   ├── cdk.json                    # CDK configuration
+│   └── stacks/                     # CDK stack definitions
+│       ├── cognito_stack.py        # Cognito User Pool + M2M client
+│       ├── lambda_stack.py         # Lambda functions
+│       └── gateway_stack.py        # Gateway + targets
 │
 ├── tools/                          # MCP-compatible Lambda tools
 │   ├── calculate_budget/           # Tool 1: Budget calculator
@@ -118,10 +118,14 @@ agentcore-gateway/
 │   │   └── tool_schema.json        # JSON Schema for tool
 │   └── [future tools...]
 │
-└── scripts/                        # Testing and utilities
-    ├── test_gateway.py             # End-to-end Gateway testing
-    ├── get_token.py                # Cognito token helper
-    └── cleanup.py                  # Resource cleanup
+├── scripts/                        # Testing and utilities
+│   ├── test_m2m_auth.py            # End-to-end Gateway testing
+│   └── check_gateway_config.py     # Configuration checker
+│
+└── gateway-specs/                  # Specification documents
+    ├── 01-mcp-protocol-essentials.md
+    ├── 02-tools-inventory.md
+    └── ... (comprehensive specs)
 ```
 
 ## Tool Development
@@ -183,11 +187,12 @@ agentcore-gateway/
    }
    ```
 
-4. **Update `deploy.py`** to include the new tool.
+4. **Update CDK Lambda stack** (`cdk/stacks/lambda_stack.py`) to include the new tool.
 
 5. **Redeploy:**
    ```bash
-   uv run python deploy.py
+   cd cdk
+   ./deploy.sh
    ```
 
 ### Tool Response Format
@@ -398,48 +403,25 @@ Access via AWS Console → CloudWatch → Metrics → Lambda.
 2. Check Lambda execution role has CloudWatch Logs permissions
 3. Review IAM policies in `infrastructure/iam.py`
 
-## Migration to CDK
+## CDK Infrastructure
 
-The current implementation uses Python boto3 with modular IaC components designed for easy CDK migration:
+The AgentCore Gateway uses AWS CDK for all infrastructure management:
 
-1. **`infrastructure/iam.py`** → CDK `iam.Role` and `iam.Policy`
-2. **`infrastructure/lambda_deploy.py`** → CDK `lambda_.Function`
-3. **`infrastructure/gateway.py`** → CDK custom resource (AgentCore Gateway)
-4. **`infrastructure/cognito.py`** → CDK `cognito.UserPool` (if creating new)
+**CDK Stacks:**
+1. **`cdk/stacks/cognito_stack.py`** - Cognito User Pool with M2M OAuth client
+2. **`cdk/stacks/lambda_stack.py`** - Lambda functions with proper IAM roles
+3. **`cdk/stacks/gateway_stack.py`** - AgentCore Gateway with custom resource targets
 
-Example CDK migration (TypeScript):
+**Deployment:**
+```bash
+cd cdk
+./deploy.sh
+```
 
-```typescript
-import * as cdk from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as iam from 'aws-cdk-lib/aws-iam';
-
-export class AgentCoreGatewayStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
-
-    // Lambda execution role
-    const executionRole = new iam.Role(this, 'LambdaExecutionRole', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
-      ]
-    });
-
-    // Lambda function
-    const calculateBudget = new lambda.Function(this, 'CalculateBudget', {
-      runtime: lambda.Runtime.PYTHON_3_13,
-      handler: 'main.handler',
-      code: lambda.Code.fromAsset('tools/calculate_budget'),
-      role: executionRole,
-      memorySize: 256,
-      timeout: cdk.Duration.seconds(10)
-    });
-
-    // AgentCore Gateway (custom resource)
-    // ... (requires custom CFN resource or boto3 custom resource)
-  }
-}
+**Cleanup:**
+```bash
+cd cdk
+cdk destroy --all
 ```
 
 ## References
@@ -452,7 +434,7 @@ export class AgentCoreGatewayStack extends cdk.Stack {
 
 ## Contributing
 
-This is a minimal POC demonstrating AgentCore Gateway capabilities. To extend:
+This is a POC demonstrating AgentCore Gateway capabilities. To extend:
 
 1. Add new tools in `tools/` directory
 2. Update `deploy.py` for multi-tool deployment

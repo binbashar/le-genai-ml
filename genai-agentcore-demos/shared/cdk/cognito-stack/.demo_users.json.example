@@ -1,0 +1,14 @@
+[
+  {
+    "username": "broker_demo",
+    "password": "DemoPass123!",
+    "email": "broker@example.com",
+    "name": "Demo Broker"
+  },
+  {
+    "username": "advisor_demo",
+    "password": "DemoPass123!",
+    "email": "advisor@example.com",
+    "name": "Demo Financial Advisor"
+  }
+]

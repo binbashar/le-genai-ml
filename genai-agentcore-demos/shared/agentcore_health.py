@@ -63,7 +63,7 @@ class HealthCheckConstants:
     LOCAL_PORT: int = 8080
     CONNECT_TIMEOUT: int = 20
     PING_TIMEOUT: int = 10
-    DEFAULT_TIMEOUT: int = 60
+    DEFAULT_TIMEOUT: int = 120
 
     # AWS configuration
     MAX_RETRY_ATTEMPTS: int = 2

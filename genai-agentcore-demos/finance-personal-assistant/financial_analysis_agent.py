@@ -5,33 +5,72 @@ from typing import List
 import yfinance as yf
 from config import BedrockModelCatalog, get_bedrock_model
 from strands import Agent, tool
+from strands_tools.browser import AgentCoreBrowser
 
 # Financial Analysis Agent System Prompt
-FINANCIAL_ANALYSIS_PROMPT = """You are a specialized financial analysis agent focused on investment research and portfolio recommendations. Your role is to:
+FINANCIAL_ANALYSIS_PROMPT = """You are an elite financial portfolio manager with decades of institutional investment experience. Your expertise includes quantitative analysis, modern portfolio theory, sector rotation strategies, and risk-adjusted return optimization.
 
-1. Research and analyze stock performance data
-2. Create diversified investment portfolios
-3. Provide data-driven investment recommendations
+## Core Responsibilities
 
-You do not provide specific investment advice but rather present analytical data to help users make informed decisions. Always include disclaimers about market risks and the importance of consulting financial advisors."""
+**Portfolio Construction**: Create sophisticated, data-driven investment portfolios using real market data, fundamental analysis, and modern portfolio theory principles. Always analyze actual stock metrics (P/E ratios, dividend yields, beta, sector exposure) rather than using generic templates.
+
+**Client Discovery**: Before constructing any portfolio, gather comprehensive information about the client's investment profile:
+- Investment time horizon (short: <3 years, medium: 3-10 years, long: 10+ years)
+- Risk tolerance (conservative, moderate, aggressive)
+- Investment goals (growth, income, capital preservation, balanced)
+- Current portfolio holdings (if any)
+- Sector preferences or restrictions
+- ESG (Environmental, Social, Governance) considerations
+
+**Professional Standards**: Communicate with precision and authority. Use quantitative metrics to support recommendations. Default to action—provide specific allocations with clear reasoning rather than vague suggestions. Frame recommendations as implementable portfolios with exact percentage allocations.
+
+**Research Excellence**: When analyzing stocks, examine fundamental metrics including valuation ratios, growth rates, profitability margins, competitive positioning, and sector trends. Compare stocks within their peer groups.
+
+**Risk Management**: Implement diversification across sectors, market capitalizations, and investment styles. Calculate and communicate expected volatility, maximum drawdown scenarios, and correlation risks.
+
+## Output Format
+
+Provide recommendations in structured formats with:
+- Specific ticker symbols and percentage allocations
+- Quantitative justification for each holding (P/E, dividend yield, beta, etc.)
+- Expected risk/return profile
+- Rebalancing guidance
+
+## Critical Compliance Note
+
+This analysis is for educational and informational purposes only. It does not constitute personalized investment advice. Markets involve substantial risk of loss. Clients should consult licensed financial advisors before making investment decisions, especially regarding suitability for their specific financial situation.
+
+## Reasoning Approach
+
+Before recommending portfolios, reflect on:
+1. Does this allocation match the client's stated risk tolerance and time horizon?
+2. Are the stocks selected based on current fundamentals, or am I relying on outdated assumptions?
+3. Is the portfolio properly diversified across sectors and market caps?
+4. Have I considered current market conditions and valuations?
+
+Default to thoroughness. Gather all necessary information before constructing portfolios."""
 
 # One-liner: Create Strands BedrockModelConverse
+# Using Claude Sonnet 4.5 for superior reasoning and analysis capabilities
 model = get_bedrock_model(
-    model=BedrockModelCatalog.CLAUDE_SONNET_45,
+    model=BedrockModelCatalog.CLAUDE_HAIKU_45,
     framework="strands",
 )
 
+# Initialize AgentCore Browser for web research
+browser_tool = AgentCoreBrowser(region="us-west-2")
 
-# Tool 1: Get Stock Analysis
+
+# Tool 1: Get Comprehensive Stock Fundamentals
 @tool
 def get_stock_analysis(symbol: str) -> str:
-    """Get comprehensive analysis for a specific stock symbol."""
+    """Get comprehensive fundamental and technical analysis for a specific stock symbol including valuation metrics, profitability, growth rates, and risk metrics."""
     try:
         stock = yf.Ticker(symbol)
         info = stock.info
         hist = stock.history(period="1y")
 
-        # Calculate key metrics
+        # Price and performance metrics
         current_price = hist["Close"].iloc[-1]
         year_high = hist["High"].max()
         year_low = hist["Low"].min()
@@ -40,15 +79,68 @@ def get_stock_analysis(symbol: str) -> str:
             (current_price - hist["Close"].iloc[0]) / hist["Close"].iloc[0]
         ) * 100
 
+        # Fundamental metrics
+        pe_ratio = info.get("forwardPE", info.get("trailingPE", "N/A"))
+        pb_ratio = info.get("priceToBook", "N/A")
+        dividend_yield = info.get("dividendYield", 0)
+        if isinstance(dividend_yield, (int, float)) and dividend_yield > 0:
+            dividend_yield_pct = dividend_yield * 100
+        else:
+            dividend_yield_pct = "N/A"
+
+        # Growth and profitability
+        revenue_growth = info.get("revenueGrowth", "N/A")
+        if isinstance(revenue_growth, (int, float)):
+            revenue_growth = f"{revenue_growth * 100:.1f}%"
+
+        profit_margins = info.get("profitMargins", "N/A")
+        if isinstance(profit_margins, (int, float)):
+            profit_margins = f"{profit_margins * 100:.1f}%"
+
+        # Risk metrics
+        beta = info.get("beta", "N/A")
+        if isinstance(beta, (int, float)):
+            beta = f"{beta:.2f}"
+
+        # Market cap categorization
+        market_cap = info.get("marketCap", 0)
+        if market_cap > 200_000_000_000:
+            cap_category = "Mega Cap"
+        elif market_cap > 10_000_000_000:
+            cap_category = "Large Cap"
+        elif market_cap > 2_000_000_000:
+            cap_category = "Mid Cap"
+        else:
+            cap_category = "Small Cap"
+
         return f"""
-📊 Stock Analysis for {symbol.upper()}:
-• Current Price: ${current_price:.2f}
-• 52-Week High: ${year_high:.2f}
-• 52-Week Low: ${year_low:.2f}
-• Year-to-Date Change: {price_change:.2f}%
-• Average Daily Volume: {avg_volume:,.0f} shares
-• Company: {info.get("longName", "N/A")}
+📊 FUNDAMENTAL ANALYSIS: {symbol.upper()}
+
+COMPANY PROFILE
+• Name: {info.get("longName", "N/A")}
 • Sector: {info.get("sector", "N/A")}
+• Industry: {info.get("industry", "N/A")}
+• Market Cap: ${market_cap:,.0f} ({cap_category})
+
+VALUATION METRICS
+• Current Price: ${current_price:.2f}
+• P/E Ratio (Forward): {pe_ratio if pe_ratio != "N/A" else "N/A"}
+• Price/Book Ratio: {pb_ratio if pb_ratio != "N/A" else "N/A"}
+• Dividend Yield: {dividend_yield_pct if dividend_yield_pct != "N/A" else "N/A"}%
+
+PERFORMANCE & GROWTH
+• YTD Price Change: {price_change:+.2f}%
+• 52-Week Range: ${year_low:.2f} - ${year_high:.2f}
+• Revenue Growth: {revenue_growth}
+• Profit Margin: {profit_margins}
+
+RISK METRICS
+• Beta (Market Sensitivity): {beta}
+• Avg Daily Volume: {avg_volume:,.0f} shares
+
+ANALYST CONSENSUS
+• Target Price: ${info.get("targetMeanPrice", "N/A")}
+• Recommendation: {info.get("recommendationKey", "N/A").upper() if info.get("recommendationKey") else "N/A"}
 """
     except Exception as e:
         return f"❌ Unable to retrieve data for {symbol}: {str(e)}"
@@ -134,13 +226,13 @@ def compare_stock_performance(symbols: List[str], period: str = "1y") -> str:
 financial_analysis_agent = Agent(
     model=model,
     system_prompt=FINANCIAL_ANALYSIS_PROMPT,
-    tools=[get_stock_analysis, create_diversified_portfolio, compare_stock_performance],
+    tools=[get_stock_analysis, create_diversified_portfolio, compare_stock_performance, browser_tool.browser],
     callback_handler=None,
 )
 
 if __name__ == "__main__":
     # Test the Financial Analysis Agent
     response = financial_analysis_agent(
-        "Create a moderate risk portfolio for $10,000 and analyze Apple stock"
+        "Search on Bloomberg for the latest news on Apple"
     )
     print(response)

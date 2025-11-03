@@ -1,0 +1,22 @@
+# AgentCore Streamlit Demo - Static Configuration
+#
+# This file contains STATIC configuration only (name, capabilities).
+# Runtime config (ARN, OAuth) is auto-discovered from SSM Parameter Store.
+#
+# SSM Parameters (auto-updated by agent CDK post-deploy):
+#   /agentcore/{agent_name}/runtime-config -> {"arn": "...", "oauth_config": {...}}
+#
+# No manual sync.py needed!
+
+aws:
+  region: us-west-2
+  timeout_seconds: 180
+
+agents:
+  finance_personal_assistant:
+    name: Finance Personal Assistant
+    capabilities:
+      vision: true
+      documents: true  # Enables PDF and CSV uploads
+    # arn: Auto-discovered from SSM
+    # oauth_config: Auto-discovered from SSM

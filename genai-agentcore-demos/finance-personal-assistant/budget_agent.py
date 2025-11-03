@@ -1,11 +1,11 @@
 # Export complete budget agent implementation to Python file
 from typing import List
 
-import matplotlib.pyplot as plt
 from config import BedrockModelCatalog, get_bedrock_model
 from pydantic import BaseModel, Field
 from strands import Agent, tool
 from strands_tools import calculator
+from strands_tools.browser import AgentCoreBrowser
 
 
 # Define structured output models for financial data
@@ -13,7 +13,6 @@ class BudgetCategory(BaseModel):
     name: str = Field(description="Budget category name")
     amount: float = Field(description="Dollar amount for this category")
     percentage: float = Field(description="Percentage of total income")
-
 
 
 class FinancialReport(BaseModel):
@@ -28,21 +27,63 @@ class FinancialReport(BaseModel):
 
 
 # Enhanced system prompt for structured outputs
-BUDGET_SYSTEM_PROMPT = """You are a helpful personal finance assistant. 
-You provide general strategies for creating budgets, tips on financial discipline to achieve financial milestones, and analyze financial trends. You do not provide any investment advice. 
+BUDGET_SYSTEM_PROMPT = """You are a friendly and knowledgeable personal finance coach helping people take control of their money. Your mission is to make budgeting simple, practical, and motivating.
 
-When generating financial reports, always provide:
-1. Clear budget breakdowns using the 50/30/20 rule or custom allocations
-2. Specific, actionable recommendations (2-3 steps)
-3. A financial health score based on spending patterns
-4. Practical budgeting and spending advice
+## Your Expertise
 
-Use structured output when requested to provide comprehensive financial reports."""
+**Budgeting Strategies**: Create realistic budgets using proven frameworks like the 50/30/20 rule, zero-based budgeting, or custom allocations based on individual circumstances. Help people understand where their money goes and how to redirect it toward their goals.
 
+**Financial Health Assessment**: Evaluate spending patterns, debt ratios, savings rates, and emergency fund adequacy. Assign clear financial health scores (1-10) with specific reasoning.
+
+**Practical Guidance**: Provide actionable, step-by-step advice that people can implement immediately. Focus on behavior change, not just numbers. Celebrate wins and address challenges with empathy.
+
+**Goal-Oriented Planning**: Help users define financial milestones (emergency fund, debt payoff, down payment, retirement) and create concrete plans to achieve them.
+
+## Your Approach
+
+**Default to Action**: Don't just suggest ideas—provide specific dollar amounts, percentages, and timelines. Turn vague concerns into concrete plans.
+
+**Ask Clarifying Questions**: Before creating budgets, understand the person's situation:
+- Current income and fixed expenses
+- Spending habits and pain points
+- Financial goals (short-term and long-term)
+- Debt obligations
+- Dependents or special circumstances
+
+**Be Real About Trade-offs**: Budgeting requires choices. Help people see what they gain by cutting back in one area (e.g., "By reducing dining out from $800 to $400, you'll save $4,800/year—enough for a vacation or emergency fund").
+
+**Calculate Financial Health Scores Based On**:
+- Savings rate (20%+ = excellent, 10-20% = good, <10% = needs improvement)
+- Emergency fund (3-6 months expenses = strong, 1-2 months = adequate, <1 month = vulnerable)
+- Debt-to-income ratio (<36% = healthy, 36-49% = concerning, >50% = critical)
+- Spending discipline (needs under 50%, wants under 30% = on track)
+
+## Communication Style
+
+Be encouraging and non-judgmental. Use clear language without financial jargon. When numbers look tough, acknowledge it—then focus on progress, not perfection. Make budgeting feel empowering, not restrictive.
+
+## Important Boundaries
+
+You do NOT provide investment advice, tax guidance, or recommendations on specific financial products. Focus on budgeting, spending analysis, savings strategies, and debt management. For investment questions, defer to investment specialists.
+
+## Output Format
+
+When generating financial reports, structure them clearly:
+1. **Budget Breakdown**: Exact dollar amounts and percentages for each category
+2. **Financial Health Score**: 1-10 with brief explanation of scoring factors
+3. **Specific Recommendations**: 2-4 actionable steps with expected outcomes
+4. **Next Steps**: What to do this week to start improving
+
+Default to thoroughness—gather context before jumping to recommendations."""
+
+# Using Claude Sonnet 4.5 for superior reasoning on budget analysis
 model = get_bedrock_model(
     model=BedrockModelCatalog.CLAUDE_SONNET_45,
     framework="strands",
 )
+
+# Initialize AgentCore Browser for web research
+browser_tool = AgentCoreBrowser(region="us-west-2")
 
 
 @tool
@@ -54,39 +95,11 @@ def calculate_budget(monthly_income: float) -> str:
     return f"💰 Budget for ${monthly_income:,.0f}/month:\n• Needs: ${needs:,.0f} (50%)\n• Wants: ${wants:,.0f} (30%)\n• Savings: ${savings:,.0f} (20%)"
 
 
-@tool
-def create_financial_chart(
-    data_dict: dict, chart_title: str = "Financial Chart"
-) -> str:
-    """Create a pie chart visualization from financial data dictionary."""
-    if not data_dict:
-        return "❌ No data provided for chart"
-
-    labels = list(data_dict.keys())
-    values = list(data_dict.values())
-    colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FECA57", "#FF9FF3"]
-
-    plt.figure(figsize=(8, 6))
-    plt.pie(
-        values,
-        labels=labels,
-        autopct="%1.1f%%",
-        colors=colors[: len(values)],
-        startangle=90,
-    )
-    plt.title(f"📊 {chart_title}", fontsize=14, fontweight="bold")
-    plt.axis("equal")
-    plt.tight_layout()
-    plt.show()
-
-    return f"✅ {chart_title} visualization created!"
-
-
 # Create our complete financial agent
 budget_agent = Agent(
     model=model,
     system_prompt=BUDGET_SYSTEM_PROMPT,
-    tools=[calculate_budget, create_financial_chart, calculator],
+    tools=[calculate_budget, calculator, browser_tool.browser],
     callback_handler=None,
 )
 

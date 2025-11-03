@@ -110,43 +110,43 @@ class ModelConfig:
 MODEL_REGISTRY = {
     BedrockModelCatalog.NOVA_MICRO: ModelConfig(
         model_id="us.amazon.nova-micro-v1:0",
-        temperature=0.1,
+        temperature=0.4,
         max_tokens=4096,
         description="Ultra-fast, lowest cost model for simple tasks",
     ),
     BedrockModelCatalog.NOVA_LITE: ModelConfig(
         model_id="us.amazon.nova-lite-v1:0",
-        temperature=0.1,
+        temperature=0.4,
         max_tokens=4096,
         description="Fast, low-latency model for demos and production",
     ),
     BedrockModelCatalog.NOVA_PRO: ModelConfig(
         model_id="us.amazon.nova-pro-v1:0",
-        temperature=0.1,
+        temperature=0.4,
         max_tokens=4096,
         description="Balanced model for complex tasks",
     ),
     BedrockModelCatalog.NOVA_PREMIER: ModelConfig(
         model_id="us.amazon.nova-premier-v1:0",
-        temperature=0.1,
+        temperature=0.4,
         max_tokens=4096,
         description="Premium model for most complex tasks",
     ),
     BedrockModelCatalog.CLAUDE_HAIKU_45: ModelConfig(
         model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-        temperature=0.1,
+        temperature=0.7,
         max_tokens=8192,
         description="Fast Claude model for quick responses",
     ),
     BedrockModelCatalog.CLAUDE_SONNET_37: ModelConfig(
         model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
-        temperature=0.1,
+        temperature=0.7,
         max_tokens=8192,
         description="Advanced reasoning for complex analysis (prev gen)",
     ),
     BedrockModelCatalog.CLAUDE_SONNET_45: ModelConfig(
         model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-        temperature=0.3,
+        temperature=0.7,
         max_tokens=4096,
         description="Enhanced reasoning for complex analysis (latest)",
     ),
@@ -278,7 +278,11 @@ def get_bedrock_model(
 @lru_cache(maxsize=1)
 def get_guardrail_config() -> dict[str, str] | None:
     """
-    Get guardrail configuration if available.
+    Get guardrail configuration from SSM (preferred) or direct API lookup (fallback).
+
+    Service discovery pattern: Reads guardrail config from SSM Parameter Store,
+    following the same pattern as agent ARN publishing. Falls back to direct API
+    lookup if SSM parameter doesn't exist (backward compatibility).
 
     Returns:
         Dict with guardrail_id, guardrail_version, guardrail_trace
@@ -291,66 +295,49 @@ def get_guardrail_config() -> dict[str, str] | None:
         ... else:
         ...     print("No guardrails configured")
     """
-    from utils.guardrail import get_guardrail_id
-
-    guardrail_id = get_guardrail_id()
-    if not guardrail_id:
-        return None
-
-    return {
-        "guardrail_id": guardrail_id,
-        "guardrail_version": "DRAFT",
-        "guardrail_trace": "enabled",
-    }
-
-
-def get_bedrock_model_with_guardrails(
-    framework: str,
-    model: BedrockModelCatalog | ModelConfig,
-    **kwargs,
-):
-    """
-    Get Bedrock model with automatic guardrail configuration.
-
-    Combines get_bedrock_model() with automatic guardrail discovery.
-    If guardrails exist, they're automatically applied. Otherwise,
-    model is returned without guardrails.
-
-    Args:
-        framework: "strands" or "langchain"
-        model: BedrockModelCatalog enum or ModelConfig instance
-        **kwargs: Additional config overrides (temperature, etc.)
-
-    Returns:
-        Instantiated model with guardrails if available
-
-    Example:
-        # Automatically applies guardrails if configured
-        model = get_bedrock_model_with_guardrails(
-            "strands",
-            BedrockModelCatalog.CLAUDE_SONNET_45
-        )
-
-        # With custom temperature
-        model = get_bedrock_model_with_guardrails(
-            "langchain",
-            BedrockModelCatalog.NOVA_LITE,
-            temperature=0.5
-        )
-    """
+    import json
     import logging
 
     logger = logging.getLogger(__name__)
 
-    guardrail_config = get_guardrail_config()
+    # Try SSM first (service discovery pattern)
+    try:
+        ssm = get_client("ssm")
+        response = ssm.get_parameter(
+            Name="/agentcore/finance-personal-assistant/guardrail-config"
+        )
+        config = json.loads(response["Parameter"]["Value"])
 
-    if guardrail_config:
-        kwargs.update(guardrail_config)
-        logger.info(f"Guardrails enabled with ID: {guardrail_config['guardrail_id']}")
-    else:
-        logger.info("No guardrails configured, proceeding without guardrails")
+        logger.info(
+            f"Guardrail config loaded from SSM: {config['guardrail_id']} "
+            f"(version: {config.get('version', 'DRAFT')})"
+        )
 
-    return get_bedrock_model(framework, model, **kwargs)
+        return {
+            "guardrail_id": config["guardrail_id"],
+            "guardrail_version": config.get("version", "DRAFT"),
+            "guardrail_trace": "enabled",
+        }
+
+    except Exception:
+        # Fallback to direct API lookup (backward compatibility)
+        logger.debug("SSM lookup failed, falling back to direct API lookup")
+
+        from utils.guardrail import get_gambling_guardrail_id
+
+        guardrail_id = get_gambling_guardrail_id()
+        if not guardrail_id:
+            return None
+
+        logger.info(
+            f"Guardrail config loaded from API: {guardrail_id} (version: DRAFT)"
+        )
+
+        return {
+            "guardrail_id": guardrail_id,
+            "guardrail_version": "DRAFT",
+            "guardrail_trace": "enabled",
+        }
 
 
 # ============================================================================
@@ -376,36 +363,13 @@ def get_model_info(model: BedrockModelCatalog) -> str:
 
 def get_gateway_endpoint() -> str | None:
     """
-    Get AgentCore Gateway endpoint from environment or deployment outputs.
+    Get AgentCore Gateway endpoint from environment variable.
 
     Returns:
         Gateway MCP endpoint URL or None if not configured
 
-    Precedence:
-        1. AGENTCORE_GATEWAY_ENDPOINT environment variable
-        2. ../agentcore-gateway/gateway_outputs.json file
-        3. None (Gateway not configured)
+    Note:
+        For production deployments, Gateway config is loaded via SSM in utils/gateway.py.
+        This function is for simple environment variable override only.
     """
-    # Try environment variable first
-    endpoint = os.getenv('AGENTCORE_GATEWAY_ENDPOINT')
-    if endpoint:
-        return endpoint
-
-    # Try to load from gateway deployment outputs
-    try:
-        import json
-        from pathlib import Path
-
-        outputs_file = Path(__file__).parent.parent / 'agentcore-gateway' / 'gateway_outputs.json'
-
-        if outputs_file.exists():
-            with open(outputs_file) as f:
-                outputs = json.load(f)
-
-            # Return MCP endpoint (includes /mcp path)
-            return outputs.get('gateway_mcp_endpoint')
-
-    except Exception:
-        pass
-
-    return None
+    return os.getenv("AGENTCORE_GATEWAY_ENDPOINT")

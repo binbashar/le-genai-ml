@@ -68,7 +68,7 @@ class DefaultContextExtractor:
     """
     Default implementation for AgentCore context extraction.
 
-    Follows AWS best practices for session and actor management:
+    Follows best practices for session and actor management:
     - Session ID: Provided via context.session_id (33+ chars)
     - Actor ID: Custom header X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id
     """
@@ -108,32 +108,50 @@ class DefaultContextExtractor:
 
         return session_id, False
 
-    def extract_actor_id(self, context: Any) -> str:
+    def extract_actor_id(self, context: Any, payload: dict = None) -> str:
         """
-        Extract actor ID from request headers.
+        Extract actor ID from payload or request headers.
 
         Args:
             context: AgentCore Runtime context object with request_headers
+            payload: Request payload dict (checked first for actor_id)
 
         Returns:
-            User ID from custom header, or default fallback
+            User ID from payload, header, or default fallback
 
         Example:
-            >>> context = MockContext(request_headers={"X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id": "john"})
+            >>> payload = {"prompt": "...", "actor_id": "broker_demo"}
             >>> extractor = DefaultContextExtractor()
-            >>> actor_id = extractor.extract_actor_id(context)
+            >>> actor_id = extractor.extract_actor_id(context, payload)
             >>> print(actor_id)
-            john
+            broker_demo
         """
+        # LOG: Show payload keys for debugging
+        if payload:
+            logger.info(f"[SESSION DEBUG] Payload keys: {list(payload.keys())}")
+
+        # Try payload first (most reliable - works for both OAuth and IAM)
+        if payload and "actor_id" in payload:
+            actor_id = payload["actor_id"]
+            logger.info(f"[AUTH] ✓ Extracted actor_id={actor_id} from payload")
+            return actor_id
+
+        # Fallback to custom header (OAuth mode with HTTP invocation)
         headers = getattr(context, "request_headers", {}) or {}
+        logger.info(f"[SESSION DEBUG] Request headers: {list(headers.keys())}")
+
         actor_id = headers.get(self.ACTOR_ID_HEADER, self.DEFAULT_ACTOR_ID)
 
-        logger.info(f"[AUTH] Extracted actor_id={actor_id} from request headers")
+        if actor_id == self.DEFAULT_ACTOR_ID:
+            logger.warning(f"[AUTH] ⚠ Using default actor_id={actor_id} (no payload or header found)")
+        else:
+            logger.info(f"[AUTH] ✓ Extracted actor_id={actor_id} from request headers")
         return actor_id
 
 
 def extract_session_context(
     context: Any,
+    payload: dict = None,
     extractor: AgentCoreContextExtractor | None = None,
 ) -> SessionContext:
     """
@@ -144,6 +162,7 @@ def extract_session_context(
 
     Args:
         context: AgentCore Runtime context object
+        payload: Request payload dict (checked for actor_id)
         extractor: Custom context extractor (uses DefaultContextExtractor if None)
 
     Returns:
@@ -152,7 +171,7 @@ def extract_session_context(
     Example:
         @app.entrypoint
         async def invoke(payload, context):
-            session_ctx = extract_session_context(context)
+            session_ctx = extract_session_context(context, payload)
             logger.info(f"Session: {session_ctx.session_id}")
             logger.info(f"Actor: {session_ctx.actor_id}")
 
@@ -164,13 +183,23 @@ def extract_session_context(
                 region_name=region
             )
     """
+    logger.info("=" * 70)
+    logger.info("[SESSION DEBUG] Extracting session context")
+
     extractor = extractor or DefaultContextExtractor()
 
     session_id, is_generated = extractor.extract_session_id(context)
-    actor_id = extractor.extract_actor_id(context)
+    actor_id = extractor.extract_actor_id(context, payload)
 
-    return SessionContext(
+    session_ctx = SessionContext(
         session_id=session_id,
         actor_id=actor_id,
         is_generated_session=is_generated,
     )
+
+    logger.info(f"  • Session ID: {session_ctx.session_id}")
+    logger.info(f"  • Actor ID: {session_ctx.actor_id}")
+    logger.info(f"  • Is Generated Session: {session_ctx.is_generated_session}")
+    logger.info("=" * 70)
+
+    return session_ctx

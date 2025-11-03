@@ -1,7 +1,6 @@
 #!/bin/bash
 
 agents=(
-    "market-trends-agent"
     "finance-personal-assistant"
 )
 

@@ -12,14 +12,40 @@ EXECUTION_ROLE_ARN=$(aws ssm get-parameter \
     --query "Parameter.Value" \
     --output text 2>/dev/null || echo "")
 
-# Try to get OAuth config from SSM Parameter Store
-OAUTH_CONFIG=$(aws ssm get-parameter \
-    --name "/agentcore/${AGENT_NAME}/oauth-config" \
+# Try to get unified config from SSM Parameter Store
+UNIFIED_CONFIG=$(aws ssm get-parameter \
+    --name "/agentcore/${AGENT_NAME}/config" \
     --query "Parameter.Value" \
     --output text 2>/dev/null || echo "")
 
+# Extract OAuth config from unified config if exists
+OAUTH_CONFIG=""
+if [ -n "$UNIFIED_CONFIG" ]; then
+    OAUTH_CONFIG=$(echo "$UNIFIED_CONFIG" | jq -c '.oauth // empty' 2>/dev/null || echo "")
+fi
+
+# If no agent-specific OAuth config, try shared Gateway OAuth config
+if [ -z "$OAUTH_CONFIG" ]; then
+    GATEWAY_OAUTH=$(aws ssm get-parameter \
+        --name "/agentcore/agentcore-gateway/oauth-config" \
+        --query "Parameter.Value" \
+        --output text 2>/dev/null || echo "")
+
+    if [ -n "$GATEWAY_OAUTH" ]; then
+        echo "🔐 Using shared Gateway OAuth configuration"
+        OAUTH_CONFIG="$GATEWAY_OAUTH"
+    fi
+fi
+
 # Build agentcore configure command arguments as array
 ARGS=("configure" "-e" "${ENTRYPOINT}" "-n" "${AGENT_NAME}" "--non-interactive")
+
+# Add request header allowlist for OAuth authentication and custom user ID
+echo "✅ Configuring request headers: Authorization, X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id"
+ARGS+=("--request-header-allowlist" "Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id")
+
+echo "✅ Disabling auto-managed memory"
+ARGS+=("--disable-memory")
 
 if [ -n "$EXECUTION_ROLE_ARN" ]; then
     echo "✅ Found execution role ARN: ${EXECUTION_ROLE_ARN}"

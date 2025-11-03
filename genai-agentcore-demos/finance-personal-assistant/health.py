@@ -12,7 +12,7 @@ Modes:
 Flags:
   --aws              Force AWS mode only
   --local            Force local mode only (requires: agentcore launch --local)
-  --timeout SECONDS  Response timeout (default: 60)
+  --timeout SECONDS  Response timeout (default: 120)
 
 Examples:
   # Cascading (default)

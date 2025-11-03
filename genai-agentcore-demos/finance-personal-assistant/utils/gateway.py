@@ -133,14 +133,76 @@ class M2MCredentialProvider:
         return token_data["access_token"]
 
 
-def load_config() -> Optional[GatewayConfig]:
+def load_config_from_ssm(gateway_name: str = "agentcore-gateway", region: str = None) -> Optional[GatewayConfig]:
     """
-    Auto-discover Gateway configuration.
+    Load Gateway configuration from SSM Parameter Store and Secrets Manager.
 
-    Priority:
-    1. Environment variables (production, Docker)
-    2. Local files (development)
-    3. None (graceful degradation)
+    This is the preferred method for CDK deployments.
+
+    Args:
+        gateway_name: Gateway name (default: agentcore-gateway)
+        region: AWS region (defaults to boto3 session region)
+
+    Returns:
+        Gateway configuration or None if not found
+    """
+    try:
+        import boto3
+
+        session = boto3.Session(region_name=region) if region else boto3.Session()
+        ssm = session.client('ssm')
+        sm = session.client('secretsmanager')
+
+        # Load Gateway config from SSM
+        config_param = f"/agentcore/{gateway_name}/config"
+        try:
+            response = ssm.get_parameter(Name=config_param)
+            gateway_config = json.loads(response['Parameter']['Value'])
+        except ssm.exceptions.ParameterNotFound:
+            logger.debug(f"[GATEWAY] SSM parameter not found: {config_param}")
+            return None
+
+        # Load M2M credentials from Secrets Manager
+        secret_name = f"/agentcore/{gateway_name}/m2m-secret"
+        try:
+            secret_response = sm.get_secret_value(SecretId=secret_name)
+            m2m_secret = json.loads(secret_response['SecretString'])
+        except sm.exceptions.ResourceNotFoundException:
+            logger.debug(f"[GATEWAY] Secret not found: {secret_name}")
+            return None
+
+        # Construct Gateway endpoint
+        # Gateway config stores base endpoint without /mcp suffix
+        endpoint = gateway_config.get("gateway_endpoint")
+        if not endpoint.endswith("/mcp"):
+            endpoint = f"{endpoint}/mcp"
+
+        config = GatewayConfig(
+            endpoint=endpoint,
+            client_id=m2m_secret["client_id"],
+            client_secret=m2m_secret["client_secret"],
+            token_endpoint=m2m_secret["token_endpoint"],
+            scope=m2m_secret.get("scope"),
+        )
+
+        logger.info("[GATEWAY] ✓ Configuration loaded from SSM + Secrets Manager")
+        logger.info(f"[GATEWAY]   Endpoint: {config.endpoint}")
+        logger.info(f"[GATEWAY]   M2M Client: {config.client_id[:8]}...")
+        logger.info(f"[GATEWAY]   Token Endpoint: {config.token_endpoint}")
+
+        return config
+
+    except ImportError:
+        logger.debug("[GATEWAY] boto3 not available - skipping SSM lookup")
+        return None
+    except Exception as e:
+        logger.debug(f"[GATEWAY] Could not load from SSM: {e}")
+        return None
+
+
+def load_config_from_env() -> Optional[GatewayConfig]:
+    """
+    Load Gateway configuration from environment variables.
 
     Environment Variables:
         GATEWAY_MCP_ENDPOINT: Gateway MCP endpoint URL
@@ -149,14 +211,9 @@ def load_config() -> Optional[GatewayConfig]:
         GATEWAY_TOKEN_ENDPOINT: Cognito token endpoint
         GATEWAY_SCOPE: Optional custom OAuth scope
 
-    Local Files (development):
-        ../agentcore-gateway/gateway_outputs.json
-        ../agentcore-gateway/m2m_config.json
-
     Returns:
         Gateway configuration or None if not configured
     """
-    # Try environment variables first (production, Docker)
     endpoint = os.environ.get("GATEWAY_MCP_ENDPOINT")
     client_id = os.environ.get("GATEWAY_M2M_CLIENT_ID")
     client_secret = os.environ.get("GATEWAY_M2M_CLIENT_SECRET")
@@ -177,53 +234,49 @@ def load_config() -> Optional[GatewayConfig]:
             scope=scope,
         )
 
-    # Fall back to local files (development)
-    try:
-        gateway_dir = Path(__file__).parent.parent.parent / "agentcore-gateway"
-        outputs_file = gateway_dir / "gateway_outputs.json"
+    return None
 
-        if not outputs_file.exists():
-            logger.debug("[GATEWAY] Gateway not configured (no env vars, no files)")
-            return None
 
-        with open(outputs_file) as f:
-            outputs = json.load(f)
+# File-based configuration removed - use SSM Parameter Store or environment variables only
+# This ensures production-grade configuration management and eliminates cross-directory dependencies
 
-        if not outputs.get("cognito_configured"):
-            logger.debug("[GATEWAY] Gateway OAuth not configured")
-            return None
 
-        m2m_config_file = gateway_dir / "m2m_config.json"
-        if not m2m_config_file.exists():
-            logger.warning("[GATEWAY] m2m_config.json not found")
-            return None
+def load_config(gateway_name: str = "agentcore-gateway", region: str = None) -> Optional[GatewayConfig]:
+    """
+    Auto-discover Gateway configuration with cascading fallback.
 
-        with open(m2m_config_file) as f:
-            m2m_config = json.load(f)
+    Priority:
+    1. SSM Parameter Store + Secrets Manager (CDK deployment - PRODUCTION)
+    2. Environment variables (Docker/local development)
+    3. None (graceful degradation - agent uses embedded tools)
 
-        config = GatewayConfig(
-            endpoint=outputs["gateway_endpoint"],
-            client_id=m2m_config["client_id"],
-            client_secret=m2m_config["client_secret"],
-            token_endpoint=m2m_config["token_endpoint"],
-            scope=m2m_config.get("scope"),
-        )
+    Args:
+        gateway_name: Gateway name for SSM lookup (default: agentcore-gateway)
+        region: AWS region for SSM lookup (optional)
 
-        logger.info("[GATEWAY] ✓ Configuration loaded from files")
-        logger.info(f"[GATEWAY]   Endpoint: {config.endpoint}")
-        logger.info(f"[GATEWAY]   M2M Client: {config.client_id[:8]}...")
-        logger.info(f"[GATEWAY]   Token Endpoint: {config.token_endpoint}")
-
+    Returns:
+        Gateway configuration or None if not configured
+    """
+    # Priority 1: SSM Parameter Store (production)
+    config = load_config_from_ssm(gateway_name=gateway_name, region=region)
+    if config:
         return config
 
-    except Exception as e:
-        logger.warning(f"[GATEWAY] Could not load configuration: {e}")
-        return None
+    # Priority 2: Environment variables (development)
+    config = load_config_from_env()
+    if config:
+        return config
+
+    # No configuration found - graceful degradation
+    logger.debug("[GATEWAY] Gateway not configured - using embedded tools only")
+    return None
 
 
 def create_mcp_client(
     config: Optional[GatewayConfig] = None,
     credential_provider: Optional[CredentialProvider] = None,
+    gateway_name: str = "agentcore-gateway",
+    region: str = None,
 ):
     """
     Create authenticated MCP client for Gateway.
@@ -237,6 +290,8 @@ def create_mcp_client(
     Args:
         config: Gateway configuration (auto-discovered if None)
         credential_provider: Auth strategy (M2M if None)
+        gateway_name: Gateway name for SSM lookup (default: agentcore-gateway)
+        region: AWS region for SSM lookup (optional)
 
     Returns:
         MCPClient instance or None if Gateway not configured
@@ -248,6 +303,9 @@ def create_mcp_client(
         # Advanced: custom credential provider
         provider = CachedM2MProvider()
         mcp_client = create_mcp_client(credential_provider=provider)
+
+        # Custom gateway
+        mcp_client = create_mcp_client(gateway_name="my-gateway", region="us-east-1")
     """
     try:
         from mcp.client.streamable_http import streamablehttp_client
@@ -258,8 +316,13 @@ def create_mcp_client(
         )
         return None
 
+    # Temporarily disable Gateway due to authentication issues
+    # TODO: Re-enable when Gateway auth is fixed
+    logger.info("[GATEWAY] Gateway temporarily disabled - using embedded tools only")
+    return None
+
     # Auto-discover config if not provided
-    config = config or load_config()
+    config = config or load_config(gateway_name=gateway_name, region=region)
     if not config:
         logger.debug("[GATEWAY] Gateway not configured - using embedded tools only")
         return None

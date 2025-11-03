@@ -66,13 +66,16 @@ def extract_oauth_config_from_ssm(
         ...     token = authenticate(config, "user", "pass")
 
     SSM Parameter Path:
-        /agentcore/{agent_name}/oauth-config
+        /agentcore/{agent_name}/config
 
-    SSM Parameter Format (AgentCore format):
+    SSM Parameter Format (Unified config):
         {
-            "customJWTAuthorizer": {
-                "discoveryUrl": "https://...",
-                "allowedClients": ["client-id"]
+            "arn": "arn:aws:...",  # Optional, added by post_agent_deploy.py
+            "oauth": {              # Optional, added by Cognito CDK
+                "customJWTAuthorizer": {
+                    "discoveryUrl": "https://...",
+                    "allowedClients": ["client-id"]
+                }
             }
         }
     """
@@ -83,20 +86,22 @@ def extract_oauth_config_from_ssm(
     try:
         ssm = boto3.client("ssm", region_name=region)
 
-        # Read OAuth config from SSM Parameter Store
-        parameter_name = f"/agentcore/{agent_name}/oauth-config"
-        logger.debug(f"Reading OAuth config from SSM: {parameter_name}")
+        # Read unified config from SSM Parameter Store
+        parameter_name = f"/agentcore/{agent_name}/config"
+        logger.debug(f"Reading unified config from SSM: {parameter_name}")
 
         response = ssm.get_parameter(Name=parameter_name)
         parameter_value = response["Parameter"]["Value"]
 
-        # Parse JSON value (stored in AgentCore format)
+        # Parse JSON value
         config_json = json.loads(parameter_value)
 
-        # Extract customJWTAuthorizer section
-        jwt_auth = config_json.get("customJWTAuthorizer")
+        # Extract OAuth section from unified config
+        oauth_section = config_json.get("oauth", {})
+        jwt_auth = oauth_section.get("customJWTAuthorizer")
+
         if not jwt_auth:
-            logger.debug(f"No customJWTAuthorizer in SSM parameter: {parameter_name}")
+            logger.debug(f"No OAuth configuration in SSM parameter: {parameter_name}")
             return None
 
         # Extract standard fields
@@ -120,7 +125,7 @@ def extract_oauth_config_from_ssm(
         return oauth_config
 
     except ssm.exceptions.ParameterNotFound:
-        logger.debug(f"SSM parameter not found: /agentcore/{agent_name}/oauth-config")
+        logger.debug(f"SSM parameter not found: /agentcore/{agent_name}/config")
         return None
     except (KeyError, json.JSONDecodeError, IndexError) as e:
         logger.debug(f"Error parsing OAuth config from SSM: {e}")
@@ -239,28 +244,39 @@ def decode_jwt_token(token: str) -> dict:
 
 
 def extract_user_id_from_token(token: str) -> str:
-    """Extract user ID from JWT token's 'sub' claim.
+    """Extract username from JWT token.
 
-    The 'sub' (subject) claim contains the user's unique identifier.
+    For Cognito tokens: Prefers 'username' claim (access tokens) over 'sub' (UUID).
+    For other providers: Falls back to 'cognito:username' (ID tokens) or 'sub'.
 
     Args:
         token: JWT access token
 
     Returns:
-        User ID from 'sub' claim
+        Username from token claims (e.g., "broker_demo")
 
     Raises:
-        ValueError: If 'sub' claim not found
+        ValueError: If no username/sub claim found
 
     Example:
         >>> user_id = extract_user_id_from_token(access_token)
-        >>> print(user_id)  # e.g., "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        >>> print(user_id)  # e.g., "broker_demo"
     """
     decoded = decode_jwt_token(token)
-    user_id = decoded.get("sub")
+
+    # Try username claim first (Cognito access tokens)
+    user_id = decoded.get("username")
+
+    # Fallback to cognito:username claim (Cognito ID tokens)
+    if not user_id:
+        user_id = decoded.get("cognito:username")
+
+    # Final fallback to sub claim (UUID - stable but not human-readable)
+    if not user_id:
+        user_id = decoded.get("sub")
 
     if not user_id:
-        raise ValueError("JWT token missing 'sub' claim")
+        raise ValueError("JWT token missing username/sub claim")
 
     logger.info(f"[AUTH] Extracted user_id from JWT: {user_id}")
     return user_id
@@ -442,6 +458,8 @@ def invoke_with_token(
     region: str,
     timeout: int = 120,
     image_base64: str = None,
+    document_base64: str = None,
+    filename: str = None,
 ) -> requests.Response:
     """
     Invoke AgentCore Runtime with bearer token (HTTP invocation).
@@ -503,15 +521,22 @@ def invoke_with_token(
     # Query parameters
     params = {"qualifier": "DEFAULT"}
 
-    # Request payload (user_id now in header, not payload)
+    # Request payload (actor_id in both header AND payload for reliability)
     payload = {
         "prompt": prompt,
+        "actor_id": user_id,  # Pass actor_id in payload (works for both OAuth and IAM)
     }
 
     # Add image if provided (vision capability)
     if image_base64:
         payload["image_base64"] = image_base64
         logger.info(f"Image included in payload (size: {len(image_base64)} bytes)")
+
+    # Add document if provided (PDF/CSV support)
+    if document_base64 and filename:
+        payload["document_base64"] = document_base64
+        payload["filename"] = filename
+        logger.info(f"Document included in payload: {filename} (size: {len(document_base64)} bytes)")
 
     logger.info(f"Invoking agent via HTTP: {url}")
     logger.info(f"User ID: {user_id}, Session ID: {session_id}")

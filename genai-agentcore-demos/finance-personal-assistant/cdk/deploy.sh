@@ -38,11 +38,10 @@ if [ ! -f "outputs.json" ]; then
     exit 1
 fi
 
-echo "✅ CDK deployment complete!"
-
-# Run post-deployment script to set user passwords
-echo "⚙️  Running post-deployment configuration..."
-uv run python post_deploy.py
-
 echo ""
-echo "🎉 Deployment complete!"
+echo "✅ CDK deployment complete!"
+echo ""
+echo "🎉 OAuth infrastructure deployed!"
+echo ""
+echo "ℹ️  Note: Demo user passwords are managed by the shared Cognito stack."
+echo "   To set up users, run: cd ../../shared/cdk/cognito-stack && ./deploy.sh"

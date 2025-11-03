@@ -13,6 +13,9 @@ dependencies = [
     "bedrock-agentcore",
     "bedrock-agentcore-starter-toolkit",
     "PyJWT>=2.10.0",
+    "aws-cdk-lib>=2.221.0",
+    "constructs>=10.0.0",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.setuptools]
