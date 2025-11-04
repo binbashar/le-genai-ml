@@ -344,8 +344,58 @@ st.set_page_config(
     page_title="AWS AgentCore FinTech Demo", page_icon="🏦", layout="centered"
 )
 
+# Custom CSS to reduce sidebar padding for better footer visibility
+st.markdown(
+    """
+    <style>
+    /* Reduce sidebar padding */
+    section[data-testid="stSidebar"] > div {
+        padding-top: 1rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    /* Reduce spacing between sidebar elements */
+    section[data-testid="stSidebar"] .element-container {
+        margin-bottom: 0.5rem !important;
+    }
+
+    /* Reduce markdown spacing in sidebar */
+    section[data-testid="stSidebar"] .stMarkdown {
+        margin-bottom: 0.5rem !important;
+    }
+
+    /* Reduce horizontal rule spacing */
+    section[data-testid="stSidebar"] hr {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Sidebar with configuration
 with st.sidebar:
+    # ============================================================================
+    # SECTION 0: Agent Title
+    # ============================================================================
+    # Determine active agent (logged in agent or selected agent)
+    all_agents = list(agents_config["agents"].keys())
+    current_agent_in_session = st.session_state.get("agent_type")
+
+    if current_agent_in_session:
+        # User is logged in - show logged-in agent
+        agent_type = current_agent_in_session
+    else:
+        # Not logged in - show selected agent
+        agent_type = st.session_state.get("agent_selector_value", all_agents[0])
+
+    agent_info_for_title = agents_config["agents"][agent_type]
+
+    # Display agent title at top of sidebar
+    st.markdown(f"### {get_agent_display_name(agent_type, agent_info_for_title['name'])}")
+    st.markdown("---")
+
     # ============================================================================
     # SECTION 1: Connection Status
     # ============================================================================
@@ -360,7 +410,6 @@ with st.sidebar:
         st.stop()
 
     # Get selected agent config (needed for health check)
-    all_agents = list(agents_config["agents"].keys())
     selected_agent = st.session_state.get("agent_selector_value", all_agents[0])
     selected_agent_info = agents_config["agents"][selected_agent]
     agent_type = selected_agent
@@ -525,7 +574,7 @@ with st.sidebar:
     # SECTION 3: Footer
     # ============================================================================
     st.caption("🏦 AWS GenAI Loft 2025")
-    st.caption("Built by binbash with ❤️")
+    st.caption("Built with ❤️ by binbash team.")
 
 # ============================================================================
 # MAIN SCREEN: Authentication Gate (for OAuth agents)

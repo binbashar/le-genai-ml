@@ -14,7 +14,7 @@ aws:
 
 agents:
   finance_personal_assistant:
-    name: Finance Personal Assistant
+    name: Personal Finance Assistant
     capabilities:
       vision: true
       documents: true  # Enables PDF and CSV uploads

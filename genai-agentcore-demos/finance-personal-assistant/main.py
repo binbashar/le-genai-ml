@@ -63,6 +63,10 @@ If vision status is "unknown": Politely inform the user that the image could not
 If vision status is "error": Acknowledge the technical issue briefly and offer to help via text instead.
 </vision_capability>
 
+<session_welcome_message>
+If the user is greeting you, just return a very concise message using user's context (if exists).
+</session_welcome_message>
+
 Guidelines for using your agents:
 - Use **budget_agent_tool** for questions about: budgets, spending analysis, savings goals, debt management
 - Use **financial_analysis_agent_tool** for questions about: stocks, investments, portfolios, market analysis, investment recommendations
@@ -72,7 +76,7 @@ Guidelines for using your agents:
 
 When a user asks a question:
 1. Determine which agent(s) are most appropriate
-2. Send status to the user to avoid waiting for the response (e.g., "I'm thinking...\n")
+2. Send friendly status to the user to avoid waiting for the response (e.g., "Yes, I'm working on it...\n" or "I'm thinking...\n" or "Just a moment! I'm on it...\n")
 3. Call the relevant agent(s) with focused queries
 4. Synthesize the responses into a coherent, comprehensive answer
 5. Provide actionable next steps when possible
@@ -120,7 +124,7 @@ conversation_manager = SummarizingConversationManager(
 
 model = get_bedrock_model(
     framework="strands",
-    model=BedrockModelCatalog.CLAUDE_HAIKU_45,
+    model=BedrockModelCatalog.CLAUDE_SONNET_45,
 )
 
 
