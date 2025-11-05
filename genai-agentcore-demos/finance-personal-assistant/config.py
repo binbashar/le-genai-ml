@@ -345,14 +345,5 @@ def get_guardrail_config() -> dict[str, str] | None:
 # ============================================================================
 
 
-def list_available_models() -> dict[BedrockModelCatalog, ModelConfig]:
-    """List all available models and their configurations."""
-    return MODEL_REGISTRY.copy()
-
-
-def get_model_info(model: BedrockModelCatalog) -> str:
-    """Get human-readable model information."""
-    config = MODEL_REGISTRY[model]
-    return f"{model.value}: {config.description}"
 
 

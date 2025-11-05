@@ -318,46 +318,53 @@ def create_mcp_client(
 
     # Temporarily disable Gateway due to authentication issues
     # TODO: Re-enable when Gateway auth is fixed
+    # When re-enabling:
+    #   1. Uncomment code below (config discovery, M2M auth, MCP client creation)
+    #   2. Test with: cd ../agentcore-gateway && uv run python scripts/test_m2m_auth.py
+    #   3. Remove this early return
     logger.info("[GATEWAY] Gateway temporarily disabled - using embedded tools only")
     return None
 
-    # Auto-discover config if not provided
-    config = config or load_config(gateway_name=gateway_name, region=region)
-    if not config:
-        logger.debug("[GATEWAY] Gateway not configured - using embedded tools only")
-        return None
-
-    # Use default M2M provider if not specified
-    credential_provider = credential_provider or M2MCredentialProvider()
-
-    try:
-        logger.info("[GATEWAY] Initiating M2M authentication flow")
-
-        # Obtain access token
-        access_token = credential_provider.get_token(config)
-
-        # Create MCP transport with Bearer token
-        logger.info(f"[GATEWAY] Connecting to Gateway: {config.endpoint}")
-
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {access_token}",
-        }
-
-        transport = streamablehttp_client(config.endpoint, headers=headers)
-
-        # Create MCP client
-        mcp_client = MCPClient(lambda: transport)
-
-        logger.info("[GATEWAY] ✓ MCP client initialized successfully")
-        logger.info(f"[GATEWAY]   Endpoint: {config.endpoint}")
-        logger.info("[GATEWAY]   Auth mode: M2M OAuth (Client Credentials)")
-
-        return mcp_client
-
-    except Exception as e:
-        logger.warning(f"[GATEWAY] ✗ Could not initialize MCP client: {e}")
-        logger.info(
-            "[GATEWAY] Agent will use embedded tools only (graceful degradation)"
-        )
-        return None
+    # UNREACHABLE CODE BELOW (commented out for clarity)
+    # Restore when Gateway auth is fixed
+    #
+    # # Auto-discover config if not provided
+    # config = config or load_config(gateway_name=gateway_name, region=region)
+    # if not config:
+    #     logger.debug("[GATEWAY] Gateway not configured - using embedded tools only")
+    #     return None
+    #
+    # # Use default M2M provider if not specified
+    # credential_provider = credential_provider or M2MCredentialProvider()
+    #
+    # try:
+    #     logger.info("[GATEWAY] Initiating M2M authentication flow")
+    #
+    #     # Obtain access token
+    #     access_token = credential_provider.get_token(config)
+    #
+    #     # Create MCP transport with Bearer token
+    #     logger.info(f"[GATEWAY] Connecting to Gateway: {config.endpoint}")
+    #
+    #     headers = {
+    #         "Content-Type": "application/json",
+    #         "Authorization": f"Bearer {access_token}",
+    #     }
+    #
+    #     transport = streamablehttp_client(config.endpoint, headers=headers)
+    #
+    #     # Create MCP client
+    #     mcp_client = MCPClient(lambda: transport)
+    #
+    #     logger.info("[GATEWAY] ✓ MCP client initialized successfully")
+    #     logger.info(f"[GATEWAY]   Endpoint: {config.endpoint}")
+    #     logger.info("[GATEWAY]   Auth mode: M2M OAuth (Client Credentials)")
+    #
+    #     return mcp_client
+    #
+    # except Exception as e:
+    #     logger.warning(f"[GATEWAY] ✗ Could not initialize MCP client: {e}")
+    #     logger.info(
+    #         "[GATEWAY] Agent will use embedded tools only (graceful degradation)"
+    #     )
+    #     return None
