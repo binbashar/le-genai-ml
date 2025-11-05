@@ -356,20 +356,3 @@ def get_model_info(model: BedrockModelCatalog) -> str:
     return f"{model.value}: {config.description}"
 
 
-# ============================================================================
-# AgentCore Gateway Configuration
-# ============================================================================
-
-
-def get_gateway_endpoint() -> str | None:
-    """
-    Get AgentCore Gateway endpoint from environment variable.
-
-    Returns:
-        Gateway MCP endpoint URL or None if not configured
-
-    Note:
-        For production deployments, Gateway config is loaded via SSM in utils/gateway.py.
-        This function is for simple environment variable override only.
-    """
-    return os.getenv("AGENTCORE_GATEWAY_ENDPOINT")
