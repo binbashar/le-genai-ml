@@ -1,4 +1,4 @@
-"""Shared utilities for AgentCore demos"""
+"""Python runtime utilities for AgentCore demos"""
 
 from .agentcore_health import (
     AgentHealthConfig,

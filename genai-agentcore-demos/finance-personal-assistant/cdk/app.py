@@ -8,8 +8,8 @@ from aws_cdk import App, CfnOutput, Environment, Stack, Tags
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from shared.cdk import AgentAppClient, AgentExecutionRole
-from shared.cdk.agent_cognito import AgentCognitoPool
+from libs.cdk import AgentAppClient, AgentExecutionRole
+from libs.cdk.agent_cognito import AgentCognitoPool
 
 app = App()
 

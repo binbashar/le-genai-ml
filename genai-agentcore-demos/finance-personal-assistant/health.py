@@ -33,7 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config import get_client
-from shared.agentcore_health import (
+from libs.python.agentcore_health import (
     AgentHealthConfig,
     HealthCheckCredentials,
     create_health_check_cli,

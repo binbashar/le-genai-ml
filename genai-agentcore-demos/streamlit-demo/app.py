@@ -12,7 +12,7 @@ import requests
 import streamlit as st
 import streamlit.components.v1 as components
 import yaml
-from shared.auth_utils import authenticate, invoke_with_token
+from libs.python.auth_utils import authenticate, invoke_with_token
 from utils import document_utils, vision_utils
 
 # Configure logging
@@ -167,7 +167,7 @@ def load_config():
     import sys
 
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from shared.ssm_utils import get_all_agent_configs
+    from libs.python.ssm_utils import get_all_agent_configs
 
     config_dir = Path(__file__).parent / "config"
 

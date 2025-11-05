@@ -41,7 +41,7 @@ try:
 except (ImportError, ValueError):
     try:
         # Try absolute import (when run as script or from parent directory)
-        from shared.auth_utils import (
+        from libs.python.auth_utils import (
             authenticate,
             extract_oauth_config_from_yaml,
             invoke_with_token,
