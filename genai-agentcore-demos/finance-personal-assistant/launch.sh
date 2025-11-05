@@ -5,12 +5,8 @@ AGENT_NAME="finance_personal_assistant"
 
 echo "🚀 Deploying agent to AWS Bedrock AgentCore Runtime..."
 echo ""
-echo "ℹ️  Gateway configuration auto-discovered via SSM Parameter Store at runtime"
-echo "   (see utils/gateway.py for SSM-based config loading)"
-echo ""
 
-# Launch agent (Gateway config loaded from SSM at runtime via utils/gateway.py)
-# Always use --auto-update-on-conflict to update existing agents with new configuration
+# Launch agent - Always use --auto-update-on-conflict to update existing agents
 uv run agentcore launch --auto-update-on-conflict "$@"
 
 echo ""

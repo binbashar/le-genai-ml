@@ -23,7 +23,6 @@ from financial_analysis_agent import financial_analysis_agent
 from memory_config import FINANCE_MEMORY_CONFIG, RETRIEVAL_CONFIG, Memory
 from strands import Agent, tool
 from strands.agent.conversation_manager import SummarizingConversationManager
-from utils.gateway import create_mcp_client
 from utils.memory_retrieval import retrieve_and_inject_memories
 from utils.session_manager import extract_session_context
 from utils.vision_analyzer import analyze_image
@@ -320,19 +319,11 @@ User Query: {user_message}"""
         region_name=region,
     )
 
-    # Initialize MCP client for Gateway tools
-    mcp_client = create_mcp_client()
-
-    # Build agent tools list (embedded tools + Gateway tools)
-    agent_tools = [budget_agent_tool, financial_analysis_agent_tool]
-    if mcp_client:
-        agent_tools.append(mcp_client)
-
-    # Create orchestrator agent
+    # Create orchestrator agent with embedded tools
     orchestrator_agent = Agent(
         model=model,
         system_prompt=ORCHESTRATOR_PROMPT,
-        tools=agent_tools,  # All tools (embedded + Gateway)
+        tools=[budget_agent_tool, financial_analysis_agent_tool],
         conversation_manager=conversation_manager,
         session_manager=session_manager,
     )

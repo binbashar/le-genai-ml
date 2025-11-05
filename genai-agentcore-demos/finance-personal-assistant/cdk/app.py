@@ -45,7 +45,7 @@ class FinancePersonalAssistantStack(Stack):
             self,
             "ExecutionRole",
             agent_name=agent_name,
-            enable_gateway_permissions=True,
+            enable_gateway_permissions=False,
         )
 
         CfnOutput(self, "UserPoolId", value=cognito_pool.user_pool.user_pool_id)

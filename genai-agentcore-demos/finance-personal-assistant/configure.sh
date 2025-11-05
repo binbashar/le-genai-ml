@@ -24,19 +24,6 @@ if [ -n "$UNIFIED_CONFIG" ]; then
     OAUTH_CONFIG=$(echo "$UNIFIED_CONFIG" | jq -c '.oauth // empty' 2>/dev/null || echo "")
 fi
 
-# If no agent-specific OAuth config, try shared Gateway OAuth config
-if [ -z "$OAUTH_CONFIG" ]; then
-    GATEWAY_OAUTH=$(aws ssm get-parameter \
-        --name "/agentcore/agentcore-gateway/oauth-config" \
-        --query "Parameter.Value" \
-        --output text 2>/dev/null || echo "")
-
-    if [ -n "$GATEWAY_OAUTH" ]; then
-        echo "🔐 Using shared Gateway OAuth configuration"
-        OAUTH_CONFIG="$GATEWAY_OAUTH"
-    fi
-fi
-
 # Build agentcore configure command arguments as array
 ARGS=("configure" "-e" "${ENTRYPOINT}" "-n" "${AGENT_NAME}" "--non-interactive")
 
