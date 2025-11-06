@@ -1,0 +1,27 @@
+# Workshop-generated files (created by notebooks during lab exercises)
+budget_agent.py
+main.py
+financial_analysis_agent.py
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# AgentCore generated files
+.bedrock_agentcore.yaml
+Dockerfile
+.dockerignore
+
+# Output files
+outputs.json
+*.log

@@ -1,81 +1,261 @@
-# Use agent strategies to streamline complex business tasks
+# Finance Personal Assistant
 
-The [workshop](https://catalog.us-east-1.prod.workshops.aws/workshops/57f577e3-9a24-45e2-9937-e48b2cdf6986/en-US) is a hands-on training program designed to empower developers and AI enthusiasts to build sophisticated, context-aware AI agents using cutting-edge technologies like [Amazon Bedrock](https://aws.amazon.com/bedrock), [Strands Agents](https://strandsagents.com/latest/), and [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/).
+**Multi-agent financial advisory system** built with AWS Bedrock AgentCore and Strands Agents.
 
-![architecture](./images/architecture.png)
+This repository contains two implementations designed for different purposes:
 
-We're creating a **Multi-Agent Financial Advisory System** that combines specialized expertise areas through intelligent orchestration. The system mimics how professional financial advisory firms operate, with specialists collaborating under a coordinator to provide comprehensive guidance.
+## 📂 Repository Structure
 
-Our multi-agent system consists of three core components:
+```
+finance-personal-assistant/
+│
+├── workshop/          🎓 Workshop materials for learning (1 hour)
+│   ├── Jupyter notebooks (Lab 1, 2, 3)
+│   ├── Workshop utilities
+│   └── Architecture diagrams
+│
+├── production/        🚀 Production-ready deployment
+│   ├── Multi-agent orchestrator
+│   ├── Memory strategies
+│   ├── Vision & document processing
+│   └── CDK infrastructure
+│
+└── README.md         📖 This file
+```
 
-1. **Budget Agent (from [Lab 1](./lab1-develop_a_personal_budget_assistant_strands_agent.ipynb))**
+---
 
-    *Specializes in personal budgeting, spending analysis, and financial discipline*
+## 🎓 Workshop: Learn Multi-Agent Systems (1 Hour)
 
-    | Tool | Description | Example Use Case |
-    |------|-------------|------------------|
-    | **calculate_budget_breakdown** | 50/30/20 budget calculations for any income level | "Create a budget for my $6000 monthly income" |
-    | **analyze_spending_pattern** | Spending pattern analysis with personalized recommendations | "Analyze my $800 dining expenses against $5000 income" |
-    | **calculator** | Financial calculations and mathematical operations | "Calculate 20% savings target for my budget" |
+**Start here if you want to learn** how to build multi-agent systems from scratch.
 
-2. **Financial Analysis Agent (from [Lab 2](./lab2-build_multi_agent_workflows_with_strands.ipynb))**
+**Location**: [`workshop/`](./workshop/)
 
-    *Focuses on investment research, portfolio management, and market analysis*
+### What You'll Build
 
-    | Tool | Description | Example Use Case |
-    |------|-------------|------------------|
-    | **get_stock_analysis** | Real-time stock data and comprehensive analysis | "Analyze Apple stock performance and metrics" |
-    | **create_diversified_portfolio** | Risk-based portfolio recommendations with allocations | "Create a moderate risk portfolio for $10,000" |
-    | **compare_stock_performance** | Multi-stock performance comparison over time periods | "Compare Tesla, Apple, and Google over 6 months" |
+A lightweight multi-agent financial advisor with:
+- Budget analysis agent
+- Investment research agent
+- Orchestrator that coordinates both
 
-3. **Orchestrator Agent (from [Lab 2](./lab2-build_multi_agent_workflows_with_strands.ipynb))**
+### Workshop Structure
 
-    *Coordinates specialized agents and synthesizes comprehensive responses*
+| Lab | Duration | Focus |
+|-----|----------|-------|
+| **Lab 1** | 20 min | Build a budget agent with tools and structured outputs |
+| **Lab 2** | 20 min | Create multi-agent orchestration |
+| **Lab 3** | 15 min | Deploy to AgentCore Runtime with Cognito |
 
-    | Capability | Description | Example Use Case |
-    |------------|-------------|------------------|
-    | **Agent Routing** | Intelligently determines which specialist(s) to consult | Routes budget questions to Budget Agent, investment queries to Financial Agent |
-    | **Multi-Agent Coordination** | Combines insights from multiple agents for complex queries | "Help me budget and invest" uses both agents together |
-    | **Response Synthesis** | Creates coherent responses from multiple agent outputs | Combines budget analysis with investment recommendations |
-    | **Context Management** | Maintains conversation flow across agent interactions | Remembers previous advice when making follow-up recommendations |
+### Getting Started
 
-## Workshop Structure
+```bash
+cd workshop/
+jupyter lab
+# Open lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
+```
 
-| Lab | Focus | Duration | What You'll Learn |
-|-----|-------|----------|-------------------|
-| Prerequisites | Environment Setup | 5 minutes | AWS account setup, SageMaker Studio configuration |
-| [Lab 1](./lab1-develop_a_personal_budget_assistant_strands_agent.ipynb) | Personal Finance Assistant | 20 minutes | Build your first Strands agent, understand core concepts, create custom tools |
-| [Lab 2](./lab2-build_multi_agent_workflows_with_strands.ipynb)| Multi-Agent Workflows | 20 minutes | Implement multi-agent workflows |
-| [Lab 3](./lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb) | Production Deployment | 15 minutes | Deploy agents using Amazon Bedrock AgentCore, scaling and monitoring |
+**Full workshop guide**: [workshop/README.md](./workshop/README.md)
 
-**Total Duration:** 1 hour
+---
 
-## Prerequisites
+## 🚀 Production: Enterprise-Grade Deployment
 
-Participants should have:
+**Use this if you need** a production-ready implementation with advanced features.
 
-- AWS credentials configured for Amazon Bedrock access
-- Python 3.8+ installed on their development machine
-- AWS account with Amazon Bedrock access. In an AWS-conducted event, you will have a provisioned account
-- Enable [Model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html) for Anthropic Claude 3.7 Sonnet on Amazon Bedrock.
-- Jupyter Notebook or compatible IDE
+**Location**: [`production/`](./production/)
 
-## Sample Queries
+### Features
 
-- "I make $6000/month and want to start investing $500/month. Help me create a budget and suggest an investment portfolio."
-- "I spend too much on dining out ($800/month) and want to invest the savings. What should I do?"
-- "Compare Tesla and Apple stocks, and tell me if I can afford to invest $2000 with my $4000 monthly income."
+✅ **Multi-Agent Orchestration** - Specialized agents for budgeting and investments
+✅ **AgentCore Memory** - Multi-strategy context retrieval (USER_PREFERENCE, SEMANTIC, SUMMARY)
+✅ **Vision Analysis** - Process receipts and invoices with Amazon Nova Premier
+✅ **Document Processing** - CSV and PDF parsing with security sanitization
+✅ **OAuth2 Authentication** - Production Cognito integration via CDK
+✅ **Service Discovery** - SSM Parameter Store for dynamic configuration
+✅ **Streaming Responses** - Real-time SSE streaming
+✅ **Guardrails** - Content filtering and PII protection
 
-## License & Attribution
+### Quick Start
 
-This project is inspired by and based on examples from the [Amazon Bedrock AgentCore Samples](https://github.com/awslabs/amazon-bedrock-agentcore-samples) repository by AWS Labs.
+```bash
+cd production/
+
+# Install dependencies
+uv sync
+
+# Optional: Deploy OAuth infrastructure
+cd cdk && ./deploy.sh && cd ..
+
+# Configure agent
+./configure.sh
+
+# Deploy to AWS
+./launch.sh
+
+# Verify
+./health.sh
+```
+
+**Full production guide**: [production/README.md](./production/README.md)
+
+---
+
+## 🔄 Key Differences
+
+| Feature | Workshop | Production |
+|---------|----------|------------|
+| **Purpose** | Learning & education | Enterprise deployment |
+| **Duration** | 1 hour | Production-ready |
+| **Memory** | STM only (auto-created) | Multi-strategy (3 strategies) |
+| **Authentication** | Basic Cognito | CDK-managed OAuth2 |
+| **Vision** | ❌ Not included | ✅ Amazon Nova Premier |
+| **Documents** | ❌ Not included | ✅ CSV/PDF processing |
+| **Deployment** | Manual (notebooks) | Scripted (configure.sh + launch.sh) |
+| **Service Discovery** | Hardcoded ARNs | SSM Parameter Store |
+| **UI** | ❌ None | ✅ Streamlit with streaming |
+| **Tools** | Basic (calculator, charts) | Advanced (yfinance, browser, memory) |
+
+---
+
+## 🎯 Multi-Agent Architecture
+
+Our system consists of three core components:
+
+### 1. Budget Agent
+*Specializes in personal budgeting, spending analysis, and financial discipline*
+
+| Tool | Description |
+|------|-------------|
+| **calculate_budget_breakdown** | 50/30/20 budget calculations |
+| **analyze_spending_pattern** | Spending analysis with recommendations |
+| **calculator** | Financial calculations |
+
+### 2. Financial Analysis Agent
+*Focuses on investment research, portfolio management, and market analysis*
+
+| Tool | Description |
+|------|-------------|
+| **get_stock_analysis** | Real-time stock data and analysis |
+| **create_diversified_portfolio** | Risk-based portfolio recommendations |
+| **compare_stock_performance** | Multi-stock performance comparison |
+
+### 3. Orchestrator Agent
+*Coordinates specialized agents and synthesizes comprehensive responses*
+
+| Capability | Description |
+|------------|-------------|
+| **Agent Routing** | Determines which specialist(s) to consult |
+| **Multi-Agent Coordination** | Combines insights from multiple agents |
+| **Response Synthesis** | Creates coherent responses |
+| **Context Management** | Maintains conversation flow |
+
+![Architecture](./workshop/images/architecture.png)
+
+---
+
+## 🚦 Which Should I Use?
+
+### Use **Workshop** if you:
+- Want to learn multi-agent concepts from scratch
+- Are attending or leading a training session
+- Need hands-on Jupyter notebook tutorials
+- Have 1 hour to build and deploy a working agent
+
+### Use **Production** if you:
+- Need a production-ready deployment
+- Want advanced features (memory, vision, OAuth)
+- Are building an enterprise application
+- Need infrastructure-as-code with CDK
+
+### Use **Both** (Recommended):
+1. Start with workshop to learn concepts
+2. Explore production to see enterprise implementation
+3. Use production code as reference for your own projects
+
+---
+
+## 📋 Prerequisites
+
+Both implementations require:
+
+- **Python 3.13+**
+- **AWS CLI v2** configured
+- **Docker** (for production deployments)
+- **AWS CDK v2** (for production infrastructure)
+- **uv** package manager
+- **Bedrock Model Access** enabled for Claude and Nova
+
+### Enable Model Access
+
+1. Visit [Bedrock Console](https://console.aws.amazon.com/bedrock/home#/modelaccess)
+2. Click "Modify model access"
+3. Enable: Amazon Nova (all variants), Anthropic Claude 3.5/4.5
+4. Access granted instantly (no approval needed)
+
+---
+
+## 💡 Sample Queries
+
+### Budget Queries
+- "I make $6000/month and want to start investing $500/month. Help me create a budget."
+- "I spend too much on dining out ($800/month). How can I cut back?"
+- "Create a comprehensive financial report for someone earning $4000/month."
+
+### Investment Queries
+- "Analyze Apple stock and tell me if it's a good investment."
+- "Create a moderate risk portfolio for $10,000."
+- "Compare Tesla, Apple, and Google stocks over the last 6 months."
+
+### Multi-Agent Queries
+- "I make $5000/month and want to invest $1000. Help me budget and suggest a portfolio."
+- "Analyze my $800 dining expenses, then recommend stocks to invest my savings."
+
+### Vision Queries (Production Only)
+- Upload receipt + "Track this expense in my budget."
+- Upload invoice + "Add this to my monthly spending analysis."
+
+---
+
+## 🧹 Cleanup
+
+### Workshop Cleanup
+```bash
+# In Lab 3 notebook, uncomment and run cleanup cells
+agentcore_runtime.delete_agent(agent_id=launch_result.agent_id)
+delete_cognito_user_pool()
+delete_guardrail()
+```
+
+### Production Cleanup
+```bash
+cd production/
+
+# Preview what will be deleted
+uv run python cleanup.py --dry-run
+
+# Complete cleanup
+uv run python cleanup.py
+```
+
+---
+
+## 📚 Resources
+
+- **Workshop Guide**: [workshop/README.md](./workshop/README.md)
+- **Production Guide**: [production/README.md](./production/README.md)
+- **Workshop Slides**: https://catalog.us-east-1.prod.workshops.aws/workshops/57f577e3-9a24-45e2-9937-e48b2cdf6986/en-US
+- **Strands Documentation**: https://strandsagents.com/latest/
+- **AgentCore Docs**: https://docs.aws.amazon.com/bedrock-agentcore/
+- **AgentCore Toolkit**: https://aws.github.io/bedrock-agentcore-starter-toolkit/
+
+---
+
+## 📄 License & Attribution
+
+Apache License 2.0 - See [LICENSE](../LICENSE) for details.
+
+Based on [Amazon Bedrock AgentCore Samples](https://github.com/awslabs/amazon-bedrock-agentcore-samples) by AWS Labs.
 
 **Original Source**: https://github.com/awslabs/amazon-bedrock-agentcore-samples
 
-**License**: Apache License 2.0 - See [LICENSE](../LICENSE) file for details.
-
-This implementation demonstrates multi-agent financial advisory systems using AWS Bedrock AgentCore, adapted for educational purposes and workshop training.
-
-## Clean-up
-
-Each lab consists of cleanup steps at the end of Jupyter notebooks. By default, these cleanup steps are commented out. Please uncomment them and run them to clean up resources at the end of the workshop.
+This implementation demonstrates multi-agent financial advisory systems using AWS Bedrock AgentCore, adapted for educational purposes and enterprise deployments.
