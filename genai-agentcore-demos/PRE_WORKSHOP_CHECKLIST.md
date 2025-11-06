@@ -9,57 +9,29 @@ Complete this checklist **before** starting the workshop to ensure a smooth expe
 **Required:**
 - AWS account with administrative access
 - AWS CLI v2 installed and configured
-- Valid AWS credentials (SSO or IAM user)
+- IAM user access keys (provided by your workshop administrator)
 
-**Step 1: Configure AWS Profile**
+**Configure AWS Credentials:**
 
-Choose one of the following methods:
+Your workshop administrator should provide you with:
+- AWS Access Key ID
+- AWS Secret Access Key
 
-**Option A: AWS SSO (Recommended)**
 ```bash
-# Configure SSO profile interactively
-aws configure sso
-
-# You'll be prompted for:
-# - SSO start URL (provided by your AWS administrator)
-# - SSO Region
-# - AWS account and role selection
-# - CLI default region (recommend: us-west-2)
-# - CLI profile name (e.g., "workshop" or your name)
-
-# Login to your SSO session
-aws sso login --profile your-profile-name
-
-# Set as default for this session
-export AWS_PROFILE=your-profile-name
-```
-
-**Option B: IAM User Credentials**
-```bash
-# Configure with access keys
-aws configure --profile your-profile-name
+# Configure IAM user profile
+aws configure --profile workshop
 
 # Enter when prompted:
-# - AWS Access Key ID
-# - AWS Secret Access Key
-# - Default region (recommend: us-west-2)
-# - Output format (recommend: json)
+# - AWS Access Key ID: (provided by administrator)
+# - AWS Secret Access Key: (provided by administrator)
+# - Default region: us-west-2
+# - Output format: json
 
 # Set as default for this session
-export AWS_PROFILE=your-profile-name
-```
+export AWS_PROFILE=workshop
 
-**Step 2: Verify Configuration**
-
-```bash
-# Check AWS CLI version (should be 2.x or higher)
-aws --version
-
-# Test credentials (should show your AWS account details)
+# Verify credentials
 aws sts get-caller-identity
-
-# Verify default region is set
-aws configure get region
 ```
 
 **Expected output:**
@@ -67,13 +39,15 @@ aws configure get region
 {
     "UserId": "AIDAXXXXXXXXXXXXXXXXX",
     "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/your-username"
+    "Arn": "arn:aws:iam::123456789012:user/workshop-participant-1"
 }
 ```
 
-**Tip:** Add `export AWS_PROFILE=your-profile-name` to your `~/.bashrc` or `~/.zshrc` to make it persistent across terminal sessions.
+**Tip:** Add `export AWS_PROFILE=workshop` to your `~/.bashrc` or `~/.zshrc` to make it persistent across terminal sessions.
 
-📖 **Need more help?** See [AWS_SETUP.md](./AWS_SETUP.md) for a comprehensive guide including SSO setup, troubleshooting, and best practices.
+**Organizations using AWS SSO:** If your organization requires AWS SSO (IAM Identity Center), see [AWS_SETUP.md - Alternative: AWS SSO](./AWS_SETUP.md#alternative-aws-sso-for-organizations-with-existing-sso) for configuration details.
+
+📖 **Detailed Guide:** See [AWS_SETUP.md](./AWS_SETUP.md) for comprehensive setup instructions, administrator guidance, and troubleshooting.
 
 ---
 

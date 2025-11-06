@@ -4,153 +4,144 @@ This guide helps you configure your AWS credentials for the AgentCore workshop. 
 
 ## Table of Contents
 
-1. [For Workshop Administrators: Setting Up SSO](#for-workshop-administrators-setting-up-sso)
+1. [For Workshop Administrators: Creating IAM Users](#for-workshop-administrators-creating-iam-users)
 2. [Prerequisites](#prerequisites)
-3. [Option A: AWS SSO (Recommended)](#option-a-aws-sso-recommended)
-4. [Option B: IAM User Credentials](#option-b-iam-user-credentials)
+3. [Configure IAM User Credentials (Recommended)](#configure-iam-user-credentials-recommended)
+4. [Alternative: AWS SSO (For Organizations with Existing SSO)](#alternative-aws-sso-for-organizations-with-existing-sso)
 5. [Verify Your Configuration](#verify-your-configuration)
 6. [Bootstrap AWS CDK](#bootstrap-aws-cdk)
 7. [Troubleshooting](#troubleshooting)
 
 ---
 
-## For Workshop Administrators: Setting Up SSO
+## For Workshop Administrators: Creating IAM Users
 
-**Note:** This section is for AWS administrators preparing the environment for workshop participants. If you're a participant and have been provided SSO credentials, skip to [Option A: AWS SSO](#option-a-aws-sso-recommended).
+**Note:** This section is for AWS administrators preparing the environment for workshop participants. If you're a participant and have been provided credentials, skip to [Configure IAM User Credentials](#configure-iam-user-credentials-recommended).
 
-### Do I Need to Set Up SSO?
+### Why IAM Users for Workshops?
 
-**You can skip SSO setup if:**
-- Your organization already has AWS IAM Identity Center (formerly AWS SSO) configured
-- You plan to use IAM user credentials for all participants (simpler for small workshops)
-- Workshop participants have their own individual AWS accounts
+**IAM users are the recommended approach for workshops because:**
+- ✅ **Fast setup**: 2 minutes per user (vs 30+ minutes for SSO infrastructure)
+- ✅ **No dependencies**: Works without AWS Organizations or Identity Center
+- ✅ **Reliable**: No authentication server dependencies during workshop
+- ✅ **Simple cleanup**: Delete users after workshop
+- ✅ **Works immediately**: Access keys ready to use right away
 
-**You should set up SSO if:**
-- Multiple participants will share access to the same AWS account with different roles
-- You want centralized user management and single sign-on experience
-- Your organization uses external identity providers (Okta, Azure AD, Google Workspace, etc.)
+**Avoid AWS SSO for workshops unless:**
+- Your organization already has IAM Identity Center fully configured
+- All participants are already registered in your Identity Center
+- You have tested SSO authentication with CLI beforehand
 
-### Quick Start: Enable AWS IAM Identity Center
+### Creating IAM Users for Workshop Participants
 
-AWS IAM Identity Center (formerly AWS SSO) provides centralized access management across AWS accounts.
-
-**Prerequisites:**
-- AWS Organizations enabled in your AWS account (or be the management account owner)
-- Administrative access to the AWS account
-
-**Setup Steps (Console):**
-
-1. **Navigate to IAM Identity Center:**
-   - Open AWS Console: https://console.aws.amazon.com/singlesignon/
-   - If prompted, click "Enable IAM Identity Center"
-   - Choose identity source: "Identity Center directory" (for simple setups) or connect your existing IdP
-
-2. **Create Users:**
-   - Go to: IAM Identity Center → Users
-   - Click "Add user"
-   - Enter user details (username, email, first/last name)
-   - Set temporary password (users will be prompted to change on first login)
-   - Repeat for all workshop participants
-
-3. **Create Permission Set:**
-   - Go to: IAM Identity Center → Permission sets → Create permission set
-   - Choose "Predefined permission set" → Select "AdministratorAccess" (or create custom)
-   - Name it: "WorkshopParticipantAccess"
-
-4. **Assign Users to AWS Account:**
-   - Go to: IAM Identity Center → AWS accounts
-   - Select your AWS account → Assign users or groups
-   - Choose users and the permission set created above
-   - Click "Assign"
-
-5. **Get SSO Start URL:**
-   - Go to: IAM Identity Center → Dashboard
-   - Copy the "AWS access portal URL" (e.g., `https://d-xxxxxxxxxx.awsapps.com/start`)
-   - Share this URL with workshop participants
-
-**Setup via AWS CLI (Alternative):**
+**Setup Instructions:**
 
 ```bash
-# Enable IAM Identity Center
-aws sso-admin create-instance --region us-east-1
+# Create user (repeat for each participant)
+aws iam create-user --user-name workshop-participant-1
 
-# List instances to get ARNs
-aws sso-admin list-instances --region us-east-1
+# Attach administrator policy
+aws iam attach-user-policy \
+  --user-name workshop-participant-1 \
+  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
-# Create permission set (requires instance ARN from above)
-aws sso-admin create-permission-set \
-  --instance-arn arn:aws:sso:::instance/ssoins-xxxxxxxxxx \
-  --name WorkshopParticipantAccess \
-  --description "Full access for workshop participants"
-
-# Attach managed policy to permission set
-aws sso-admin attach-managed-policy-to-permission-set \
-  --instance-arn arn:aws:sso:::instance/ssoins-xxxxxxxxxx \
-  --permission-set-arn arn:aws:sso:::permissionSet/ssoins-xxxxxxxxxx/ps-xxxxxxxxxx \
-  --managed-policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+# Create access key and save output
+aws iam create-access-key --user-name workshop-participant-1
 ```
 
-**Important Configuration Details to Share with Participants:**
+**Expected output:**
+```json
+{
+    "AccessKey": {
+        "UserName": "workshop-participant-1",
+        "AccessKeyId": "AKIAIOSFODNN7EXAMPLE",
+        "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "Status": "Active"
+    }
+}
+```
 
-After setup, provide participants with:
-- ✅ **SSO Start URL**: `https://your-domain.awsapps.com/start` (from IAM Identity Center Dashboard)
-- ✅ **SSO Region**: Usually `us-east-1` (where IAM Identity Center is configured)
-- ✅ **Username and temporary password**: Created in step 2 above
-- ✅ **AWS Region for workshop**: `us-west-2` (where agents will be deployed)
+**Important:** Save the Access Key ID and Secret Access Key securely - you'll share these with participants.
 
-### Alternative: Using IAM Users (Simpler for Small Workshops)
+### Distributing Credentials to Participants
 
-For small workshops (< 10 participants), IAM users may be simpler:
+**Option 1: Secure file sharing (Recommended)**
+1. Create a text file for each participant with their credentials
+2. Share via secure channel (encrypted email, password-protected zip, 1Password, etc.)
+3. Include instructions: See [Configure IAM User Credentials](#configure-iam-user-credentials-recommended)
 
-1. **Create IAM Users:**
-   ```bash
-   # Create user
-   aws iam create-user --user-name workshop-participant-1
+**Option 2: In-person distribution**
+1. Print credentials on paper (one per participant)
+2. Hand out at start of workshop
+3. Instruct participants to shred after adding to AWS CLI
 
-   # Attach administrator policy
-   aws iam attach-user-policy \
-     --user-name workshop-participant-1 \
-     --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+**What to share with each participant:**
+```
+AWS Workshop Credentials - Participant 1
 
-   # Create access key
-   aws iam create-access-key --user-name workshop-participant-1
-   ```
+Access Key ID: AKIAIOSFODNN7EXAMPLE
+Secret Access Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+Region: us-west-2
 
-2. **Share credentials securely:**
-   - Provide Access Key ID and Secret Access Key to each participant
-   - Instruct them to use [Option B: IAM User Credentials](#option-b-iam-user-credentials)
+Configuration command:
+aws configure --profile workshop
+(Enter the Access Key ID and Secret Access Key when prompted)
+```
 
-### Official AWS Documentation
+### Post-Workshop Cleanup
 
-For detailed setup instructions and advanced configurations:
+Delete IAM users after the workshop to maintain security:
 
-- **[IAM Identity Center Getting Started Guide](https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html)**
-- **[Enable IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html)**
-- **[Connect External Identity Provider](https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-identity-source-idp.html)**
-- **[Create Permission Sets](https://docs.aws.amazon.com/singlesignon/latest/userguide/permissionsets.html)**
-- **[AWS CLI SSO Configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)**
-- **[IAM Identity Center Best Practices](https://docs.aws.amazon.com/singlesignon/latest/userguide/security-best-practices.html)**
+```bash
+# List access keys for user
+aws iam list-access-keys --user-name workshop-participant-1
 
-### Troubleshooting for Administrators
+# Delete access key (use AccessKeyId from output above)
+aws iam delete-access-key \
+  --user-name workshop-participant-1 \
+  --access-key-id AKIAIOSFODNN7EXAMPLE
 
-**Issue: "AWS Organizations is not enabled"**
-- IAM Identity Center requires AWS Organizations
-- Enable it: https://console.aws.amazon.com/organizations/
-- You must be using the management account
+# Detach policies
+aws iam detach-user-policy \
+  --user-name workshop-participant-1 \
+  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
-**Issue: "Identity Center is already enabled in another region"**
-- IAM Identity Center can only be enabled in one region per organization
-- Use the existing instance or disable it first (not recommended if in use)
+# Delete user
+aws iam delete-user --user-name workshop-participant-1
+```
 
-**Issue: Participants can't access AWS Console**
-- Verify permission set is attached to the user-account assignment
-- Check the user status is "Active" in IAM Identity Center
-- Ensure participants are using the correct AWS access portal URL
+**Batch cleanup script:**
+```bash
+#!/bin/bash
+# cleanup-workshop-users.sh
 
-**Issue: Participants get "Access Denied" during workshop**
-- Verify permission set includes required policies (AdministratorAccess or custom)
-- Check if session duration is too short (default: 1 hour, increase if needed)
-- Review permission set policies: IAM Identity Center → Permission sets → [Your set] → Permissions
+for i in {1..10}; do
+  USER="workshop-participant-$i"
+
+  # Get and delete all access keys
+  aws iam list-access-keys --user-name $USER --query 'AccessKeyMetadata[*].AccessKeyId' --output text | \
+    xargs -I {} aws iam delete-access-key --user-name $USER --access-key-id {}
+
+  # Detach policies
+  aws iam detach-user-policy --user-name $USER --policy-arn arn:aws:iam::aws:policy/AdministratorAccess 2>/dev/null
+
+  # Delete user
+  aws iam delete-user --user-name $USER 2>/dev/null
+
+  echo "Cleaned up: $USER"
+done
+```
+
+### Alternative: AWS SSO (Only if Already Configured)
+
+If your organization already has AWS IAM Identity Center (formerly AWS SSO) configured and all participants are registered, you may use SSO instead.
+
+**⚠️ Warning:** Setting up SSO from scratch for a workshop is NOT recommended due to complexity and time requirements.
+
+**For SSO setup instructions, see:**
+- [IAM Identity Center Getting Started Guide](https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html)
+- [Enable IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html)
+- [AWS CLI SSO Configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
 
 ---
 
@@ -168,187 +159,21 @@ aws --version
 
 ---
 
-## Option A: AWS SSO (Recommended)
+## Configure IAM User Credentials (Recommended)
 
-AWS Single Sign-On (SSO) is the recommended authentication method for organizations using AWS Organizations.
+IAM user credentials with access keys are the recommended authentication method for workshops. This method is fast, reliable, and works immediately without organizational dependencies.
 
-### Step 1: Configure SSO Profile
+**Your administrator should have provided you with:**
+- AWS Access Key ID
+- AWS Secret Access Key
+- Region (typically: `us-west-2`)
 
-Run the interactive SSO configuration:
-
-```bash
-aws configure sso
-```
-
-You'll be prompted for the following information:
-
-**1. SSO Session name (Recommended):**
-```
-SSO session name (Recommended): my-sso-session
-```
-Enter a memorable name for your SSO session (e.g., `workshop-session`, `company-sso`).
-
-**2. SSO start URL:**
-```
-SSO start URL [None]: https://my-company.awsapps.com/start
-```
-This is provided by your AWS administrator. It typically looks like:
-- `https://[your-domain].awsapps.com/start`
-- `https://d-xxxxxxxxxx.awsapps.com/start`
-
-**3. SSO Region:**
-```
-SSO region [None]: us-east-1
-```
-This is the region where your SSO directory is hosted (often `us-east-1`). Ask your AWS administrator if unsure.
-
-**4. SSO registration scopes:**
-```
-SSO registration scopes [sso:account:access]:
-```
-Press Enter to accept the default (`sso:account:access`).
-
-**5. Browser authentication:**
-
-Your browser will open automatically to complete authentication:
-- Sign in with your organization's credentials
-- Grant AWS CLI access when prompted
-- Return to your terminal
-
-**6. Select AWS Account:**
-```
-There are N AWS account(s) available to you.
-> Account-Name (123456789012)
-```
-Use arrow keys to select your workshop AWS account, then press Enter.
-
-**7. Select IAM Role:**
-```
-Using the account ID 123456789012
-There are N role(s) available to you.
-> AdministratorAccess
-  PowerUserAccess
-```
-Select the role with sufficient permissions (e.g., `AdministratorAccess`, `PowerUserAccess`).
-
-**8. CLI default region:**
-```
-CLI default client Region [None]: us-west-2
-```
-Enter your preferred region. Recommended: `us-west-2` (where AgentCore is available).
-
-**9. CLI default output format:**
-```
-CLI default output format [None]: json
-```
-Enter `json` (recommended for programmatic access).
-
-**10. CLI profile name:**
-```
-CLI profile name [AdministratorAccess-123456789012]: workshop-profile
-```
-Enter a memorable name for your profile (e.g., `workshop`, `your-name`, `company-workshop`).
-
-### Step 2: Login to SSO
-
-Authenticate your SSO session:
-
-```bash
-aws sso login --profile workshop-profile
-```
-
-This will open your browser for authentication. Once complete, your credentials are cached.
-
-### Step 3: Set Default Profile
-
-Set your profile as the default for this terminal session:
-
-```bash
-export AWS_PROFILE=workshop-profile
-```
-
-**Make it persistent** (optional, add to your shell profile):
-
-```bash
-# For bash users
-echo 'export AWS_PROFILE=workshop-profile' >> ~/.bashrc
-source ~/.bashrc
-
-# For zsh users (macOS default)
-echo 'export AWS_PROFILE=workshop-profile' >> ~/.zshrc
-source ~/.zshrc
-```
-
-### Step 4: Verify SSO Configuration
-
-Test your SSO configuration:
-
-```bash
-# Should show your account details
-aws sts get-caller-identity
-
-# Should show: us-west-2 (or your configured region)
-aws configure get region
-```
-
-**Expected output:**
-```json
-{
-    "UserId": "AIDAIOSFODNN7EXAMPLE",
-    "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/your-username"
-}
-```
-
-### SSO Session Management
-
-**Check session status:**
-```bash
-# List cached SSO credentials
-aws configure list
-
-# View SSO session details
-cat ~/.aws/config
-```
-
-**Renew expired session:**
-```bash
-# SSO sessions expire after 8 hours (default)
-aws sso login --profile workshop-profile
-```
-
-**Logout:**
-```bash
-aws sso logout
-```
-
----
-
-## Option B: IAM User Credentials
-
-If your organization doesn't use AWS SSO, configure IAM user credentials with access keys.
-
-### Step 1: Obtain Access Keys
-
-**From AWS Console:**
-1. Sign in to AWS Console: https://console.aws.amazon.com/
-2. Navigate to: **IAM → Users → [Your Username] → Security credentials**
-3. Click "Create access key"
-4. Select use case: "Command Line Interface (CLI)"
-5. Add description tag (optional): "Workshop CLI Access"
-6. Click "Create access key"
-7. **Important:** Download the `.csv` file or copy the keys immediately (they won't be shown again)
-
-You'll receive:
-- **Access Key ID**: `AKIAIOSFODNN7EXAMPLE`
-- **Secret Access Key**: `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`
-
-### Step 2: Configure IAM Profile
+### Step 1: Configure AWS CLI Profile
 
 Run the AWS CLI configuration:
 
 ```bash
-aws configure --profile workshop-profile
+aws configure --profile workshop
 ```
 
 Enter your credentials when prompted:
@@ -360,25 +185,32 @@ Default region name [None]: us-west-2
 Default output format [None]: json
 ```
 
-### Step 3: Set Default Profile
+**If you don't have access keys yet:**
+Your workshop administrator should have provided them. If not, see the [For Workshop Administrators](#for-workshop-administrators-creating-iam-users) section above.
+
+### Step 2: Set Default Profile
+
+Set your profile as the default for this terminal session:
 
 ```bash
-export AWS_PROFILE=workshop-profile
+export AWS_PROFILE=workshop
 ```
 
-**Make it persistent** (optional):
+**Make it persistent** (optional, add to your shell profile):
 
 ```bash
 # For bash
-echo 'export AWS_PROFILE=workshop-profile' >> ~/.bashrc
+echo 'export AWS_PROFILE=workshop' >> ~/.bashrc
 source ~/.bashrc
 
 # For zsh (macOS)
-echo 'export AWS_PROFILE=workshop-profile' >> ~/.zshrc
+echo 'export AWS_PROFILE=workshop' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-### Step 4: Verify IAM Configuration
+### Step 3: Verify Configuration
+
+Test your configuration:
 
 ```bash
 # Should show your account details
@@ -388,13 +220,66 @@ aws sts get-caller-identity
 aws configure get region
 ```
 
-### Security Best Practices for IAM Users
+**Expected output:**
+```json
+{
+    "UserId": "AIDAIOSFODNN7EXAMPLE",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/workshop-participant-1"
+}
+```
 
-- ✅ Enable MFA (Multi-Factor Authentication) on your IAM user
-- ✅ Rotate access keys regularly (every 90 days)
+### Security Best Practices
+
 - ✅ Never commit access keys to Git repositories
-- ✅ Use least-privilege permissions (only required permissions)
-- ✅ Delete unused access keys
+- ✅ Delete keys after workshop (your administrator will handle this)
+- ✅ Don't share your access keys with others
+- ✅ Use the keys only for this workshop
+
+---
+
+## Alternative: AWS SSO (For Organizations with Existing SSO)
+
+If your organization already has AWS IAM Identity Center (formerly AWS SSO) configured and you've been provided an SSO start URL, you can use SSO instead of IAM user credentials.
+
+**⚠️ Important:** Do NOT attempt to set up SSO during the workshop. It requires organizational AWS setup and is too complex for workshop timeframes. Only use this option if:
+- Your organization has IAM Identity Center already enabled
+- You've been provided an SSO start URL by your administrator
+- You've tested SSO authentication before the workshop
+
+### Quick SSO Configuration
+
+If you meet the requirements above:
+
+```bash
+# Run interactive SSO configuration
+aws configure sso
+
+# Follow the prompts:
+# - SSO start URL: (provided by your administrator)
+# - SSO Region: (typically us-east-1)
+# - Select your AWS account and role
+# - CLI default region: us-west-2
+# - CLI profile name: workshop
+
+# Login to SSO
+aws sso login --profile workshop
+
+# Set as default
+export AWS_PROFILE=workshop
+
+# Verify
+aws sts get-caller-identity
+```
+
+### SSO Resources
+
+For detailed SSO setup instructions, see official AWS documentation:
+- [IAM Identity Center Getting Started](https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html)
+- [AWS CLI SSO Configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
+- [SSO Session Management](https://docs.aws.amazon.com/cli/latest/userguide/sso-configure-profile-token.html)
+
+**Note:** If you encounter issues with SSO during the workshop, ask your administrator for IAM user credentials instead (recommended method above)
 
 ---
 

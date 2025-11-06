@@ -57,10 +57,13 @@ Demo: Interactive Streamlit UI
 
 ### One Week Before Workshop
 
-- [ ] **Configure AWS access for participants**:
-  - Option A: Set up AWS IAM Identity Center (SSO) - See [AWS_SETUP.md - For Administrators](./AWS_SETUP.md#for-workshop-administrators-setting-up-sso)
-  - Option B: Create IAM users with access keys (simpler for small workshops)
-  - Share SSO start URL or access keys with participants
+- [ ] **Configure AWS access for participants (CRITICAL)**:
+  - **Recommended:** Create IAM users with access keys - See [AWS_SETUP.md - For Administrators](./AWS_SETUP.md#for-workshop-administrators-creating-iam-users)
+    - Fast setup (2 minutes per user)
+    - No organizational dependencies
+    - Works reliably during workshops
+  - **Alternative (NOT recommended):** AWS SSO - Only if organization already has IAM Identity Center fully configured
+  - Distribute access keys securely to participants before workshop day
 - [ ] **Test complete workshop flow** in clean AWS account
 - [ ] **Record backup demo** of entire system working (in case of live failures)
 - [ ] **Prepare demo users** in `.demo_users.json` with memorable passwords
@@ -564,7 +567,7 @@ Help me budget and recommend stocks.
 
 | Problem | Quick Fix | Time |
 |---------|-----------|------|
-| AWS credentials expired | `aws sso login --profile your-profile-name` or `export AWS_PROFILE=your-profile-name` | 1 min |
+| AWS credentials not working | Verify `export AWS_PROFILE=workshop` is set; re-run `aws configure --profile workshop` if needed | 1 min |
 | Docker not running | Open Docker Desktop app | 2 min |
 | Agent deployment failed | Show CloudWatch logs, explain error | 3 min |
 | Bedrock model access denied | Verify Administrator access granted; rare after Oct 2025 (models auto-enabled) | 2 min |

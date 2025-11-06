@@ -1,160 +1,387 @@
 # GenAI AgentCore Demos
 
-Production-ready multi-agent financial advisory system demonstrating AWS Bedrock AgentCore. This workshop-ready codebase showcases specialized agents coordinating through intelligent orchestration.
+Production-ready multi-agent financial advisory system built with AWS Bedrock AgentCore and Strands Agents. Workshop-ready codebase demonstrating specialized agents coordinating through intelligent orchestration.
+
+---
+
+## What You'll Build
+
+A complete financial advisory system with:
+
+- **Budget Agent**: Analyzes spending, creates 50/30/20 budgets, provides savings recommendations
+- **Investment Agent**: Researches stocks, analyzes market trends, creates investment portfolios
+- **Orchestrator**: Routes queries to the right specialist and synthesizes multi-agent responses
+- **Interactive UI**: Streamlit demo with real-time streaming, vision analysis, and document processing
+
+**Two Learning Paths:**
+
+1. **🎓 Workshop Mode** - Learn fundamentals with Jupyter notebooks
+2. **🚀 Production Mode** - Deploy enterprise-ready agents with OAuth2, vision AI, and advanced memory
+
+---
+
+## Quick Start
+
+### For Workshop Participants
+
+**Step 1: Validate Prerequisites**
+
+Run our automated validation script:
+
+```bash
+cd genai-agentcore-demos
+./quickstart.sh
+```
+
+This checks:
+- ✓ AWS CLI and credentials configured
+- ✓ Python 3.13+, Docker, AWS CDK installed
+- ✓ Bedrock model access enabled
+- ✓ CDK bootstrapped in your region
+
+**Step 2: Start the Workshop**
+
+```bash
+cd finance-personal-assistant/workshop
+uv sync
+cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
+```
+
+Open the notebooks in order:
+1. `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+2. `lab2-build_multi_agent_workflows_with_strands.ipynb`
+3. `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
+
+> **First time?** See [AWS Setup Guide](AWS_SETUP.md) for detailed AWS configuration.
+
+---
+
+### For Production Deployment
+
+**Option 1: Deploy with OAuth Authentication (Recommended)**
+
+```bash
+cd finance-personal-assistant/production
+
+# Deploy Cognito infrastructure
+cd cdk && ./deploy.sh && cd ..
+
+# Configure and launch agent
+./configure.sh  # Reads OAuth from SSM
+./launch.sh     # Deploys to AWS, publishes ARN to SSM
+
+# Verify deployment
+./health.sh
+```
+
+**Option 2: Deploy with IAM Authentication Only**
+
+```bash
+cd finance-personal-assistant/production
+
+./configure.sh  # Creates .bedrock_agentcore.yaml
+./launch.sh     # Deploys to AWS
+./health.sh     # Verify
+```
+
+**Run the Streamlit Demo**
+
+```bash
+# From project root
+./demo.sh
+
+# Or from ui directory
+cd ui && ./demo.sh
+```
+
+The UI auto-discovers deployed agents via SSM Parameter Store - no manual configuration needed!
+
+---
+
+## Repository Structure
+
+```
+genai-agentcore-demos/
+├── quickstart.sh              # ⚡ Automated prerequisites validation
+├── demo.sh                    # 🎨 Launch Streamlit UI
+│
+├── finance-personal-assistant/
+│   ├── workshop/              # 🎓 1-hour hands-on labs (Jupyter notebooks)
+│   │   ├── lab1-*.ipynb       # Budget agent with tools
+│   │   ├── lab2-*.ipynb       # Multi-agent orchestration
+│   │   └── lab3-*.ipynb       # AgentCore deployment
+│   │
+│   └── production/            # 🚀 Enterprise system
+│       ├── main.py            # Orchestrator (AgentCore entrypoint)
+│       ├── budget_agent.py    # Budget specialist
+│       ├── financial_analysis_agent.py  # Investment specialist
+│       ├── configure.sh       # Setup deployment config
+│       ├── launch.sh          # Deploy to AWS
+│       └── health.sh          # Health checks
+│
+├── ui/                        # 🎨 Streamlit demo UI
+│   ├── app.py                 # Main application
+│   ├── config/agents.yaml     # Agent metadata
+│   └── demo.sh                # Launch script
+│
+├── libs/                      # 📦 Shared libraries
+│   ├── python/                # Runtime utilities
+│   │   ├── agentcore_health.py   # Health check module
+│   │   ├── auth_utils.py         # OAuth2/JWT
+│   │   └── ssm_utils.py          # Service discovery
+│   └── cdk/                   # Reusable CDK constructs
+│
+└── scripts/                   # 🛠️ Root-level utilities
+    ├── health.sh              # Test all agents
+    ├── demo.sh                # Launch UI
+    └── reset_memory.sh        # Clear agent memory
+```
+
+---
 
 ## Prerequisites
-
-### Workshop Requirements
-
-This project is designed for AWS workshops. Participants need an **AWS account with administrator access** to deploy agents, configure IAM roles, and manage Bedrock resources.
-
----
-
-### Operating System
-
-Compatible with UNIX-like systems:
-- **macOS** (Darwin)
-- **Ubuntu/Debian Linux**
-- **Windows Subsystem for Linux (WSL 2)**
-
-**Note:** Native Windows users require WSL 2 for bash script execution.
-
----
 
 ### Required Tools
 
 | Tool | Version | Installation |
 |------|---------|-------------|
-| **Python** | 3.13 | [python.org/downloads](https://www.python.org/downloads/) |
-| **Node.js** | 25.0 or 22.21.0 LTS | [nodejs.org](https://nodejs.org/) |
-| **AWS CLI** | v2 (latest) | [Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
-| **AWS CDK** | v2 (latest) | `npm install -g aws-cdk` |
+| **Python** | 3.13+ | [python.org/downloads](https://www.python.org/downloads/) |
+| **AWS CLI** | v2+ | [Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
+| **AWS CDK** | v2+ | `npm install -g aws-cdk` |
 | **Docker** | Latest | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
-| **Git** | Latest | [git-scm.com/downloads](https://git-scm.com/downloads) |
 | **uv** | Latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 
-#### Verification
+**Verify Installation:**
 
 ```bash
-python --version          # 3.13.x
-node --version            # 25.x or 22.21.x
-aws --version             # 2.x
-cdk --version             # 2.x
-docker --version          # Latest
-git --version             # Any recent
-uv --version              # Latest
+python --version   # 3.13.x
+aws --version      # 2.x
+cdk --version      # 2.x
+docker --version   # Latest
+uv --version       # Latest
 ```
+
+### AWS Requirements
+
+1. **AWS Account** with administrator access
+2. **AWS Credentials** configured:
+   ```bash
+   # IAM user credentials (recommended for workshops)
+   aws configure --profile workshop
+   export AWS_PROFILE=workshop
+
+   # For organizations with existing SSO, see AWS_SETUP.md
+   ```
+3. **CDK Bootstrapped** in your region:
+   ```bash
+   cdk bootstrap aws://ACCOUNT_ID/us-west-2
+   ```
+4. **Bedrock Model Access** - Automatically enabled as of October 2025 (no action needed for new accounts)
+
+> **Detailed Setup:** See [AWS_SETUP.md](AWS_SETUP.md) for complete AWS configuration instructions.
 
 ---
 
-### AWS Configuration
+## Workshop vs Production
 
-#### 1. Configure AWS SSO Profile
+| Feature | Workshop | Production |
+|---------|----------|------------|
+| **Purpose** | Learn concepts in 1 hour | Deploy production system |
+| **Format** | Jupyter notebooks | Python scripts + CDK |
+| **Memory** | Auto-created STM | 3-strategy LTM (USER_PREFERENCE, SEMANTIC, SUMMARY) |
+| **Authentication** | Basic Cognito (SDK) | CDK-managed OAuth2 |
+| **Vision Analysis** | ❌ | ✅ Amazon Nova Premier |
+| **Document Processing** | ❌ | ✅ CSV/PDF with security |
+| **Deployment** | Manual via notebooks | Scripted (`configure.sh` + `launch.sh`) |
+| **UI** | None | Streamlit with SSE streaming |
+| **Service Discovery** | Hardcoded ARNs | SSM Parameter Store (dynamic) |
 
-AWS SSO is the recommended method for authentication. Each workshop participant should use their own profile.
-
-**Step 1: Configure SSO Profile**
-
-```bash
-# Interactive SSO configuration
-aws configure sso
-
-# You'll be prompted for:
-# - SSO start URL (provided by your AWS administrator)
-# - SSO Region (e.g., us-east-1)
-# - Choose your AWS account and role
-# - CLI default client Region (recommend: us-west-2)
-# - CLI default output format (recommend: json)
-# - CLI profile name (e.g., "workshop-profile" or your name)
-```
-
-**Step 2: Activate Your Profile**
-
-```bash
-# Set your profile as the default for this session
-export AWS_PROFILE=your-profile-name
-
-# Add to your shell profile (~/.bashrc, ~/.zshrc) for persistence:
-echo 'export AWS_PROFILE=your-profile-name' >> ~/.bashrc  # or ~/.zshrc
-
-# Login to SSO
-aws sso login --profile your-profile-name
-
-# Verify credentials
-aws sts get-caller-identity
-```
-
-**Expected output:**
-```json
-{
-    "UserId": "AIDAXXXXXXXXXXXXXXXXX",
-    "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/your-username"
-}
-```
-
-**Alternative: Using IAM User Credentials**
-
-If you're not using SSO, configure IAM user credentials:
-
-```bash
-aws configure --profile your-profile-name
-# Enter: AWS Access Key ID, Secret Access Key, Region, Output format
-
-# Set as default
-export AWS_PROFILE=your-profile-name
-```
-
-**Important:** Throughout this workshop, replace any reference to `AWS_PROFILE=binbash` with `AWS_PROFILE=your-profile-name` or simply use the exported environment variable.
-
-📖 **Detailed Guide:** See [AWS_SETUP.md](./AWS_SETUP.md) for comprehensive AWS configuration instructions, including SSO setup, troubleshooting, and best practices.
-
-#### 2. Bootstrap AWS CDK
-
-Required once per AWS account and region:
-
-```bash
-# Using your configured profile
-export AWS_PROFILE=your-profile-name
-cdk bootstrap aws://ACCOUNT_ID/REGION
-
-# Or specify profile inline
-cdk bootstrap aws://ACCOUNT_ID/REGION --profile your-profile-name
-```
-
-Replace `ACCOUNT_ID` with your AWS account number (from `aws sts get-caller-identity`) and `REGION` with your target region (e.g., `us-west-2`).
-
-#### 3. Bedrock Model Access (October 2025 Update)
-
-**No manual configuration needed.** As of October 2025, Amazon Bedrock automatically enables all serverless foundation models for every AWS account by default. The previous manual "Model Access" enablement process has been deprecated.
-
-**What Changed:**
-- All serverless foundation models (Nova, Claude, etc.) are automatically accessible without setup
-- The Model Access page in the Bedrock Console has been deprecated
-- The `PutFoundationModelEntitlement` IAM permission has been retired
-- IAM policies and Service Control Policies (SCPs) still control access if needed
-
-**For Legacy Accounts:**
-If you're using an older AWS account that still requires manual model access enablement, follow the legacy process:
-1. Visit: https://console.aws.amazon.com/bedrock/home#/modelaccess
-2. Click "Modify model access"
-3. Enable required models: Amazon Nova (all variants), Anthropic Claude 3.5/4.5
-4. Access is granted instantly
-
-**Required IAM Permissions:**
-- `bedrock:InvokeModel`
-- `bedrock:InvokeModelWithResponseStream`
-- `aws-marketplace:Subscribe` (auto-subscription on first model invocation)
-
-Administrator accounts typically have these permissions by default.
-
-**Reference:** [AWS Security Blog - Simplified Model Access in Amazon Bedrock](https://aws.amazon.com/blogs/security/simplified-amazon-bedrock-model-access/)
+**Recommendation:** Start with workshop to learn fundamentals, then explore production for enterprise features.
 
 ---
 
-## Next Steps
+## Common Commands
 
-1. Clone the repository
-2. Navigate to specific agent directories (`finance-personal-assistant/` or `market-trends-agent/`)
-3. Follow agent-specific deployment guides in their READMEs
-4. Run the Streamlit demo (`ui/`) to interact with deployed agents
+### Health Checks
+
+```bash
+# Check all agents (from project root)
+./health.sh
+
+# Check specific agent
+cd finance-personal-assistant/production
+./health.sh                    # Cascading fallback (AWS → Local)
+./health.sh --aws              # Test deployed agent only
+./health.sh --local            # Test local endpoint
+./health.sh --timeout 120      # Custom timeout
+```
+
+### Memory Management
+
+```bash
+# Reset memory (clears runtime-created memories)
+cd finance-personal-assistant/production
+uv run reset_memory.py
+
+# Or from project root
+./reset_memory.sh --agent finance-personal-assistant
+```
+
+### Cleanup
+
+```bash
+cd finance-personal-assistant/production
+
+# Preview deletions
+uv run cleanup.py --dry-run
+
+# Complete cleanup
+uv run cleanup.py
+
+# Keep IAM roles
+uv run cleanup.py --skip-iam
+```
+
+Removes: Runtime, Memory, ECR, CodeBuild, S3, SSM parameters, IAM roles, `.bedrock_agentcore.yaml`
+
+---
+
+## Sample Queries
+
+Try these queries in the Streamlit UI or deployed agent:
+
+**Budget Queries:**
+- "I make $6000/month. Help me create a budget and start investing $500/month."
+- "I spend $800/month on dining. How can I cut back and save more?"
+
+**Investment Queries:**
+- "Analyze Apple stock and tell me if it's a good investment."
+- "Create a moderate risk portfolio for $10,000."
+
+**Multi-Agent Queries:**
+- "I earn $5000/month and want to invest $1000. Help me budget and suggest a portfolio."
+
+**Vision Queries** (Production only):
+- Upload receipt image + "Track this expense in my budget."
+
+---
+
+## Architecture Highlights
+
+### Multi-Agent Orchestration
+
+The orchestrator wraps specialist agents as tools:
+
+```python
+@tool
+def budget_agent_tool(query: str) -> FinancialReport:
+    """Budget planning and spending analysis"""
+    return budget_agent.structured_output(output_model=FinancialReport, prompt=query)
+
+@tool
+def financial_analysis_agent_tool(query: str) -> str:
+    """Investment research and portfolio creation"""
+    return financial_analysis_agent(query)
+
+orchestrator_agent = Agent(
+    tools=[budget_agent_tool, financial_analysis_agent_tool],
+    conversation_manager=SummarizingConversationManager(),
+    session_manager=session_manager  # AgentCore Memory integration
+)
+```
+
+### Memory Strategies (Production)
+
+Three-strategy memory pattern for comprehensive context retrieval:
+
+1. **USER_PREFERENCE**: User profile (name, goals, risk tolerance)
+2. **SEMANTIC**: Financial facts (budgets, income, spending patterns)
+3. **SUMMARY**: Conversation summaries (session outcomes)
+
+Memories retrieved in parallel and injected into agent prompts automatically.
+
+### Service Discovery via SSM
+
+Agents publish configuration to SSM Parameter Store after deployment:
+
+```bash
+./launch.sh  # Automatically publishes to /agentcore/finance-personal-assistant/config
+```
+
+Streamlit UI discovers agents at runtime - no manual sync required!
+
+---
+
+## Troubleshooting
+
+### Quickstart Script Fails
+
+Run the validation script to identify issues:
+
+```bash
+./quickstart.sh
+```
+
+Common fixes:
+- **AWS credentials not configured**: `aws configure sso` or `aws configure`
+- **Docker not running**: Start Docker Desktop
+- **CDK not bootstrapped**: `cdk bootstrap aws://ACCOUNT_ID/REGION`
+
+### Deployment Issues
+
+**Health check fails:**
+
+```bash
+# View agent logs
+aws logs tail /aws/bedrock-agentcore/runtimes/{agent-id}-DEFAULT --follow
+
+# Check deployment status
+cd finance-personal-assistant/production
+uv run agentcore status
+```
+
+**Memory not working:**
+
+```bash
+# Verify memory is ACTIVE
+aws bedrock-agentcore list-memories
+
+# Reset memory if needed
+uv run reset_memory.py
+```
+
+**OAuth configuration issues:**
+
+```bash
+# Verify OAuth config in SSM
+aws ssm get-parameter --name "/agentcore/finance-personal-assistant/config"
+
+# Remove OAuth (revert to IAM)
+aws ssm delete-parameter --name "/agentcore/finance-personal-assistant/config"
+./configure.sh  # Reconfigure without OAuth
+```
+
+> **More Help:** See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for comprehensive troubleshooting guide.
+
+---
+
+## Documentation
+
+- [AWS Setup Guide](AWS_SETUP.md) - Detailed AWS configuration (SSO, CDK, Bedrock)
+- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
+- [Workshop README](finance-personal-assistant/workshop/README.md) - Lab-specific instructions
+- [Production README](finance-personal-assistant/production/README.md) - Enterprise deployment details
+
+**External Resources:**
+- [Strands Agents Documentation](https://strandsagents.com/latest/)
+- [AWS Bedrock AgentCore Docs](https://docs.aws.amazon.com/bedrock-agentcore/)
+- [Workshop Materials](https://catalog.us-east-1.prod.workshops.aws/workshops/57f577e3-9a24-45e2-9937-e48b2cdf6986/en-US)
+- [AgentCore Starter Toolkit](https://aws.github.io/bedrock-agentcore-starter-toolkit/)
+
+---
+
+## License
+
+Apache License 2.0 - See [LICENSE](LICENSE.txt) for details.
+
+Based on [Amazon Bedrock AgentCore Samples](https://github.com/awslabs/amazon-bedrock-agentcore-samples) by AWS Labs.

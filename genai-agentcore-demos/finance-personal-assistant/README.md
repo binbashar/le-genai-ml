@@ -186,24 +186,28 @@ Both implementations require:
 
 ### AWS Profile Configuration
 
-**Configure your own AWS profile** (each workshop participant should use their own):
+**Configure your AWS IAM user credentials** (provided by your workshop administrator):
 
 ```bash
-# Option 1: AWS SSO (recommended)
-aws configure sso
-# Follow prompts to create a profile (e.g., "workshop" or your name)
+# Configure IAM user profile
+aws configure --profile workshop
 
-# Option 2: IAM user credentials
-aws configure --profile your-profile-name
+# Enter when prompted:
+# - AWS Access Key ID: (provided by administrator)
+# - AWS Secret Access Key: (provided by administrator)
+# - Default region: us-west-2
+# - Output format: json
 
 # Set as default for this session
-export AWS_PROFILE=your-profile-name
+export AWS_PROFILE=workshop
 
 # Verify credentials
 aws sts get-caller-identity
 ```
 
-**Note:** Throughout this documentation, replace any reference to `AWS_PROFILE=binbash` with your own profile name. For detailed setup instructions, see [main README](../README.md#aws-configuration).
+**Organizations using AWS SSO:** If your organization requires AWS SSO (IAM Identity Center), see [AWS_SETUP.md - Alternative: AWS SSO](../../AWS_SETUP.md#alternative-aws-sso-for-organizations-with-existing-sso) for configuration details.
+
+**Note:** Throughout this documentation, replace any reference to `AWS_PROFILE=binbash` with your configured profile name. For detailed setup instructions, see [AWS_SETUP.md](../../AWS_SETUP.md).
 
 ### Bedrock Model Access (October 2025 Update)
 
