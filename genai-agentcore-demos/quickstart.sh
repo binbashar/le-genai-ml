@@ -1,0 +1,271 @@
+#!/bin/bash
+#
+# Quickstart Validation Script
+#
+# Automatically validates all prerequisites for the AgentCore Workshop.
+# Run this script before starting the workshop to ensure your environment is ready.
+#
+# Usage:
+#   ./quickstart.sh
+#
+# Exit codes:
+#   0 - All prerequisites met, ready to start workshop
+#   1 - One or more prerequisites missing or failed validation
+#
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Counters
+CHECKS_PASSED=0
+CHECKS_FAILED=0
+CHECKS_WARNING=0
+
+# Print section header
+print_header() {
+    echo -e "\n${BLUE}===================================================${NC}"
+    echo -e "${BLUE}$1${NC}"
+    echo -e "${BLUE}===================================================${NC}\n"
+}
+
+# Print check result
+check_pass() {
+    echo -e "${GREEN}✓${NC} $1"
+    ((CHECKS_PASSED++))
+}
+
+check_fail() {
+    echo -e "${RED}✗${NC} $1"
+    echo -e "  ${YELLOW}→${NC} $2"
+    ((CHECKS_FAILED++))
+}
+
+check_warn() {
+    echo -e "${YELLOW}⚠${NC} $1"
+    echo -e "  ${YELLOW}→${NC} $2"
+    ((CHECKS_WARNING++))
+}
+
+# Start validation
+print_header "AgentCore Workshop - Prerequisites Validation"
+
+echo "This script will validate your environment setup."
+echo "Please wait while we check all prerequisites..."
+
+# ============================================================
+# 1. AWS CLI
+# ============================================================
+print_header "1. Checking AWS CLI"
+
+if command -v aws &> /dev/null; then
+    AWS_VERSION=$(aws --version 2>&1 | cut -d' ' -f1 | cut -d'/' -f2)
+    AWS_MAJOR=$(echo "$AWS_VERSION" | cut -d'.' -f1)
+
+    if [ "$AWS_MAJOR" -ge 2 ]; then
+        check_pass "AWS CLI v$AWS_VERSION installed"
+    else
+        check_fail "AWS CLI v$AWS_VERSION (v2+ required)" "Upgrade: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+    fi
+else
+    check_fail "AWS CLI not found" "Install: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+fi
+
+# ============================================================
+# 2. AWS Credentials
+# ============================================================
+print_header "2. Checking AWS Credentials"
+
+if AWS_PROFILE=binbash aws sts get-caller-identity &> /dev/null; then
+    ACCOUNT_ID=$(AWS_PROFILE=binbash aws sts get-caller-identity --query Account --output text)
+    USER_ARN=$(AWS_PROFILE=binbash aws sts get-caller-identity --query Arn --output text)
+    check_pass "AWS credentials valid (Account: $ACCOUNT_ID)"
+    echo -e "  ${BLUE}→${NC} Identity: $USER_ARN"
+else
+    check_fail "AWS credentials not configured" "Run: aws configure --profile binbash"
+fi
+
+# Check default region
+if AWS_PROFILE=binbash aws configure get region &> /dev/null; then
+    REGION=$(AWS_PROFILE=binbash aws configure get region)
+    check_pass "Default region set: $REGION"
+
+    if [ "$REGION" != "us-west-2" ]; then
+        check_warn "Region is $REGION (workshop uses us-west-2)" "Consider setting: aws configure set region us-west-2 --profile binbash"
+    fi
+else
+    check_warn "No default region configured" "Set region: aws configure set region us-west-2 --profile binbash"
+fi
+
+# ============================================================
+# 3. Bedrock Model Access
+# ============================================================
+print_header "3. Checking Bedrock Model Access"
+
+if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text &> /dev/null; then
+    NOVA_COUNT=$(AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova`)].modelId' --output text 2>/dev/null | wc -w)
+    CLAUDE_COUNT=$(AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `claude`)].modelId' --output text 2>/dev/null | wc -w)
+
+    check_pass "Bedrock model access enabled ($NOVA_COUNT Nova, $CLAUDE_COUNT Claude models)"
+
+    # Check for specific required models
+    if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?modelId==`us.amazon.nova-premier-v1:0`].modelId' --output text 2>/dev/null | grep -q "nova-premier"; then
+        check_pass "Amazon Nova Premier (required for vision) - Available"
+    else
+        check_fail "Amazon Nova Premier not available" "Enable at: https://console.aws.amazon.com/bedrock/home#/modelaccess"
+    fi
+else
+    check_fail "Cannot access Bedrock models" "Enable model access: https://console.aws.amazon.com/bedrock/home#/modelaccess"
+fi
+
+# ============================================================
+# 4. Python
+# ============================================================
+print_header "4. Checking Python"
+
+if command -v python3 &> /dev/null; then
+    PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
+    PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d'.' -f1)
+    PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d'.' -f2)
+
+    if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -ge 13 ]; then
+        check_pass "Python $PYTHON_VERSION installed (3.13+ required)"
+    else
+        check_fail "Python $PYTHON_VERSION (3.13+ required)" "Install: https://www.python.org/downloads/"
+    fi
+else
+    check_fail "Python not found" "Install Python 3.13+: https://www.python.org/downloads/"
+fi
+
+# ============================================================
+# 5. UV Package Manager
+# ============================================================
+print_header "5. Checking UV Package Manager"
+
+if command -v uv &> /dev/null; then
+    UV_VERSION=$(uv --version | cut -d' ' -f2)
+    check_pass "uv v$UV_VERSION installed"
+else
+    check_fail "uv not found" "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+fi
+
+# ============================================================
+# 6. Docker
+# ============================================================
+print_header "6. Checking Docker"
+
+if command -v docker &> /dev/null; then
+    DOCKER_VERSION=$(docker --version | cut -d' ' -f3 | tr -d ',')
+    check_pass "Docker v$DOCKER_VERSION installed"
+
+    # Check if Docker daemon is running
+    if docker ps &> /dev/null; then
+        check_pass "Docker daemon is running"
+    else
+        check_fail "Docker daemon not running" "Start Docker Desktop or run: sudo systemctl start docker"
+    fi
+else
+    check_fail "Docker not found" "Install: https://docs.docker.com/get-docker/"
+fi
+
+# ============================================================
+# 7. AWS CDK
+# ============================================================
+print_header "7. Checking AWS CDK"
+
+if command -v cdk &> /dev/null; then
+    CDK_VERSION=$(cdk --version | cut -d' ' -f1)
+    check_pass "AWS CDK v$CDK_VERSION installed"
+
+    # Check if CDK is bootstrapped (optional check)
+    if AWS_PROFILE=binbash aws cloudformation describe-stacks --region us-west-2 --stack-name CDKToolkit &> /dev/null; then
+        check_pass "CDK bootstrapped in us-west-2"
+    else
+        check_warn "CDK not bootstrapped in us-west-2" "Run: AWS_PROFILE=binbash cdk bootstrap aws://$ACCOUNT_ID/us-west-2"
+    fi
+else
+    check_fail "AWS CDK not found" "Install: npm install -g aws-cdk"
+fi
+
+# ============================================================
+# 8. Repository Setup
+# ============================================================
+print_header "8. Checking Repository Setup"
+
+# Check if we're in the right directory
+if [ -f "pyproject.toml" ] && grep -q "genai-agentcore-demos" pyproject.toml; then
+    check_pass "In correct directory (genai-agentcore-demos)"
+else
+    check_warn "Not in genai-agentcore-demos directory" "Navigate to: cd genai-agentcore-demos"
+fi
+
+# Check if dependencies are installed
+if [ -d ".venv" ]; then
+    check_pass "Virtual environment exists (.venv)"
+else
+    check_warn "Virtual environment not found" "Run: uv sync"
+fi
+
+# Check .env file
+if [ -f ".env" ]; then
+    check_pass ".env file exists"
+else
+    check_warn ".env file not found" "Run: cp .env.example .env"
+fi
+
+# ============================================================
+# 9. IAM Permissions Check
+# ============================================================
+print_header "9. Checking IAM Permissions (sample)"
+
+# Test a few key permissions
+if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --max-results 1 &> /dev/null; then
+    check_pass "Bedrock API access verified"
+else
+    check_fail "Cannot access Bedrock API" "Check IAM permissions for bedrock:ListFoundationModels"
+fi
+
+if AWS_PROFILE=binbash aws ecr describe-repositories --region us-west-2 --max-results 1 &> /dev/null; then
+    check_pass "ECR access verified"
+else
+    check_warn "ECR access may be limited" "Ensure IAM permissions for ecr:DescribeRepositories"
+fi
+
+# ============================================================
+# Summary
+# ============================================================
+print_header "Validation Summary"
+
+echo -e "${GREEN}Passed:${NC}   $CHECKS_PASSED"
+echo -e "${YELLOW}Warnings:${NC} $CHECKS_WARNING"
+echo -e "${RED}Failed:${NC}   $CHECKS_FAILED"
+
+echo ""
+
+if [ $CHECKS_FAILED -eq 0 ]; then
+    if [ $CHECKS_WARNING -eq 0 ]; then
+        echo -e "${GREEN}✓ All checks passed! You're ready to start the workshop.${NC}"
+        echo ""
+        echo -e "Next steps:"
+        echo -e "  1. cd finance-personal-assistant/workshop"
+        echo -e "  2. Open: lab1-develop_a_personal_budget_assistant_strands_agent.ipynb"
+        echo ""
+        exit 0
+    else
+        echo -e "${YELLOW}⚠ All critical checks passed, but there are warnings.${NC}"
+        echo -e "${YELLOW}  Review warnings above before proceeding.${NC}"
+        echo ""
+        exit 0
+    fi
+else
+    echo -e "${RED}✗ $CHECKS_FAILED check(s) failed. Please resolve issues before starting.${NC}"
+    echo ""
+    echo -e "Need help? See: PRE_WORKSHOP_CHECKLIST.md and TROUBLESHOOTING.md"
+    echo ""
+    exit 1
+fi

@@ -74,7 +74,7 @@ By the end, you'll have deployed a working agent to AWS!
 Ensure you have:
 - Python 3.13+ installed
 - AWS credentials configured
-- Model access enabled for Claude and Nova models
+- Model access: As of October 2025, all Bedrock models are automatically enabled. For legacy accounts only, enable Claude and Nova models in Bedrock Console.
 
 ### Installation
 
@@ -208,7 +208,7 @@ After completing the workshop:
 | Issue | Solution |
 |-------|----------|
 | `ModuleNotFoundError` | Run `uv sync` from workshop directory |
-| `ModelAccessDeniedException` | Enable model access in Bedrock Console |
+| `ModelAccessDeniedException` | Verify IAM permissions (`bedrock:InvokeModel`). For legacy accounts: enable models in Bedrock Console |
 | `AccessDeniedException` | Check AWS credentials: `aws sts get-caller-identity` |
 | Guardrail creation fails | Verify Bedrock permissions in IAM |
 | Agent deployment slow | Normal - CodeBuild can take 2-3 minutes |

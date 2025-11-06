@@ -1,4 +1,47 @@
 #!/bin/bash
+#
+# Finance Personal Assistant - Deploy CDK Infrastructure
+#
+# Deploys Cognito User Pool, App Client, and IAM execution role using AWS CDK.
+# Publishes OAuth configuration to SSM Parameter Store for automatic discovery.
+#
+# Usage:
+#   ./deploy.sh
+#
+# Prerequisites:
+#   - AWS credentials configured (AWS_PROFILE=binbash)
+#   - AWS CDK CLI installed (npm install -g aws-cdk)
+#   - Dependencies installed (uv sync from cdk directory)
+#   - Optional: .demo_users.json file for automatic user creation
+#
+# What this script does:
+#   1. Checks for demo users file (../../.demo_users.json)
+#   2. Exports CDK environment variables (account, region)
+#   3. Bootstraps CDK if needed (idempotent, one-time per account/region)
+#   4. Deploys CloudFormation stack with Cognito + IAM resources
+#   5. Saves stack outputs to outputs.json
+#   6. Creates SSM parameters:
+#      - /agentcore/finance_personal_assistant/config (OAuth configuration)
+#      - /agentcore/finance_personal_assistant/execution-role-arn (IAM role)
+#      - /agentcore/shared/cognito-pool-id (shared Cognito Pool)
+#
+# Demo users:
+#   - Copy ../../.demo_users.json.example to ../../.demo_users.json
+#   - Customize usernames, passwords, emails
+#   - Users created automatically during deployment
+#   - Format: JSON array with username, password, email, name fields
+#
+# Infrastructure created:
+#   - Cognito User Pool (standard security config)
+#   - Cognito App Client (OAuth2 ROPC flow)
+#   - IAM execution role (comprehensive AgentCore permissions)
+#   - SSM parameters (service discovery configuration)
+#
+# After deployment:
+#   - Run ../configure.sh to read OAuth config and configure agent
+#   - Run ../launch.sh to deploy agent to AgentCore Runtime
+#   - OAuth config automatically discovered by Streamlit UI
+#
 set -e
 
 echo "🚀 Deploying infrastructure..."

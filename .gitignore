@@ -82,7 +82,6 @@ docker-compose.override.yml
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
 
 # Testing
 test_output/
@@ -139,4 +138,3 @@ desktop.ini
 # Agent deployment artifacts
 *.agent_arn
 .claude/
-**/CLAUDE.md

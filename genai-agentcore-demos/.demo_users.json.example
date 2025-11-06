@@ -1,0 +1,26 @@
+[
+  {
+    "username": "demo_user",
+    "password": "DemoPass123!",
+    "email": "demo@example.com",
+    "name": "Demo User"
+  },
+  {
+    "username": "workshop_attendee",
+    "password": "Workshop2025!",
+    "email": "attendee@workshop.com",
+    "name": "Workshop Attendee"
+  },
+  {
+    "username": "test_investor",
+    "password": "InvestTest123!",
+    "email": "investor@example.com",
+    "name": "Test Investor"
+  },
+  {
+    "username": "budget_planner",
+    "password": "BudgetPlan123!",
+    "email": "planner@example.com",
+    "name": "Budget Planner"
+  }
+]

@@ -77,12 +77,20 @@ cdk bootstrap aws://ACCOUNT_ID/REGION
 
 #### 3. Bedrock Model Access (October 2025 Update)
 
-**No manual configuration needed.** As of October 2025, all Amazon Bedrock foundation models are automatically enabled by default. Administrator accounts have the necessary IAM permissions.
+**No manual configuration needed.** As of October 2025, Amazon Bedrock automatically enables all serverless foundation models for every AWS account by default. The previous manual "Model Access" enablement process has been deprecated.
 
-**Anthropic Models:** First-time users must submit a one-time use case form (instant approval):
-- Select any Anthropic Claude model in the [Bedrock Console](https://console.aws.amazon.com/bedrock/)
-- Complete the use case form when prompted
-- Access granted immediately
+**What Changed:**
+- All serverless foundation models (Nova, Claude, etc.) are automatically accessible without setup
+- The Model Access page in the Bedrock Console has been deprecated
+- The `PutFoundationModelEntitlement` IAM permission has been retired
+- IAM policies and Service Control Policies (SCPs) still control access if needed
+
+**For Legacy Accounts:**
+If you're using an older AWS account that still requires manual model access enablement, follow the legacy process:
+1. Visit: https://console.aws.amazon.com/bedrock/home#/modelaccess
+2. Click "Modify model access"
+3. Enable required models: Amazon Nova (all variants), Anthropic Claude 3.5/4.5
+4. Access is granted instantly
 
 **Required IAM Permissions:**
 - `bedrock:InvokeModel`
@@ -90,6 +98,8 @@ cdk bootstrap aws://ACCOUNT_ID/REGION
 - `aws-marketplace:Subscribe` (auto-subscription on first model invocation)
 
 Administrator accounts typically have these permissions by default.
+
+**Reference:** [AWS Security Blog - Simplified Model Access in Amazon Bedrock](https://aws.amazon.com/blogs/security/simplified-amazon-bedrock-model-access/)
 
 ---
 

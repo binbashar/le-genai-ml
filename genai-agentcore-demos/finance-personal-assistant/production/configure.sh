@@ -1,4 +1,36 @@
 #!/bin/bash
+#
+# Finance Personal Assistant - Configure Agent
+#
+# Reads configuration from SSM Parameter Store and creates .bedrock_agentcore.yaml
+# for AgentCore Runtime deployment. Supports both OAuth2/Cognito and IAM authentication.
+#
+# Usage:
+#   ./configure.sh
+#
+# Prerequisites:
+#   - AWS credentials configured (AWS_PROFILE=binbash)
+#   - Optional: CDK infrastructure deployed (./cdk/deploy.sh) for OAuth support
+#   - Dependencies installed (uv sync)
+#
+# What this script does:
+#   1. Reads execution role ARN from SSM (if exists)
+#   2. Reads OAuth configuration from SSM (if exists)
+#   3. Runs 'agentcore configure' to create .bedrock_agentcore.yaml
+#   4. Configures entrypoint (main.py), memory (disabled), request headers
+#   5. Adds OAuth authorizer config if found in SSM
+#
+# Authentication modes:
+#   - OAuth/Cognito: If /agentcore/finance_personal_assistant/config contains OAuth config
+#   - IAM: If no OAuth config in SSM (uses AWS credentials)
+#
+# SSM Parameters read:
+#   - /agentcore/finance_personal_assistant/execution-role-arn (optional)
+#   - /agentcore/finance_personal_assistant/config (optional, contains OAuth)
+#
+# Output:
+#   - .bedrock_agentcore.yaml (ready for 'agentcore launch')
+#
 set -e
 
 AGENT_NAME="finance_personal_assistant"
