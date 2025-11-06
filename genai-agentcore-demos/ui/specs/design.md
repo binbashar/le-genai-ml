@@ -21,7 +21,7 @@ Streamlit UI → boto3 Client → AgentCore API
 ### 3. Implementation Structure
 
 ```
-streamlit-demo/
+ui/
 ├── app.py           # Entire application (~50-100 lines)
 ├── pyproject.toml   # Dependencies
 └── README.md        # Quick setup guide

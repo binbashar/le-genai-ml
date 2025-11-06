@@ -4,7 +4,7 @@
 .demo_users.json
 cdk.out/
 outputs.json
-streamlit-demo/sessions/
+ui/sessions/
 
 # Gateway deployment artifacts
 agentcore-gateway/gateway_outputs.json

@@ -98,4 +98,4 @@ Administrator accounts typically have these permissions by default.
 1. Clone the repository
 2. Navigate to specific agent directories (`finance-personal-assistant/` or `market-trends-agent/`)
 3. Follow agent-specific deployment guides in their READMEs
-4. Run the Streamlit demo (`streamlit-demo/`) to interact with deployed agents
+4. Run the Streamlit demo (`ui/`) to interact with deployed agents
