@@ -67,14 +67,25 @@ An error occurred (AccessDenied) when calling the XXX operation
 ```
 
 **Solution:**
-Ensure your IAM user/role has required permissions:
-- Attach `BedrockAgentCoreFullAccess` managed policy
-- Or add custom policy with:
-  - `bedrock:*`
-  - `bedrock-agentcore:*`
-  - `iam:CreateRole`, `iam:PutRolePolicy`
-  - `ecr:*`, `codebuild:*`, `logs:*`
-  - `ssm:GetParameter`, `ssm:PutParameter`
+This workshop requires **Administrator access** to your AWS account. Contact your AWS account administrator to grant you the `AdministratorAccess` managed policy.
+
+**Why Administrator access?**
+The workshop involves:
+- Creating IAM roles and policies (CDK deployment)
+- Building and pushing Docker images to ECR
+- Deploying AgentCore Runtime instances
+- Creating Cognito User Pools and App Clients
+- Managing SSM parameters, CloudWatch Logs, S3 buckets
+
+**Verify your access:**
+```bash
+# Test administrative permissions
+aws iam list-roles --max-items 1
+aws ecr describe-repositories --max-results 1
+aws bedrock list-foundation-models --max-results 1
+```
+
+**Note:** The **AgentCore agents** themselves run with least-privilege execution roles that are automatically created by the CDK stack and AgentCore CLI.
 
 ---
 

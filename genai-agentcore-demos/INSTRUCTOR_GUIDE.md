@@ -560,10 +560,10 @@ Help me budget and recommend stocks.
 
 | Problem | Quick Fix | Time |
 |---------|-----------|------|
-| AWS credentials expired | `aws sso login --profile binbash` | 1 min |
+| AWS credentials expired | `aws sso login --profile your-profile-name` or `export AWS_PROFILE=your-profile-name` | 1 min |
 | Docker not running | Open Docker Desktop app | 2 min |
 | Agent deployment failed | Show CloudWatch logs, explain error | 3 min |
-| Bedrock model access denied | Enable model access in Console | 2 min |
+| Bedrock model access denied | Verify Administrator access granted; rare after Oct 2025 (models auto-enabled) | 2 min |
 | Health check timeout | Increase timeout, explain cold start | 1 min |
 
 ### Escalation Path
@@ -589,11 +589,16 @@ Help me budget and recommend stocks.
 Attendees deploy agents to their own AWS accounts during workshop.
 
 **Requirements:**
-- Attendees have AWS credentials
+- Attendees have **AWS Administrator access** to their AWS accounts
+- AWS CLI configured with valid credentials
 - Docker Desktop running
-- Bedrock model access enabled
+- Python 3.13+ and `uv` installed
+- AWS CDK CLI installed and bootstrapped
 
-**Risk:** Individual account issues, timing variability
+**Why Administrator access?**
+Workshop involves deploying CDK infrastructure (IAM roles, Cognito), building Docker images, creating AgentCore Runtime instances, and managing AWS resources.
+
+**Risk:** Individual account issues, timing variability, permission troubleshooting
 
 ---
 
