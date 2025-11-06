@@ -51,29 +51,78 @@ uv --version              # Latest
 
 #### 1. Configure AWS SSO Profile
 
-AWS SSO is recommended for seamless authentication across the demos:
+AWS SSO is the recommended method for authentication. Each workshop participant should use their own profile.
+
+**Step 1: Configure SSO Profile**
 
 ```bash
-# Configure SSO profile (interactive)
+# Interactive SSO configuration
 aws configure sso
 
-# Login to SSO session
-aws sso login --profile YOUR_PROFILE_NAME
-
-# Verify credentials
-aws sts get-caller-identity --profile YOUR_PROFILE_NAME
+# You'll be prompted for:
+# - SSO start URL (provided by your AWS administrator)
+# - SSO Region (e.g., us-east-1)
+# - Choose your AWS account and role
+# - CLI default client Region (recommend: us-west-2)
+# - CLI default output format (recommend: json)
+# - CLI profile name (e.g., "workshop-profile" or your name)
 ```
 
-**Note:** The codebase uses a configurable AWS profile. Set your profile via `AWS_PROFILE` environment variable or update deployment scripts.
+**Step 2: Activate Your Profile**
+
+```bash
+# Set your profile as the default for this session
+export AWS_PROFILE=your-profile-name
+
+# Add to your shell profile (~/.bashrc, ~/.zshrc) for persistence:
+echo 'export AWS_PROFILE=your-profile-name' >> ~/.bashrc  # or ~/.zshrc
+
+# Login to SSO
+aws sso login --profile your-profile-name
+
+# Verify credentials
+aws sts get-caller-identity
+```
+
+**Expected output:**
+```json
+{
+    "UserId": "AIDAXXXXXXXXXXXXXXXXX",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/your-username"
+}
+```
+
+**Alternative: Using IAM User Credentials**
+
+If you're not using SSO, configure IAM user credentials:
+
+```bash
+aws configure --profile your-profile-name
+# Enter: AWS Access Key ID, Secret Access Key, Region, Output format
+
+# Set as default
+export AWS_PROFILE=your-profile-name
+```
+
+**Important:** Throughout this workshop, replace any reference to `AWS_PROFILE=binbash` with `AWS_PROFILE=your-profile-name` or simply use the exported environment variable.
+
+📖 **Detailed Guide:** See [AWS_SETUP.md](./AWS_SETUP.md) for comprehensive AWS configuration instructions, including SSO setup, troubleshooting, and best practices.
 
 #### 2. Bootstrap AWS CDK
 
 Required once per AWS account and region:
 
 ```bash
-export AWS_PROFILE=YOUR_PROFILE_NAME
+# Using your configured profile
+export AWS_PROFILE=your-profile-name
 cdk bootstrap aws://ACCOUNT_ID/REGION
+
+# Or specify profile inline
+cdk bootstrap aws://ACCOUNT_ID/REGION --profile your-profile-name
 ```
+
+Replace `ACCOUNT_ID` with your AWS account number (from `aws sts get-caller-identity`) and `REGION` with your target region (e.g., `us-west-2`).
 
 #### 3. Bedrock Model Access (October 2025 Update)
 

@@ -11,7 +11,7 @@
 #
 # Prerequisites:
 #   - At least one agent deployed (finance-personal-assistant, etc.)
-#   - AWS credentials configured (AWS_PROFILE=binbash)
+#   - AWS credentials configured with your profile (export AWS_PROFILE=your-profile-name)
 #   - Streamlit dependencies installed (cd ui && uv sync)
 #
 # The Streamlit UI features:
@@ -23,5 +23,16 @@
 #   - Session-based conversation history
 #
 
-export AWS_PROFILE=binbash
+# Check if AWS_PROFILE is set, otherwise show helpful message
+if [ -z "$AWS_PROFILE" ]; then
+  echo "❌ Error: AWS_PROFILE environment variable is not set."
+  echo ""
+  echo "Please configure your AWS profile and export it:"
+  echo "  export AWS_PROFILE=your-profile-name"
+  echo ""
+  echo "See AWS_SETUP.md for detailed configuration instructions."
+  exit 1
+fi
+
+echo "🚀 Launching Streamlit UI with AWS_PROFILE=$AWS_PROFILE"
 cd ./ui && ./demo.sh "$@"

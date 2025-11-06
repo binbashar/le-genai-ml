@@ -73,8 +73,22 @@ By the end, you'll have deployed a working agent to AWS!
 
 Ensure you have:
 - Python 3.13+ installed
-- AWS credentials configured
+- **AWS credentials configured with your own profile**:
+  ```bash
+  # Configure AWS profile (SSO recommended)
+  aws configure sso
+  # OR use IAM credentials:
+  aws configure --profile your-profile-name
+
+  # Set as default
+  export AWS_PROFILE=your-profile-name
+
+  # Verify
+  aws sts get-caller-identity
+  ```
 - Model access: As of October 2025, all Bedrock models are automatically enabled. For legacy accounts only, enable Claude and Nova models in Bedrock Console.
+
+**Important:** Replace any reference to `AWS_PROFILE=binbash` with your own profile name throughout the workshop.
 
 ### Installation
 

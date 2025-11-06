@@ -179,10 +179,31 @@ Our system consists of three core components:
 Both implementations require:
 
 - **Python 3.13+**
-- **AWS CLI v2** configured
+- **AWS CLI v2** configured with your own AWS profile
 - **Docker** (for production deployments)
 - **AWS CDK v2** (for production infrastructure)
 - **uv** package manager
+
+### AWS Profile Configuration
+
+**Configure your own AWS profile** (each workshop participant should use their own):
+
+```bash
+# Option 1: AWS SSO (recommended)
+aws configure sso
+# Follow prompts to create a profile (e.g., "workshop" or your name)
+
+# Option 2: IAM user credentials
+aws configure --profile your-profile-name
+
+# Set as default for this session
+export AWS_PROFILE=your-profile-name
+
+# Verify credentials
+aws sts get-caller-identity
+```
+
+**Note:** Throughout this documentation, replace any reference to `AWS_PROFILE=binbash` with your own profile name. For detailed setup instructions, see [main README](../README.md#aws-configuration).
 
 ### Bedrock Model Access (October 2025 Update)
 

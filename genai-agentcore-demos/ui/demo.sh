@@ -11,7 +11,7 @@
 #
 # Prerequisites:
 #   - At least one agent deployed (finance-personal-assistant, etc.)
-#   - AWS credentials configured (AWS_PROFILE=binbash) for AWS mode
+#   - AWS credentials configured (export AWS_PROFILE=your-profile-name) for AWS mode
 #   - Dependencies installed (uv sync from ui directory)
 #   - Python path configured (automatic via PYTHONPATH export)
 #
