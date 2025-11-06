@@ -57,6 +57,10 @@ Demo: Interactive Streamlit UI
 
 ### One Week Before Workshop
 
+- [ ] **Configure AWS access for participants**:
+  - Option A: Set up AWS IAM Identity Center (SSO) - See [AWS_SETUP.md - For Administrators](./AWS_SETUP.md#for-workshop-administrators-setting-up-sso)
+  - Option B: Create IAM users with access keys (simpler for small workshops)
+  - Share SSO start URL or access keys with participants
 - [ ] **Test complete workshop flow** in clean AWS account
 - [ ] **Record backup demo** of entire system working (in case of live failures)
 - [ ] **Prepare demo users** in `.demo_users.json` with memorable passwords

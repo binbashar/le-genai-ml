@@ -4,12 +4,153 @@ This guide helps you configure your AWS credentials for the AgentCore workshop. 
 
 ## Table of Contents
 
-1. [Prerequisites](#prerequisites)
-2. [Option A: AWS SSO (Recommended)](#option-a-aws-sso-recommended)
-3. [Option B: IAM User Credentials](#option-b-iam-user-credentials)
-4. [Verify Your Configuration](#verify-your-configuration)
-5. [Bootstrap AWS CDK](#bootstrap-aws-cdk)
-6. [Troubleshooting](#troubleshooting)
+1. [For Workshop Administrators: Setting Up SSO](#for-workshop-administrators-setting-up-sso)
+2. [Prerequisites](#prerequisites)
+3. [Option A: AWS SSO (Recommended)](#option-a-aws-sso-recommended)
+4. [Option B: IAM User Credentials](#option-b-iam-user-credentials)
+5. [Verify Your Configuration](#verify-your-configuration)
+6. [Bootstrap AWS CDK](#bootstrap-aws-cdk)
+7. [Troubleshooting](#troubleshooting)
+
+---
+
+## For Workshop Administrators: Setting Up SSO
+
+**Note:** This section is for AWS administrators preparing the environment for workshop participants. If you're a participant and have been provided SSO credentials, skip to [Option A: AWS SSO](#option-a-aws-sso-recommended).
+
+### Do I Need to Set Up SSO?
+
+**You can skip SSO setup if:**
+- Your organization already has AWS IAM Identity Center (formerly AWS SSO) configured
+- You plan to use IAM user credentials for all participants (simpler for small workshops)
+- Workshop participants have their own individual AWS accounts
+
+**You should set up SSO if:**
+- Multiple participants will share access to the same AWS account with different roles
+- You want centralized user management and single sign-on experience
+- Your organization uses external identity providers (Okta, Azure AD, Google Workspace, etc.)
+
+### Quick Start: Enable AWS IAM Identity Center
+
+AWS IAM Identity Center (formerly AWS SSO) provides centralized access management across AWS accounts.
+
+**Prerequisites:**
+- AWS Organizations enabled in your AWS account (or be the management account owner)
+- Administrative access to the AWS account
+
+**Setup Steps (Console):**
+
+1. **Navigate to IAM Identity Center:**
+   - Open AWS Console: https://console.aws.amazon.com/singlesignon/
+   - If prompted, click "Enable IAM Identity Center"
+   - Choose identity source: "Identity Center directory" (for simple setups) or connect your existing IdP
+
+2. **Create Users:**
+   - Go to: IAM Identity Center → Users
+   - Click "Add user"
+   - Enter user details (username, email, first/last name)
+   - Set temporary password (users will be prompted to change on first login)
+   - Repeat for all workshop participants
+
+3. **Create Permission Set:**
+   - Go to: IAM Identity Center → Permission sets → Create permission set
+   - Choose "Predefined permission set" → Select "AdministratorAccess" (or create custom)
+   - Name it: "WorkshopParticipantAccess"
+
+4. **Assign Users to AWS Account:**
+   - Go to: IAM Identity Center → AWS accounts
+   - Select your AWS account → Assign users or groups
+   - Choose users and the permission set created above
+   - Click "Assign"
+
+5. **Get SSO Start URL:**
+   - Go to: IAM Identity Center → Dashboard
+   - Copy the "AWS access portal URL" (e.g., `https://d-xxxxxxxxxx.awsapps.com/start`)
+   - Share this URL with workshop participants
+
+**Setup via AWS CLI (Alternative):**
+
+```bash
+# Enable IAM Identity Center
+aws sso-admin create-instance --region us-east-1
+
+# List instances to get ARNs
+aws sso-admin list-instances --region us-east-1
+
+# Create permission set (requires instance ARN from above)
+aws sso-admin create-permission-set \
+  --instance-arn arn:aws:sso:::instance/ssoins-xxxxxxxxxx \
+  --name WorkshopParticipantAccess \
+  --description "Full access for workshop participants"
+
+# Attach managed policy to permission set
+aws sso-admin attach-managed-policy-to-permission-set \
+  --instance-arn arn:aws:sso:::instance/ssoins-xxxxxxxxxx \
+  --permission-set-arn arn:aws:sso:::permissionSet/ssoins-xxxxxxxxxx/ps-xxxxxxxxxx \
+  --managed-policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+```
+
+**Important Configuration Details to Share with Participants:**
+
+After setup, provide participants with:
+- ✅ **SSO Start URL**: `https://your-domain.awsapps.com/start` (from IAM Identity Center Dashboard)
+- ✅ **SSO Region**: Usually `us-east-1` (where IAM Identity Center is configured)
+- ✅ **Username and temporary password**: Created in step 2 above
+- ✅ **AWS Region for workshop**: `us-west-2` (where agents will be deployed)
+
+### Alternative: Using IAM Users (Simpler for Small Workshops)
+
+For small workshops (< 10 participants), IAM users may be simpler:
+
+1. **Create IAM Users:**
+   ```bash
+   # Create user
+   aws iam create-user --user-name workshop-participant-1
+
+   # Attach administrator policy
+   aws iam attach-user-policy \
+     --user-name workshop-participant-1 \
+     --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+
+   # Create access key
+   aws iam create-access-key --user-name workshop-participant-1
+   ```
+
+2. **Share credentials securely:**
+   - Provide Access Key ID and Secret Access Key to each participant
+   - Instruct them to use [Option B: IAM User Credentials](#option-b-iam-user-credentials)
+
+### Official AWS Documentation
+
+For detailed setup instructions and advanced configurations:
+
+- **[IAM Identity Center Getting Started Guide](https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html)**
+- **[Enable IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html)**
+- **[Connect External Identity Provider](https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-identity-source-idp.html)**
+- **[Create Permission Sets](https://docs.aws.amazon.com/singlesignon/latest/userguide/permissionsets.html)**
+- **[AWS CLI SSO Configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)**
+- **[IAM Identity Center Best Practices](https://docs.aws.amazon.com/singlesignon/latest/userguide/security-best-practices.html)**
+
+### Troubleshooting for Administrators
+
+**Issue: "AWS Organizations is not enabled"**
+- IAM Identity Center requires AWS Organizations
+- Enable it: https://console.aws.amazon.com/organizations/
+- You must be using the management account
+
+**Issue: "Identity Center is already enabled in another region"**
+- IAM Identity Center can only be enabled in one region per organization
+- Use the existing instance or disable it first (not recommended if in use)
+
+**Issue: Participants can't access AWS Console**
+- Verify permission set is attached to the user-account assignment
+- Check the user status is "Active" in IAM Identity Center
+- Ensure participants are using the correct AWS access portal URL
+
+**Issue: Participants get "Access Denied" during workshop**
+- Verify permission set includes required policies (AdministratorAccess or custom)
+- Check if session duration is too short (default: 1 hour, increase if needed)
+- Review permission set policies: IAM Identity Center → Permission sets → [Your set] → Permissions
 
 ---
 
