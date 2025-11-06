@@ -1,6 +1,20 @@
 # Troubleshooting Guide
 
-Common issues and solutions for the AgentCore Workshop.
+Common issues and solutions for GenAI AgentCore Demos.
+
+---
+
+## Quick Diagnostics
+
+**🚀 Run the automated validation script first:**
+
+```bash
+./quickstart.sh
+```
+
+This will automatically check all prerequisites and identify most common setup issues.
+
+---
 
 ## Table of Contents
 

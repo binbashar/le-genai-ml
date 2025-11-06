@@ -69,47 +69,55 @@ By the end, you'll have deployed a working agent to AWS!
 
 ## 🚀 Getting Started
 
-### Prerequisites Check
+### Step 1: Validate Prerequisites
 
-Ensure you have:
-- Python 3.13+ installed
-- **AWS credentials configured with your own profile**:
-  ```bash
-  # Configure AWS profile (SSO recommended)
-  aws configure sso
-  # OR use IAM credentials:
-  aws configure --profile your-profile-name
-
-  # Set as default
-  export AWS_PROFILE=your-profile-name
-
-  # Verify
-  aws sts get-caller-identity
-  ```
-- Model access: As of October 2025, all Bedrock models are automatically enabled. For legacy accounts only, enable Claude and Nova models in Bedrock Console.
-
-**Important:** Replace any reference to `AWS_PROFILE=binbash` with your own profile name throughout the workshop.
-
-### Installation
+**From the project root**, run the automated validation script:
 
 ```bash
-# From this directory (workshop/)
+cd ../../  # Navigate to genai-agentcore-demos root
+./quickstart.sh
+```
+
+This checks:
+- ✓ AWS CLI and credentials configured
+- ✓ Python 3.13+, Docker, AWS CDK installed
+- ✓ Bedrock model access enabled
+- ✓ CDK bootstrapped in your region
+
+**Need help?** See [AWS Setup Guide](../../AWS_SETUP.md) for detailed AWS configuration.
+
+---
+
+### Step 2: Install Dependencies
+
+```bash
+# Navigate to workshop directory
+cd finance-personal-assistant/workshop
+
+# Install dependencies
 uv sync
 ```
 
-### Running the Labs
+---
 
-Open the notebooks in order:
+### Step 3: Start Jupyter Lab
 
 ```bash
-# Option 1: Jupyter Lab
 jupyter lab
 
-# Option 2: VS Code
+# Or use VS Code
 code lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
 ```
 
-**Important**: Run notebooks in order (Lab 1 → Lab 2 → Lab 3) as each builds on the previous.
+---
+
+### Step 4: Complete Labs in Order
+
+**⚠️ Important**: Run notebooks sequentially (Lab 1 → Lab 2 → Lab 3) as each builds on the previous.
+
+1. **Lab 1** (20 min): `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+2. **Lab 2** (20 min): `lab2-build_multi_agent_workflows_with_strands.ipynb`
+3. **Lab 3** (15 min): `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
 
 ---
 

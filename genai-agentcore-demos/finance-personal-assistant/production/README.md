@@ -17,61 +17,73 @@
 
 ## 📋 Prerequisites
 
-- **Python 3.13+**
-- **AWS CLI v2** configured with appropriate profile
-- **Docker** running (for AgentCore Runtime deployments)
-- **AWS CDK v2** (for infrastructure deployment)
-- **uv** package manager
-- **Bedrock Model Access** enabled (Claude and Nova models)
+**Run the automated validation script from project root:**
+
+```bash
+cd ../../  # Navigate to genai-agentcore-demos root
+./quickstart.sh
+```
+
+This checks: AWS CLI, Python 3.13+, Docker, AWS CDK, uv, Bedrock model access, CDK bootstrap.
+
+**Need help?** See [AWS Setup Guide](../../AWS_SETUP.md) for detailed configuration.
 
 ---
 
 ## 🎯 Quick Start
 
-### 1. Install Dependencies
+### Step 1: Install Dependencies
 
 ```bash
+cd finance-personal-assistant/production
 uv sync
 ```
 
-### 2. Deploy Infrastructure (Optional - for OAuth)
+---
+
+### Step 2: Deploy to AWS
+
+**Option A: With OAuth Authentication (Recommended)**
 
 ```bash
-# Copy and customize demo users
-cp ../../.demo_users.json.example ../../.demo_users.json
-# Edit .demo_users.json with desired usernames/passwords
+# Deploy Cognito infrastructure
+cd cdk && ./deploy.sh && cd ..
 
-# Deploy Cognito + IAM infrastructure
-cd cdk
-./deploy.sh
-cd ..
+# Configure and launch agent
+./configure.sh  # Reads OAuth from SSM
+./launch.sh     # Deploys to AWS, publishes ARN to SSM
 ```
 
-### 3. Configure Agent
+**Option B: IAM Authentication Only**
 
 ```bash
-# Reads OAuth config from SSM if available
-./configure.sh
+./configure.sh  # Creates .bedrock_agentcore.yaml
+./launch.sh     # Deploys to AWS
 ```
 
-### 4. Deploy to AWS
+---
+
+### Step 3: Verify Deployment
 
 ```bash
-# Builds Docker, deploys to AgentCore Runtime, publishes ARN to SSM
-./launch.sh
-```
-
-### 5. Verify Deployment
-
-```bash
-# Test deployed agent (cascading: AWS → Local)
-./health.sh
-
-# Or force specific mode
+./health.sh                    # Cascading: AWS → Local
 ./health.sh --aws              # Test deployed agent only
-./health.sh --local            # Test local HTTP endpoint
 ./health.sh --timeout 120      # Custom timeout
 ```
+
+---
+
+### Step 4: Run the Streamlit Demo
+
+```bash
+# From project root
+cd ../../ && ./demo.sh
+
+# Or from ui directory
+cd ../../ui && ./demo.sh
+```
+
+The UI auto-discovers deployed agents via SSM Parameter Store - no manual configuration needed!
 
 ---
 

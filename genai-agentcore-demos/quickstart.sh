@@ -13,7 +13,8 @@
 #   1 - One or more prerequisites missing or failed validation
 #
 
-set -e
+# Note: Not using 'set -e' to allow all checks to run even if some fail
+set -o pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -43,6 +44,9 @@ check_pass() {
 check_fail() {
     echo -e "${RED}✗${NC} $1"
     echo -e "  ${YELLOW}→${NC} $2"
+    if [ -n "$3" ]; then
+        echo -e "  ${BLUE}ℹ${NC} See: TROUBLESHOOTING.md#$3"
+    fi
     ((CHECKS_FAILED++))
 }
 
@@ -70,10 +74,10 @@ if command -v aws &> /dev/null; then
     if [ "$AWS_MAJOR" -ge 2 ]; then
         check_pass "AWS CLI v$AWS_VERSION installed"
     else
-        check_fail "AWS CLI v$AWS_VERSION (v2+ required)" "Upgrade: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+        check_fail "AWS CLI v$AWS_VERSION (v2+ required)" "Upgrade: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html" "aws-credentials--authentication"
     fi
 else
-    check_fail "AWS CLI not found" "Install: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+    check_fail "AWS CLI not found" "Install: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html" "aws-credentials--authentication"
 fi
 
 # ============================================================
@@ -87,7 +91,7 @@ if AWS_PROFILE=binbash aws sts get-caller-identity &> /dev/null; then
     check_pass "AWS credentials valid (Account: $ACCOUNT_ID)"
     echo -e "  ${BLUE}→${NC} Identity: $USER_ARN"
 else
-    check_fail "AWS credentials not configured" "Run: aws configure --profile binbash"
+    check_fail "AWS credentials not configured" "Run: aws configure --profile binbash" "aws-credentials--authentication"
 fi
 
 # Check default region
@@ -113,14 +117,15 @@ if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --q
 
     check_pass "Bedrock model access enabled ($NOVA_COUNT Nova, $CLAUDE_COUNT Claude models)"
 
-    # Check for specific required models
-    if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?modelId==`us.amazon.nova-premier-v1:0`].modelId' --output text 2>/dev/null | grep -q "nova-premier"; then
+    # Check for specific required models (search for both base model and inference profile)
+    NOVA_CHECK=$(AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text 2>/dev/null || true)
+    if echo "$NOVA_CHECK" | grep -q "nova-premier"; then
         check_pass "Amazon Nova Premier (required for vision) - Available"
     else
-        check_fail "Amazon Nova Premier not available" "Enable at: https://console.aws.amazon.com/bedrock/home#/modelaccess"
+        check_fail "Amazon Nova Premier not available" "Enable at: https://console.aws.amazon.com/bedrock/home#/modelaccess" "bedrock-model-access"
     fi
 else
-    check_fail "Cannot access Bedrock models" "Enable model access: https://console.aws.amazon.com/bedrock/home#/modelaccess"
+    check_fail "Cannot access Bedrock models" "Enable model access: https://console.aws.amazon.com/bedrock/home#/modelaccess" "bedrock-model-access"
 fi
 
 # ============================================================
@@ -136,10 +141,10 @@ if command -v python3 &> /dev/null; then
     if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -ge 13 ]; then
         check_pass "Python $PYTHON_VERSION installed (3.13+ required)"
     else
-        check_fail "Python $PYTHON_VERSION (3.13+ required)" "Install: https://www.python.org/downloads/"
+        check_fail "Python $PYTHON_VERSION (3.13+ required)" "Install: https://www.python.org/downloads/" "python--dependencies"
     fi
 else
-    check_fail "Python not found" "Install Python 3.13+: https://www.python.org/downloads/"
+    check_fail "Python not found" "Install Python 3.13+: https://www.python.org/downloads/" "python--dependencies"
 fi
 
 # ============================================================
@@ -151,7 +156,7 @@ if command -v uv &> /dev/null; then
     UV_VERSION=$(uv --version | cut -d' ' -f2)
     check_pass "uv v$UV_VERSION installed"
 else
-    check_fail "uv not found" "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    check_fail "uv not found" "Install: curl -LsSf https://astral.sh/uv/install.sh | sh" "python--dependencies"
 fi
 
 # ============================================================
@@ -167,10 +172,10 @@ if command -v docker &> /dev/null; then
     if docker ps &> /dev/null; then
         check_pass "Docker daemon is running"
     else
-        check_fail "Docker daemon not running" "Start Docker Desktop or run: sudo systemctl start docker"
+        check_fail "Docker daemon not running" "Start Docker Desktop or run: sudo systemctl start docker" "docker-issues"
     fi
 else
-    check_fail "Docker not found" "Install: https://docs.docker.com/get-docker/"
+    check_fail "Docker not found" "Install: https://docs.docker.com/get-docker/" "docker-issues"
 fi
 
 # ============================================================
@@ -189,7 +194,7 @@ if command -v cdk &> /dev/null; then
         check_warn "CDK not bootstrapped in us-west-2" "Run: AWS_PROFILE=binbash cdk bootstrap aws://$ACCOUNT_ID/us-west-2"
     fi
 else
-    check_fail "AWS CDK not found" "Install: npm install -g aws-cdk"
+    check_fail "AWS CDK not found" "Install: npm install -g aws-cdk" "cdk-infrastructure"
 fi
 
 # ============================================================
@@ -224,10 +229,10 @@ fi
 print_header "9. Checking IAM Permissions (sample)"
 
 # Test a few key permissions
-if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --max-results 1 &> /dev/null; then
+if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[0].modelId' --output text &> /dev/null; then
     check_pass "Bedrock API access verified"
 else
-    check_fail "Cannot access Bedrock API" "Check IAM permissions for bedrock:ListFoundationModels"
+    check_fail "Cannot access Bedrock API" "Check IAM permissions for bedrock:ListFoundationModels" "bedrock-model-access"
 fi
 
 if AWS_PROFILE=binbash aws ecr describe-repositories --region us-west-2 --max-results 1 &> /dev/null; then
