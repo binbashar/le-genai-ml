@@ -9,28 +9,71 @@ Complete this checklist **before** starting the workshop to ensure a smooth expe
 **Required:**
 - AWS account with administrative access
 - AWS CLI v2 installed and configured
-- Valid AWS credentials
+- Valid AWS credentials (SSO or IAM user)
 
-**Verify:**
+**Step 1: Configure AWS Profile**
+
+Choose one of the following methods:
+
+**Option A: AWS SSO (Recommended)**
+```bash
+# Configure SSO profile interactively
+aws configure sso
+
+# You'll be prompted for:
+# - SSO start URL (provided by your AWS administrator)
+# - SSO Region
+# - AWS account and role selection
+# - CLI default region (recommend: us-west-2)
+# - CLI profile name (e.g., "workshop" or your name)
+
+# Login to your SSO session
+aws sso login --profile your-profile-name
+
+# Set as default for this session
+export AWS_PROFILE=your-profile-name
+```
+
+**Option B: IAM User Credentials**
+```bash
+# Configure with access keys
+aws configure --profile your-profile-name
+
+# Enter when prompted:
+# - AWS Access Key ID
+# - AWS Secret Access Key
+# - Default region (recommend: us-west-2)
+# - Output format (recommend: json)
+
+# Set as default for this session
+export AWS_PROFILE=your-profile-name
+```
+
+**Step 2: Verify Configuration**
+
 ```bash
 # Check AWS CLI version (should be 2.x or higher)
 aws --version
 
 # Test credentials (should show your AWS account details)
-AWS_PROFILE=binbash aws sts get-caller-identity
+aws sts get-caller-identity
 
-# Verify default region is set (recommended: us-west-2)
+# Verify default region is set
 aws configure get region
 ```
 
 **Expected output:**
-```
+```json
 {
     "UserId": "AIDAXXXXXXXXXXXXXXXXX",
     "Account": "123456789012",
     "Arn": "arn:aws:iam::123456789012:user/your-username"
 }
 ```
+
+**Tip:** Add `export AWS_PROFILE=your-profile-name` to your `~/.bashrc` or `~/.zshrc` to make it persistent across terminal sessions.
+
+📖 **Need more help?** See [AWS_SETUP.md](./AWS_SETUP.md) for a comprehensive guide including SSO setup, troubleshooting, and best practices.
 
 ---
 
@@ -129,10 +172,15 @@ cdk --version
 
 **Bootstrap CDK (one-time per account/region):**
 ```bash
-AWS_PROFILE=binbash cdk bootstrap aws://ACCOUNT-ID/us-west-2
+# Using your configured profile
+export AWS_PROFILE=your-profile-name
+cdk bootstrap aws://ACCOUNT-ID/us-west-2
+
+# Or specify profile inline
+cdk bootstrap aws://ACCOUNT-ID/us-west-2 --profile your-profile-name
 ```
 
-Replace `ACCOUNT-ID` with your AWS account number from step 1.
+Replace `ACCOUNT-ID` with your AWS account number from step 1 and `your-profile-name` with the profile name you configured.
 
 ---
 
@@ -155,38 +203,48 @@ uv run python --version
 
 ### ☐ 7. AWS Permissions
 
-**Required IAM permissions:**
-- ✅ IAM role management (CreateRole, DeleteRole, GetRole, PutRolePolicy)
-- ✅ Bedrock model invocation (bedrock:InvokeModel)
-- ✅ AgentCore Runtime operations (bedrock-agentcore:*)
-- ✅ ECR repository access (ecr:*)
-- ✅ CodeBuild access (codebuild:*)
-- ✅ CloudWatch Logs (logs:*)
-- ✅ SSM Parameter Store (ssm:GetParameter, ssm:PutParameter)
-- ✅ S3 (for build artifacts)
+**Required:** AWS account with **Administrator access**
 
-**Recommended:** Use `BedrockAgentCoreFullAccess` managed policy for workshop.
+For this workshop, you need full administrator access to your AWS account to:
+- Deploy infrastructure using AWS CDK (creates IAM roles, Cognito, CloudWatch, etc.)
+- Create and manage AgentCore Runtime instances
+- Build and push Docker images to ECR
+- Create SSM parameters and S3 buckets
 
-**Verify:**
+**Note:** This requirement is for **you** (the workshop attendee) deploying the system. The **AgentCore agents** themselves will use least-privilege execution roles that are automatically created by the CDK stack and AgentCore CLI.
+
+**Verify your access:**
 ```bash
-# Test a simple Bedrock API call
+# Test administrator access (using your configured profile)
+aws sts get-caller-identity
 aws bedrock list-foundation-models --region us-west-2 --max-results 1
+aws iam list-roles --max-items 1
 ```
+
+If any of these commands fail, contact your AWS account administrator to grant you `AdministratorAccess` policy.
 
 ---
 
-### ☐ 8. Environment Variables
+### ☐ 8. Environment Variables (Optional)
 
-**Create `.env` file** (copy from example):
+**Note:** If you've already exported `AWS_PROFILE` in your shell, this step is optional.
+
+**Create `.env` file** (optional, for project-specific configuration):
 ```bash
 cd genai-agentcore-demos
-cp .env.example .env
+cp .env.example .env  # if .env.example exists
 ```
 
 **Edit `.env` and set:**
 ```bash
-AWS_PROFILE=binbash
+AWS_PROFILE=your-profile-name
 AWS_REGION=us-west-2
+```
+
+**Alternative:** Export environment variables in your current shell (recommended):
+```bash
+export AWS_PROFILE=your-profile-name
+export AWS_REGION=us-west-2
 ```
 
 ---
@@ -209,9 +267,16 @@ This script will verify all prerequisites and report any issues.
 **Solution:** Install AWS CLI v2: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 
 ### Issue: "Unable to locate credentials"
-**Solution:** Configure AWS credentials:
+**Solution:** Configure AWS credentials (use SSO or IAM user):
 ```bash
-aws configure --profile binbash
+# Option 1: SSO (recommended)
+aws configure sso
+
+# Option 2: IAM user credentials
+aws configure --profile your-profile-name
+
+# Then export the profile
+export AWS_PROFILE=your-profile-name
 ```
 
 ### Issue: Docker daemon not running
