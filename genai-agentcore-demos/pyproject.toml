@@ -21,7 +21,8 @@ dependencies = [
     "ipykernel",
     "matplotlib",
     "strands-agents",
-    "strands-agents-tools"
+    "strands-agents-tools",
+    "yfinance"
 ]
 
 [tool.setuptools]

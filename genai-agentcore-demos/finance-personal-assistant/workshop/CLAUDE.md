@@ -145,9 +145,9 @@ budget_agent = Agent(
 )
 
 # Structured output
-result = budget_agent.structured_output(
-    output_model=FinancialReport,
-    prompt="Create budget for $6000/month income"
+result = budget_agent(
+    prompt="Create budget for $6000/month income",
+    structured_output_model=FinancialReport
 )
 ```
 
