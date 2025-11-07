@@ -163,7 +163,7 @@ def setup_cognito_user_pool() -> Dict[str, str]:
         print(f"Client ID: {client_id}")
 
         # Create test user
-        username = "testuser"
+        username = "testuser@example.com"
         password = "TestPass123!"
 
         try:
@@ -238,7 +238,7 @@ def delete_cognito_user_pool() -> None:
         raise
 
 
-def reauthenticate_user(client_id: str, username: str = "testuser", password: str = "TestPass123!") -> str:
+def reauthenticate_user(client_id: str, username: str = "testuser@example.com", password: str = "TestPass123!") -> str:
     """
     Get a fresh bearer token for API calls.
 

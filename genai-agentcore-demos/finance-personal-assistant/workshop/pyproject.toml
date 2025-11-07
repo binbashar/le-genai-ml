@@ -1,0 +1,24 @@
+[project]
+name = "personal-finance-assistant-workshop"
+version = "0.1.0"
+description = "Personal finance assistant workshop"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "boto3",
+    "pip",
+    "aiohttp",
+    "requests",
+    "python-dotenv",
+    "bedrock-agentcore",
+    "bedrock-agentcore-starter-toolkit",
+    "PyJWT>=2.10.0",
+    "aws-cdk-lib>=2.221.0",
+    "constructs>=10.0.0",
+    "pyyaml>=6.0.3",
+    "matplotlib",
+    "strands-agents",
+    "strands-agents-tools",
+    "yfinance"
+]
+
