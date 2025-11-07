@@ -60,13 +60,13 @@ This checks:
 ```bash
 cd finance-personal-assistant/workshop
 uv sync
-jupyter lab  # Or: cursor . for Cursor / code . for VS Code
+cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
 ```
 
 Open the notebooks in order:
-1. `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb` (20 min)
-2. `lab2-build_multi_agent_workflows_with_strands.ipynb` (20 min)
-3. `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb` (15 min)
+1. `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+2. `lab2-build_multi_agent_workflows_with_strands.ipynb`
+3. `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
 
 ---
 
@@ -120,7 +120,7 @@ genai-agentcore-demos/
 ├── demo.sh                    # 🎨 Launch Streamlit UI
 │
 ├── finance-personal-assistant/
-│   ├── workshop/              # 🎓 1-hour hands-on labs (Jupyter notebooks)
+│   ├── workshop/              # 🎓 Hands-on labs (Jupyter notebooks)
 │   │   ├── lab1-*.ipynb       # Budget agent with tools
 │   │   ├── lab2-*.ipynb       # Multi-agent orchestration
 │   │   └── lab3-*.ipynb       # AgentCore deployment
@@ -157,13 +157,13 @@ genai-agentcore-demos/
 
 ### Required Tools
 
-| Tool | Version | Installation |
-|------|---------|-------------|
-| **Python** | 3.13+ | [python.org/downloads](https://www.python.org/downloads/) |
-| **AWS CLI** | v2+ | [Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
-| **AWS CDK** | v2+ | `npm install -g aws-cdk` |
-| **Docker** | Latest | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
-| **uv** | Latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Tool | Version | Why We Use It | Installation |
+|------|---------|---------------|-------------|
+| **Python** | 3.13+ | Latest features, improved performance with free-threaded mode and experimental JIT compiler | [python.org/downloads](https://www.python.org/downloads/) |
+| **AWS CLI** | v2+ | Manage AWS services from terminal; v2 is 2-3x faster than v1 | [Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
+| **AWS CDK** | v2+ | Infrastructure as Code for deploying Cognito and IAM resources | `npm install -g aws-cdk` |
+| **Docker** | Latest | Package agents into containers for AgentCore Runtime deployment | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
+| **uv** | Latest | Blazingly fast Python package manager (10-100x faster than pip) written in Rust | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 
 **Verify Installation:**
 

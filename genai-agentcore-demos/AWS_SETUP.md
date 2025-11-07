@@ -18,6 +18,12 @@ Before starting this guide, you need:
 
 **⚠️ Important**: Each workshop participant needs their **own individual AWS account**. Do not share accounts.
 
+**Why individual accounts?**
+- **Isolation**: Your deployments won't interfere with others, and you can experiment freely without affecting teammates
+- **Cost Control**: You see exactly what *your* experiments cost, making it easier to learn AWS pricing and optimize spending
+- **Learning Independence**: You gain hands-on experience with the full AWS account setup process, a critical skill for real-world projects
+- **Security**: No risk of accidentally accessing or modifying another participant's resources
+
 ### Option A: New AWS Account (Recommended)
 
 If you don't have an AWS account yet:
@@ -38,7 +44,7 @@ If you don't have an AWS account yet:
 
 4. **Add Payment Information**
    - Enter credit card details
-   - **Note**: Most workshop resources are free tier eligible or very low cost (<$5)
+   - **Note**: Most workshop resources are free tier eligible or very low cost (<$1!! 🔥)
    - You can set up billing alerts later (recommended)
 
 5. **Verify Your Identity**
@@ -69,6 +75,11 @@ If you already have an AWS account:
 
 ### Step 1.1: Set Up Billing Alerts (Recommended)
 
+**Why billing alerts matter**: AWS operates on a pay-as-you-go model, meaning costs can accumulate if resources are left running. Billing alerts help you:
+- **Learn AWS pricing** by seeing costs in real-time
+- **Catch mistakes** like forgetting to delete resources after the workshop
+- **Stay within budget** by getting notified before costs exceed your comfort level
+
 Protect yourself from unexpected costs:
 
 1. Sign in to AWS Console: https://console.aws.amazon.com/
@@ -83,6 +94,14 @@ Protect yourself from unexpected costs:
 ---
 
 ## Step 2: Install AWS CLI
+
+**What is the AWS CLI?** The AWS Command Line Interface (CLI) is a unified tool to manage your AWS services from the terminal. Instead of clicking through the AWS Console web interface, you can automate tasks with scripts and commands.
+
+**Why AWS CLI v2+?**
+- **Performance**: 2-3x faster startup time compared to v1
+- **Better installer**: Easier to install and update on all platforms
+- **Modern features**: Support for SSO, improved output formatting, and better error messages
+- **Active development**: v1 is no longer actively maintained
 
 ### macOS
 
@@ -128,6 +147,16 @@ aws --version
 
 ## Step 3: Create Access Keys
 
+**What are Access Keys?** AWS access keys are long-term credentials that authenticate your CLI commands. They consist of two parts:
+- **Access Key ID**: Public identifier (like a username)
+- **Secret Access Key**: Private credential (like a password) - never share this!
+
+**Why Access Keys instead of AWS SSO?** For workshops, access keys provide:
+- **Simplicity**: No complex organization setup required
+- **Independence**: Works with personal AWS accounts
+- **Reliability**: No session timeouts during the workshop
+- **Learning value**: Understanding IAM credentials is fundamental to AWS security
+
 You need AWS credentials to use the CLI:
 
 1. **Sign in to AWS Console**
@@ -158,7 +187,7 @@ You need AWS credentials to use the CLI:
    - **Access Key ID**: AKIAIOSFODNN7EXAMPLE
    - **Secret Access Key**: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
    - Click **"Download .csv file"** (backup)
-   - Store securely (password manager recommended)
+   - Store securely
 
 ---
 
@@ -177,7 +206,13 @@ aws configure
 # Default output format [None]: json
 ```
 
-**Important**: Use **`us-west-2`** as your default region for this workshop.
+**Important**: Use **`us-west-2`** (US West Oregon) as your default region for this workshop.
+
+**Why us-west-2?**
+- **Geographic proximity**: Closest AWS region to San Francisco, minimizing latency for our workshop location
+- **Full service availability**: us-west-2 has complete support for Amazon Bedrock, AgentCore Runtime, Nova models, and all Claude models we'll use
+- **Cost efficiency**: Lower data transfer costs when all resources are in the same region
+- **Consistency**: Everyone using the same region simplifies troubleshooting and ensures identical behavior
 
 ### Verify Configuration
 
@@ -197,9 +232,9 @@ If you see your account ID and ARN, you're configured correctly! ✅
 
 ---
 
-## Step 5: Enable Bedrock Model Access
+## Step 5: Enable Bedrock Model Access (Legacy Accounts Only)
 
-**As of October 2025**: Bedrock models are automatically enabled for new AWS accounts. This step is only needed for legacy accounts.
+👉 **As of October 2025**: Bedrock models are automatically enabled for new AWS accounts. This step is only needed for legacy accounts. 👈
 
 ### For Legacy Accounts Only
 
@@ -207,9 +242,10 @@ If you have an older AWS account created before October 2025:
 
 1. **Go to Bedrock Console**
    - Visit: https://console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess
+   - If you don't see the "Modify model access" option, you're all set!
 
 2. **Enable Model Access**
-   - Click **"Modify model access"** (if you see this option)
+   - Click **"Modify model access"** (if you see this option, if not, you're all set!)
    - Enable these models:
      - ✅ **Amazon Nova** (all variants: Micro, Lite, Pro, Premier)
      - ✅ **Anthropic Claude 3.5** (Haiku, Sonnet)
@@ -231,6 +267,16 @@ aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?c
 ---
 
 ## Step 6: Bootstrap AWS CDK
+
+**What is CDK Bootstrapping?** The AWS Cloud Development Kit (CDK) uses Infrastructure as Code to define AWS resources. Before you can deploy CDK applications, AWS needs to prepare your environment with supporting resources.
+
+**What does bootstrapping create?**
+- **S3 Bucket**: Stores CDK synthesized templates and file assets (like Lambda code)
+- **ECR Repository**: Stores Docker container images for containerized applications
+- **IAM Roles**: Grants CDK the permissions needed to deploy resources on your behalf
+- **CloudFormation Stack**: Named `CDKToolkit`, manages all bootstrap resources
+
+**Why only once per region?** Bootstrap resources are shared across all CDK applications in that account/region, so you only need to set this up once. Think of it as "preparing the foundation" before building.
 
 CDK needs to be bootstrapped once per account and region:
 
@@ -349,16 +395,16 @@ aws configure set region us-west-2
 
 | Service | Usage | Estimated Cost |
 |---------|-------|----------------|
-| **Bedrock (Nova/Claude)** | ~50 requests | ~$0.10 - $0.50 |
-| **AgentCore Runtime** | 2 hours active | ~$0.20 - $0.40 |
+| **Bedrock (Nova/Claude)** | ~50 requests | ~$0.10 - $0.20 |
+| **AgentCore Runtime** | 2 hours active | ~$0.10 - $0.20 |
 | **ECR Storage** | <1 GB for 1 day | ~$0.01 |
 | **CloudWatch Logs** | <100 MB | ~$0.01 |
 | **DynamoDB (Memory)** | Minimal reads/writes | ~$0.01 |
 | **S3** | CodeBuild artifacts | ~$0.01 |
 
-**Total**: **$0.34 - $0.94** for a 2-hour workshop
+**Total**: **$0.34 - $0.44** for a 2-hour workshop
 
-**Free Tier**: Some services (S3, ECR, CloudWatch, DynamoDB) have free tier allowances that may cover workshop usage.
+**Free Tier**: Some services (S3, ECR, CloudWatch, DynamoDB) have free tier allowances that may cover workshop usage. 😎
 
 ### Cleanup After Workshop
 
@@ -388,7 +434,7 @@ aws bedrock-agentcore list-agent-runtimes --region us-west-2
    - Delete old access keys in IAM Console
 
 3. **Use billing alerts**
-   - Set up budget alerts (see Step 1.1)
+   - Set up budget alerts (see [Step 1.1](AWS_SETUP.md#step-11-set-up-billing-alerts-recommended))
    - Monitor AWS Cost Explorer
 
 4. **Delete resources after workshop**
@@ -407,7 +453,7 @@ cd genai-agentcore-demos
 
 # Start workshop
 cd finance-personal-assistant/workshop
-jupyter lab
+cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
 ```
 
 Open `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb` to begin!

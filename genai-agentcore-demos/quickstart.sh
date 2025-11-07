@@ -83,6 +83,8 @@ echo "Please wait while we check all prerequisites..."
 # ============================================================
 # 1. AWS CLI
 # ============================================================
+# AWS CLI v2 is required for managing AWS services from the terminal.
+# v2 is 2-3x faster than v1 and includes modern features like SSO support.
 print_header "1. Checking AWS CLI"
 
 if command -v aws &> /dev/null; then
@@ -101,6 +103,8 @@ fi
 # ============================================================
 # 2. AWS Credentials
 # ============================================================
+# Credentials authenticate your CLI commands to AWS.
+# We validate that access keys are configured and working.
 print_header "2. Checking AWS Credentials"
 
 if aws_cmd sts get-caller-identity &> /dev/null; then
@@ -112,7 +116,7 @@ else
     check_fail "AWS credentials not configured" "Run: aws configure" "aws-credentials--authentication"
 fi
 
-# Check default region
+# Check default region (us-west-2 recommended for San Francisco proximity + full Bedrock/AgentCore availability)
 if aws_cmd configure get region &> /dev/null; then
     REGION=$(aws_cmd configure get region)
     check_pass "Default region set: $REGION"
@@ -127,6 +131,9 @@ fi
 # ============================================================
 # 3. Bedrock Model Access
 # ============================================================
+# Amazon Bedrock provides foundation models (Nova, Claude) for our agents.
+# We verify you can access the models needed for the workshop.
+# Note: As of October 2025, models are auto-enabled for new accounts.
 print_header "3. Checking Bedrock Model Access"
 
 if aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text &> /dev/null; then
@@ -135,7 +142,8 @@ if aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSumma
 
     check_pass "Bedrock model access enabled ($NOVA_COUNT Nova, $CLAUDE_COUNT Claude models)"
 
-    # Check for specific required models (search for both base model and inference profile)
+    # Check for Nova Premier (required for vision analysis of receipts/invoices)
+    # We search for the base model ID (not inference profile) to ensure availability
     NOVA_CHECK=$(aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text 2>/dev/null || true)
     if echo "$NOVA_CHECK" | grep -q "nova-premier"; then
         check_pass "Amazon Nova Premier (required for vision) - Available"
@@ -149,6 +157,8 @@ fi
 # ============================================================
 # 4. Python
 # ============================================================
+# Python 3.13+ is required for latest features and performance improvements.
+# Includes experimental free-threaded mode and JIT compiler for better performance.
 print_header "4. Checking Python"
 
 if command -v python3 &> /dev/null; then
@@ -168,6 +178,8 @@ fi
 # ============================================================
 # 5. UV Package Manager
 # ============================================================
+# UV is a blazingly fast Python package manager (10-100x faster than pip).
+# Written in Rust, it dramatically speeds up dependency installation.
 print_header "5. Checking UV Package Manager"
 
 if command -v uv &> /dev/null; then
@@ -180,6 +192,8 @@ fi
 # ============================================================
 # 6. Docker
 # ============================================================
+# Docker packages agents into containers for AgentCore Runtime deployment.
+# Both Docker installation and running daemon are required.
 print_header "6. Checking Docker"
 
 if command -v docker &> /dev/null; then
@@ -199,6 +213,8 @@ fi
 # ============================================================
 # 7. AWS CDK
 # ============================================================
+# AWS CDK (Cloud Development Kit) deploys infrastructure as code.
+# Bootstrapping creates S3 buckets, ECR repositories, and IAM roles needed for deployments.
 print_header "7. Checking AWS CDK"
 
 if command -v cdk &> /dev/null; then

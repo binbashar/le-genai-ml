@@ -115,9 +115,22 @@ code lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
 
 **⚠️ Important**: Run notebooks sequentially (Lab 1 → Lab 2 → Lab 3) as each builds on the previous.
 
+**Why sequential execution matters:**
+- **Lab 2 depends on Lab 1**: The multi-agent orchestrator (Lab 2) imports the budget agent you create in Lab 1
+- **Lab 3 depends on Lab 2**: The deployment process (Lab 3) uses the `main.py` orchestrator file generated in Lab 2
+- **Conceptual progression**: Each lab introduces new concepts that build on what you learned previously
+- **File artifacts**: Notebooks create Python files (`budget_agent.py`, `main.py`) that later labs import and use
+
 1. **Lab 1** (20 min): `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+   - Build your first Strands agent with custom tools
+
 2. **Lab 2** (20 min): `lab2-build_multi_agent_workflows_with_strands.ipynb`
+   - **Requires**: `budget_agent.py` from Lab 1
+   - Create multi-agent orchestration
+
 3. **Lab 3** (15 min): `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
+   - **Requires**: `main.py` from Lab 2
+   - Deploy to AWS AgentCore Runtime
 
 ---
 
