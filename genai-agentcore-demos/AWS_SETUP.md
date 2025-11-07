@@ -451,6 +451,9 @@ aws bedrock-agentcore list-agent-runtimes --region us-west-2
 cd genai-agentcore-demos
 ./quickstart.sh  # Validate everything is ready
 
+# Export AWS profile for kernel recognition
+export AWS_PROFILE=your-profile-name  # Replace with your profile
+
 # Open editor at project root (where .venv lives)
 cursor .  # Or: code .
 ```

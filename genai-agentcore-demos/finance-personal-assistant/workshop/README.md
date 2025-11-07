@@ -104,8 +104,11 @@ uv sync
 
 **Important:** Open VS Code or Cursor from the `genai-agentcore-demos/` directory, **not** from the workshop subdirectory. This ensures your editor recognizes the virtual environment (`.venv`) and can properly detect the Python kernel for Jupyter notebooks.
 
+**Before opening your editor**, export your AWS profile so the kernel recognizes your AWS account:
+
 ```bash
 # From genai-agentcore-demos/ directory
+export AWS_PROFILE=your-profile-name  # Replace with your AWS profile
 cursor .  # Or: code .
 ```
 
