@@ -84,7 +84,7 @@ This checks:
 - ✓ Bedrock model access enabled
 - ✓ CDK bootstrapped in your region
 
-**Need help?** See [AWS Setup Guide](../../AWS_SETUP.md) for detailed AWS configuration.
+**Need help?** See [Pre-Workshop Checklist](../../PRE_WORKSHOP_CHECKLIST.md) for detailed AWS configuration.
 
 ---
 

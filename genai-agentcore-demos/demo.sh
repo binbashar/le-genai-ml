@@ -30,7 +30,7 @@ if [ -z "$AWS_PROFILE" ]; then
   echo "Please configure your AWS profile and export it:"
   echo "  export AWS_PROFILE=your-profile-name"
   echo ""
-  echo "See AWS_SETUP.md for detailed configuration instructions."
+  echo "See PRE_WORKSHOP_CHECKLIST.md for detailed configuration instructions."
   exit 1
 fi
 

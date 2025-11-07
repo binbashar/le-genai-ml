@@ -213,9 +213,9 @@ export AWS_PROFILE=workshop
 aws sts get-caller-identity
 ```
 
-**Organizations using AWS SSO:** If your organization requires AWS SSO (IAM Identity Center), see [AWS_SETUP.md - Alternative: AWS SSO](../../AWS_SETUP.md#alternative-aws-sso-for-organizations-with-existing-sso) for configuration details.
+**Organizations using AWS SSO:** If your organization requires AWS SSO (IAM Identity Center), configure SSO credentials using `aws configure sso` as detailed in the [Pre-Workshop Checklist](../../PRE_WORKSHOP_CHECKLIST.md).
 
-**Note:** Throughout this documentation, replace any reference to `AWS_PROFILE=binbash` with your configured profile name. For detailed setup instructions, see [AWS_SETUP.md](../../AWS_SETUP.md).
+**Note:** Throughout this documentation, replace any reference to `AWS_PROFILE=binbash` with your configured profile name. For detailed setup instructions, see [Pre-Workshop Checklist](../../PRE_WORKSHOP_CHECKLIST.md).
 
 ### Bedrock Model Access (October 2025 Update)
 

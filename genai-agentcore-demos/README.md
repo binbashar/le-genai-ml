@@ -22,26 +22,28 @@ A complete financial advisory system with:
 
 ## Quick Start
 
-### For Workshop Participants
+### Prerequisites
 
-**⚠️ PREREQUISITE: You need your own AWS account**
+**⚠️ PREREQUISITE: Complete all setup steps before workshop**
 
-Each participant must have their own individual AWS account with administrator access.
+👉 **[Pre-Workshop Checklist](PRE_WORKSHOP_CHECKLIST.md)** (30-45 minutes)
 
-👉 **Don't have an AWS account yet?** Follow the **[AWS Account Setup Guide](AWS_SETUP.md)** (15-20 minutes)
+This comprehensive guide covers:
+- Creating your AWS account
+- Installing AWS CLI, Python, Docker, CDK
+- Configuring credentials and bootstrapping CDK
+- Verifying your complete setup
 
-The guide covers:
-- Creating a new AWS account
-- Installing & configuring AWS CLI
-- Creating access keys
-- Enabling Bedrock models
-- Bootstrapping CDK
+**📌 Time Required:** 30-45 minutes for complete setup
+**💰 Workshop Cost:** Less than $1 for 2-hour session
 
 ---
 
+### For Workshop Participants
+
 **Step 1: Validate Prerequisites**
 
-After completing AWS setup, run our automated validation script:
+After completing the [Pre-Workshop Checklist](PRE_WORKSHOP_CHECKLIST.md), run our automated validation script:
 
 ```bash
 cd genai-agentcore-demos
@@ -154,49 +156,6 @@ genai-agentcore-demos/
     ├── demo.sh                # Launch UI
     └── reset_memory.sh        # Clear agent memory
 ```
-
----
-
-## Prerequisites
-
-### Required Tools
-
-| Tool | Version | Why We Use It | Installation |
-|------|---------|---------------|-------------|
-| **Python** | 3.13+ | Latest features, improved performance with free-threaded mode and experimental JIT compiler | [python.org/downloads](https://www.python.org/downloads/) |
-| **AWS CLI** | v2+ | Manage AWS services from terminal; v2 is 2-3x faster than v1 | [Install Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
-| **AWS CDK** | v2+ | Infrastructure as Code for deploying Cognito and IAM resources | `npm install -g aws-cdk` |
-| **Docker** | Latest | Package agents into containers for AgentCore Runtime deployment | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) |
-| **uv** | Latest | Blazingly fast Python package manager (10-100x faster than pip) written in Rust | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-
-**Verify Installation:**
-
-```bash
-python --version   # 3.13.x
-aws --version      # 2.x
-cdk --version      # 2.x
-docker --version   # Latest
-uv --version       # Latest
-```
-
-### AWS Requirements
-
-1. **AWS Account** with administrator access
-2. **AWS Credentials** configured:
-   ```bash
-   # IAM user credentials (recommended for workshops)
-   aws configure --profile workshop
-   export AWS_PROFILE=workshop
-
-   # For organizations with existing SSO, see AWS_SETUP.md
-   ```
-3. **CDK Bootstrapped** in your region:
-   ```bash
-   cdk bootstrap aws://ACCOUNT_ID/us-west-2
-   ```
-4. **Bedrock Model Access** - Automatically enabled as of October 2025 (no action needed for new accounts)
-
-> **Detailed Setup:** See [AWS_SETUP.md](AWS_SETUP.md) for complete AWS configuration instructions.
 
 ---
 
@@ -385,7 +344,7 @@ aws ssm delete-parameter --name "/agentcore/finance-personal-assistant/config"
 
 ## Documentation
 
-- [AWS Setup Guide](AWS_SETUP.md) - Detailed AWS configuration (SSO, CDK, Bedrock)
+- [Pre-Workshop Checklist](PRE_WORKSHOP_CHECKLIST.md) - Complete setup guide with AWS configuration, tools installation, and verification
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
 - [Workshop README](finance-personal-assistant/workshop/README.md) - Lab-specific instructions
 - [Production README](finance-personal-assistant/production/README.md) - Enterprise deployment details
