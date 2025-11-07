@@ -28,6 +28,24 @@ CHECKS_PASSED=0
 CHECKS_FAILED=0
 CHECKS_WARNING=0
 
+# Detect AWS profile (use AWS_PROFILE env var, or default profile)
+if [ -n "$AWS_PROFILE" ]; then
+    PROFILE_ARG="--profile $AWS_PROFILE"
+    PROFILE_NAME="$AWS_PROFILE"
+else
+    PROFILE_ARG=""
+    PROFILE_NAME="default"
+fi
+
+# Helper function to run AWS CLI with correct profile
+aws_cmd() {
+    if [ -n "$PROFILE_ARG" ]; then
+        aws $PROFILE_ARG "$@"
+    else
+        aws "$@"
+    fi
+}
+
 # Print section header
 print_header() {
     echo -e "\n${BLUE}===================================================${NC}"
@@ -85,25 +103,25 @@ fi
 # ============================================================
 print_header "2. Checking AWS Credentials"
 
-if AWS_PROFILE=binbash aws sts get-caller-identity &> /dev/null; then
-    ACCOUNT_ID=$(AWS_PROFILE=binbash aws sts get-caller-identity --query Account --output text)
-    USER_ARN=$(AWS_PROFILE=binbash aws sts get-caller-identity --query Arn --output text)
+if aws_cmd sts get-caller-identity &> /dev/null; then
+    ACCOUNT_ID=$(aws_cmd sts get-caller-identity --query Account --output text)
+    USER_ARN=$(aws_cmd sts get-caller-identity --query Arn --output text)
     check_pass "AWS credentials valid (Account: $ACCOUNT_ID)"
     echo -e "  ${BLUE}→${NC} Identity: $USER_ARN"
 else
-    check_fail "AWS credentials not configured" "Run: aws configure --profile binbash" "aws-credentials--authentication"
+    check_fail "AWS credentials not configured" "Run: aws configure" "aws-credentials--authentication"
 fi
 
 # Check default region
-if AWS_PROFILE=binbash aws configure get region &> /dev/null; then
-    REGION=$(AWS_PROFILE=binbash aws configure get region)
+if aws_cmd configure get region &> /dev/null; then
+    REGION=$(aws_cmd configure get region)
     check_pass "Default region set: $REGION"
 
     if [ "$REGION" != "us-west-2" ]; then
-        check_warn "Region is $REGION (workshop uses us-west-2)" "Consider setting: aws configure set region us-west-2 --profile binbash"
+        check_warn "Region is $REGION (workshop uses us-west-2)" "Consider setting: aws configure set region us-west-2"
     fi
 else
-    check_warn "No default region configured" "Set region: aws configure set region us-west-2 --profile binbash"
+    check_warn "No default region configured" "Set region: aws configure set region us-west-2"
 fi
 
 # ============================================================
@@ -111,14 +129,14 @@ fi
 # ============================================================
 print_header "3. Checking Bedrock Model Access"
 
-if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text &> /dev/null; then
-    NOVA_COUNT=$(AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova`)].modelId' --output text 2>/dev/null | wc -w)
-    CLAUDE_COUNT=$(AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `claude`)].modelId' --output text 2>/dev/null | wc -w)
+if aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text &> /dev/null; then
+    NOVA_COUNT=$(aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova`)].modelId' --output text 2>/dev/null | wc -w)
+    CLAUDE_COUNT=$(aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `claude`)].modelId' --output text 2>/dev/null | wc -w)
 
     check_pass "Bedrock model access enabled ($NOVA_COUNT Nova, $CLAUDE_COUNT Claude models)"
 
     # Check for specific required models (search for both base model and inference profile)
-    NOVA_CHECK=$(AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text 2>/dev/null || true)
+    NOVA_CHECK=$(aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova-premier`)].modelId' --output text 2>/dev/null || true)
     if echo "$NOVA_CHECK" | grep -q "nova-premier"; then
         check_pass "Amazon Nova Premier (required for vision) - Available"
     else
@@ -188,10 +206,10 @@ if command -v cdk &> /dev/null; then
     check_pass "AWS CDK v$CDK_VERSION installed"
 
     # Check if CDK is bootstrapped (optional check)
-    if AWS_PROFILE=binbash aws cloudformation describe-stacks --region us-west-2 --stack-name CDKToolkit &> /dev/null; then
+    if aws_cmd cloudformation describe-stacks --region us-west-2 --stack-name CDKToolkit &> /dev/null; then
         check_pass "CDK bootstrapped in us-west-2"
     else
-        check_warn "CDK not bootstrapped in us-west-2" "Run: AWS_PROFILE=binbash cdk bootstrap aws://$ACCOUNT_ID/us-west-2"
+        check_warn "CDK not bootstrapped in us-west-2" "Run: cdk bootstrap aws://$ACCOUNT_ID/us-west-2"
     fi
 else
     check_fail "AWS CDK not found" "Install: npm install -g aws-cdk" "cdk-infrastructure"
@@ -229,13 +247,13 @@ fi
 print_header "9. Checking IAM Permissions (sample)"
 
 # Test a few key permissions
-if AWS_PROFILE=binbash aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[0].modelId' --output text &> /dev/null; then
+if aws_cmd bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[0].modelId' --output text &> /dev/null; then
     check_pass "Bedrock API access verified"
 else
     check_fail "Cannot access Bedrock API" "Check IAM permissions for bedrock:ListFoundationModels" "bedrock-model-access"
 fi
 
-if AWS_PROFILE=binbash aws ecr describe-repositories --region us-west-2 --max-results 1 &> /dev/null; then
+if aws_cmd ecr describe-repositories --region us-west-2 --max-results 1 &> /dev/null; then
     check_pass "ECR access verified"
 else
     check_warn "ECR access may be limited" "Ensure IAM permissions for ecr:DescribeRepositories"

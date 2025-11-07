@@ -24,9 +24,25 @@ A complete financial advisory system with:
 
 ### For Workshop Participants
 
+**⚠️ PREREQUISITE: You need your own AWS account**
+
+Each participant must have their own individual AWS account with administrator access.
+
+👉 **Don't have an AWS account yet?** Follow the **[AWS Account Setup Guide](AWS_SETUP.md)** (15-20 minutes)
+
+The guide covers:
+- Creating a new AWS account
+- Setting up billing alerts
+- Installing & configuring AWS CLI
+- Creating access keys
+- Enabling Bedrock models
+- Bootstrapping CDK
+
+---
+
 **Step 1: Validate Prerequisites**
 
-Run our automated validation script:
+After completing AWS setup, run our automated validation script:
 
 ```bash
 cd genai-agentcore-demos
@@ -44,15 +60,13 @@ This checks:
 ```bash
 cd finance-personal-assistant/workshop
 uv sync
-cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
+jupyter lab  # Or: cursor . for Cursor / code . for VS Code
 ```
 
 Open the notebooks in order:
-1. `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
-2. `lab2-build_multi_agent_workflows_with_strands.ipynb`
-3. `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
-
-> **First time?** See [AWS Setup Guide](AWS_SETUP.md) for detailed AWS configuration.
+1. `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb` (20 min)
+2. `lab2-build_multi_agent_workflows_with_strands.ipynb` (20 min)
+3. `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb` (15 min)
 
 ---
 

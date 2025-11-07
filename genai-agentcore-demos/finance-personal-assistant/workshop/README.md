@@ -17,7 +17,7 @@ By the end, you'll have deployed a working agent to AWS!
 
 ## 📚 Workshop Structure
 
-### Lab 1: Develop a Personal Budget Assistant (20 minutes)
+### Lab 1: Develop a Personal Budget Assistant
 **File**: `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
 
 **What you'll learn:**
@@ -34,7 +34,7 @@ By the end, you'll have deployed a working agent to AWS!
 
 ---
 
-### Lab 2: Build Multi-Agent Workflows (20 minutes)
+### Lab 2: Build Multi-Agent Workflows
 **File**: `lab2-build_multi_agent_workflows_with_strands.ipynb`
 
 **What you'll learn:**
@@ -50,7 +50,7 @@ By the end, you'll have deployed a working agent to AWS!
 
 ---
 
-### Lab 3: Deploy to AgentCore Runtime (15 minutes)
+### Lab 3: Deploy to AgentCore Runtime
 **File**: `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
 
 **What you'll learn:**

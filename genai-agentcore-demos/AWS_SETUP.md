@@ -1,512 +1,423 @@
-# AWS Setup Guide for Workshop Participants
+# AWS Setup Guide
 
-This guide helps you configure your AWS credentials for the AgentCore workshop. Each participant should use their own AWS profile.
-
-## Table of Contents
-
-1. [For Workshop Administrators: Creating IAM Users](#for-workshop-administrators-creating-iam-users)
-2. [Prerequisites](#prerequisites)
-3. [Configure IAM User Credentials (Recommended)](#configure-iam-user-credentials-recommended)
-4. [Alternative: AWS SSO (For Organizations with Existing SSO)](#alternative-aws-sso-for-organizations-with-existing-sso)
-5. [Verify Your Configuration](#verify-your-configuration)
-6. [Bootstrap AWS CDK](#bootstrap-aws-cdk)
-7. [Troubleshooting](#troubleshooting)
-
----
-
-## For Workshop Administrators: Creating IAM Users
-
-**Note:** This section is for AWS administrators preparing the environment for workshop participants. If you're a participant and have been provided credentials, skip to [Configure IAM User Credentials](#configure-iam-user-credentials-recommended).
-
-### Why IAM Users for Workshops?
-
-**IAM users are the recommended approach for workshops because:**
-- ✅ **Fast setup**: 2 minutes per user (vs 30+ minutes for SSO infrastructure)
-- ✅ **No dependencies**: Works without AWS Organizations or Identity Center
-- ✅ **Reliable**: No authentication server dependencies during workshop
-- ✅ **Simple cleanup**: Delete users after workshop
-- ✅ **Works immediately**: Access keys ready to use right away
-
-**Avoid AWS SSO for workshops unless:**
-- Your organization already has IAM Identity Center fully configured
-- All participants are already registered in your Identity Center
-- You have tested SSO authentication with CLI beforehand
-
-### Creating IAM Users for Workshop Participants
-
-**Setup Instructions:**
-
-```bash
-# Create user (repeat for each participant)
-aws iam create-user --user-name workshop-participant-1
-
-# Attach administrator policy
-aws iam attach-user-policy \
-  --user-name workshop-participant-1 \
-  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
-
-# Create access key and save output
-aws iam create-access-key --user-name workshop-participant-1
-```
-
-**Expected output:**
-```json
-{
-    "AccessKey": {
-        "UserName": "workshop-participant-1",
-        "AccessKeyId": "AKIAIOSFODNN7EXAMPLE",
-        "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        "Status": "Active"
-    }
-}
-```
-
-**Important:** Save the Access Key ID and Secret Access Key securely - you'll share these with participants.
-
-### Distributing Credentials to Participants
-
-**Option 1: Secure file sharing (Recommended)**
-1. Create a text file for each participant with their credentials
-2. Share via secure channel (encrypted email, password-protected zip, 1Password, etc.)
-3. Include instructions: See [Configure IAM User Credentials](#configure-iam-user-credentials-recommended)
-
-**Option 2: In-person distribution**
-1. Print credentials on paper (one per participant)
-2. Hand out at start of workshop
-3. Instruct participants to shred after adding to AWS CLI
-
-**What to share with each participant:**
-```
-AWS Workshop Credentials - Participant 1
-
-Access Key ID: AKIAIOSFODNN7EXAMPLE
-Secret Access Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-Region: us-west-2
-
-Configuration command:
-aws configure --profile workshop
-(Enter the Access Key ID and Secret Access Key when prompted)
-```
-
-### Post-Workshop Cleanup
-
-Delete IAM users after the workshop to maintain security:
-
-```bash
-# List access keys for user
-aws iam list-access-keys --user-name workshop-participant-1
-
-# Delete access key (use AccessKeyId from output above)
-aws iam delete-access-key \
-  --user-name workshop-participant-1 \
-  --access-key-id AKIAIOSFODNN7EXAMPLE
-
-# Detach policies
-aws iam detach-user-policy \
-  --user-name workshop-participant-1 \
-  --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
-
-# Delete user
-aws iam delete-user --user-name workshop-participant-1
-```
-
-**Batch cleanup script:**
-```bash
-#!/bin/bash
-# cleanup-workshop-users.sh
-
-for i in {1..10}; do
-  USER="workshop-participant-$i"
-
-  # Get and delete all access keys
-  aws iam list-access-keys --user-name $USER --query 'AccessKeyMetadata[*].AccessKeyId' --output text | \
-    xargs -I {} aws iam delete-access-key --user-name $USER --access-key-id {}
-
-  # Detach policies
-  aws iam detach-user-policy --user-name $USER --policy-arn arn:aws:iam::aws:policy/AdministratorAccess 2>/dev/null
-
-  # Delete user
-  aws iam delete-user --user-name $USER 2>/dev/null
-
-  echo "Cleaned up: $USER"
-done
-```
-
-### Alternative: AWS SSO (Only if Already Configured)
-
-If your organization already has AWS IAM Identity Center (formerly AWS SSO) configured and all participants are registered, you may use SSO instead.
-
-**⚠️ Warning:** Setting up SSO from scratch for a workshop is NOT recommended due to complexity and time requirements.
-
-**For SSO setup instructions, see:**
-- [IAM Identity Center Getting Started Guide](https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html)
-- [Enable IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html)
-- [AWS CLI SSO Configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
+Complete AWS environment setup for the AgentCore workshop. Each participant needs their own AWS account.
 
 ---
 
 ## Prerequisites
 
-- AWS account with administrative access (or permissions for Bedrock, IAM, AgentCore)
-- AWS CLI v2 installed ([Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
-- Terminal/command line access
+Before starting this guide, you need:
 
-**Verify AWS CLI installation:**
-```bash
-aws --version
-# Should show: aws-cli/2.x.x or higher
-```
+- ✅ **Your own AWS account** (see [Step 1: Create AWS Account](#step-1-create-your-aws-account) below)
+- ✅ **Email access** (for AWS account verification)
+- ✅ **Credit card** (for AWS account setup - workshop uses free tier where possible)
 
 ---
 
-## Configure IAM User Credentials (Recommended)
+## Step 1: Create Your AWS Account
 
-IAM user credentials with access keys are the recommended authentication method for workshops. This method is fast, reliable, and works immediately without organizational dependencies.
+**⚠️ Important**: Each workshop participant needs their **own individual AWS account**. Do not share accounts.
 
-**Your administrator should have provided you with:**
-- AWS Access Key ID
-- AWS Secret Access Key
-- Region (typically: `us-west-2`)
+### Option A: New AWS Account (Recommended)
 
-### Step 1: Configure AWS CLI Profile
+If you don't have an AWS account yet:
 
-Run the AWS CLI configuration:
+1. **Go to AWS Sign-Up**
+   - Visit: https://portal.aws.amazon.com/billing/signup
+   - Click **"Create a new AWS account"**
 
-```bash
-aws configure --profile workshop
-```
+2. **Enter Account Information**
+   - **Email address**: Use your personal or work email
+   - **Password**: Create a strong password (save it securely!)
+   - **AWS account name**: Choose a descriptive name (e.g., "MyName Workshop Account")
 
-Enter your credentials when prompted:
+3. **Provide Contact Information**
+   - Select **"Personal"** account type (unless using for business)
+   - Fill in your name, phone number, and address
+   - Accept the AWS Customer Agreement
 
-```
-AWS Access Key ID [None]: AKIAIOSFODNN7EXAMPLE
-AWS Secret Access Key [None]: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-Default region name [None]: us-west-2
-Default output format [None]: json
-```
+4. **Add Payment Information**
+   - Enter credit card details
+   - **Note**: Most workshop resources are free tier eligible or very low cost (<$5)
+   - You can set up billing alerts later (recommended)
 
-**If you don't have access keys yet:**
-Your workshop administrator should have provided them. If not, see the [For Workshop Administrators](#for-workshop-administrators-creating-iam-users) section above.
+5. **Verify Your Identity**
+   - Choose phone verification method (SMS or voice call)
+   - Enter the verification code sent to your phone
 
-### Step 2: Set Default Profile
+6. **Select Support Plan**
+   - Choose **"Basic support - Free"**
+   - You can upgrade later if needed
 
-Set your profile as the default for this terminal session:
+7. **Wait for Account Activation**
+   - Account activation takes 5-10 minutes
+   - You'll receive a confirmation email when ready
+   - Sign in at: https://console.aws.amazon.com/
 
-```bash
-export AWS_PROFILE=workshop
-```
+### Option B: Existing AWS Account
 
-**Make it persistent** (optional, add to your shell profile):
+If you already have an AWS account:
 
-```bash
-# For bash
-echo 'export AWS_PROFILE=workshop' >> ~/.bashrc
-source ~/.bashrc
+1. **Ensure Administrator Access**
+   - You need full administrative permissions for this workshop
+   - Check by signing in to AWS Console: https://console.aws.amazon.com/
+   - Try accessing services: IAM, Bedrock, ECR, CloudFormation
 
-# For zsh (macOS)
-echo 'export AWS_PROFILE=workshop' >> ~/.zshrc
-source ~/.zshrc
-```
+2. **Clean Existing Resources (Optional but Recommended)**
+   - Consider using a clean account to avoid conflicts
+   - Or ensure you understand existing resources in your account
 
-### Step 3: Verify Configuration
+### Step 1.1: Set Up Billing Alerts (Recommended)
 
-Test your configuration:
+Protect yourself from unexpected costs:
 
-```bash
-# Should show your account details
-aws sts get-caller-identity
-
-# Should show: us-west-2
-aws configure get region
-```
-
-**Expected output:**
-```json
-{
-    "UserId": "AIDAIOSFODNN7EXAMPLE",
-    "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/workshop-participant-1"
-}
-```
-
-### Security Best Practices
-
-- ✅ Never commit access keys to Git repositories
-- ✅ Delete keys after workshop (your administrator will handle this)
-- ✅ Don't share your access keys with others
-- ✅ Use the keys only for this workshop
+1. Sign in to AWS Console: https://console.aws.amazon.com/
+2. Click your account name (top right) → **"Billing and Cost Management"**
+3. In left menu, click **"Budgets"**
+4. Click **"Create budget"**
+5. Choose **"Zero spend budget"** (get alerted on any charges)
+6. Or create a custom budget (e.g., $10/month)
+7. Enter your email for alerts
+8. Click **"Create budget"**
 
 ---
 
-## Alternative: AWS SSO (For Organizations with Existing SSO)
+## Step 2: Install AWS CLI
 
-If your organization already has AWS IAM Identity Center (formerly AWS SSO) configured and you've been provided an SSO start URL, you can use SSO instead of IAM user credentials.
-
-**⚠️ Important:** Do NOT attempt to set up SSO during the workshop. It requires organizational AWS setup and is too complex for workshop timeframes. Only use this option if:
-- Your organization has IAM Identity Center already enabled
-- You've been provided an SSO start URL by your administrator
-- You've tested SSO authentication before the workshop
-
-### Quick SSO Configuration
-
-If you meet the requirements above:
+### macOS
 
 ```bash
-# Run interactive SSO configuration
-aws configure sso
+# Download installer
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
 
-# Follow the prompts:
-# - SSO start URL: (provided by your administrator)
-# - SSO Region: (typically us-east-1)
-# - Select your AWS account and role
-# - CLI default region: us-west-2
-# - CLI profile name: workshop
-
-# Login to SSO
-aws sso login --profile workshop
-
-# Set as default
-export AWS_PROFILE=workshop
+# Install
+sudo installer -pkg AWSCLIV2.pkg -target /
 
 # Verify
-aws sts get-caller-identity
-```
-
-### SSO Resources
-
-For detailed SSO setup instructions, see official AWS documentation:
-- [IAM Identity Center Getting Started](https://docs.aws.amazon.com/singlesignon/latest/userguide/getting-started.html)
-- [AWS CLI SSO Configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
-- [SSO Session Management](https://docs.aws.amazon.com/cli/latest/userguide/sso-configure-profile-token.html)
-
-**Note:** If you encounter issues with SSO during the workshop, ask your administrator for IAM user credentials instead (recommended method above)
-
----
-
-## Verify Your Configuration
-
-Run these commands to ensure everything is configured correctly:
-
-```bash
-# 1. Check AWS CLI version
 aws --version
-# Expected: aws-cli/2.x.x or higher
-
-# 2. Verify active profile
-echo $AWS_PROFILE
-# Expected: workshop-profile (or your chosen name)
-
-# 3. Test credentials
-aws sts get-caller-identity
-# Expected: Your account ID, user ARN, and user ID
-
-# 4. Check region
-aws configure get region
-# Expected: us-west-2 (or your configured region)
-
-# 5. Test Bedrock access (optional)
-aws bedrock list-foundation-models --region us-west-2 --max-results 1
-# Expected: JSON response with model information
+# Expected: aws-cli/2.x.x
 ```
 
-**All checks passed?** You're ready to proceed with the workshop!
+### Linux
+
+```bash
+# Download and install
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Verify
+aws --version
+# Expected: aws-cli/2.x.x
+```
+
+### Windows (WSL 2)
+
+```bash
+# Inside WSL terminal
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Verify
+aws --version
+# Expected: aws-cli/2.x.x
+```
 
 ---
 
-## Bootstrap AWS CDK
+## Step 3: Create Access Keys
 
-Required once per AWS account and region (for deploying infrastructure with CDK):
+You need AWS credentials to use the CLI:
+
+1. **Sign in to AWS Console**
+   - Go to: https://console.aws.amazon.com/
+
+2. **Navigate to IAM**
+   - Search for "IAM" in the top search bar
+   - Click **"IAM"** service
+
+3. **Create Access Key**
+   - In left menu, click **"Users"**
+   - Click your username (or create a new IAM user with Administrator access)
+   - Click **"Security credentials"** tab
+   - Scroll to **"Access keys"** section
+   - Click **"Create access key"**
+
+4. **Choose Use Case**
+   - Select **"Command Line Interface (CLI)"**
+   - Check the confirmation box
+   - Click **"Next"**
+
+5. **Add Description (Optional)**
+   - Description tag: "Workshop CLI Access"
+   - Click **"Create access key"**
+
+6. **Save Your Credentials**
+   - **⚠️ CRITICAL**: Save both keys immediately - you cannot retrieve the Secret Key later!
+   - **Access Key ID**: AKIAIOSFODNN7EXAMPLE
+   - **Secret Access Key**: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+   - Click **"Download .csv file"** (backup)
+   - Store securely (password manager recommended)
+
+---
+
+## Step 4: Configure AWS CLI
+
+Configure your AWS credentials:
 
 ```bash
-# Using your configured profile
-export AWS_PROFILE=workshop-profile
+# Configure with your credentials
+aws configure
 
-# Get your account ID
+# You'll be prompted for:
+# AWS Access Key ID [None]: PASTE_YOUR_ACCESS_KEY_ID
+# AWS Secret Access Key [None]: PASTE_YOUR_SECRET_ACCESS_KEY
+# Default region name [None]: us-west-2
+# Default output format [None]: json
+```
+
+**Important**: Use **`us-west-2`** as your default region for this workshop.
+
+### Verify Configuration
+
+```bash
+# Test your credentials
+aws sts get-caller-identity
+
+# Expected output:
+# {
+#     "UserId": "AIDAXXXXXXXXXXXXXXXXX",
+#     "Account": "123456789012",
+#     "Arn": "arn:aws:iam::123456789012:user/your-username"
+# }
+```
+
+If you see your account ID and ARN, you're configured correctly! ✅
+
+---
+
+## Step 5: Enable Bedrock Model Access
+
+**As of October 2025**: Bedrock models are automatically enabled for new AWS accounts. This step is only needed for legacy accounts.
+
+### For Legacy Accounts Only
+
+If you have an older AWS account created before October 2025:
+
+1. **Go to Bedrock Console**
+   - Visit: https://console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess
+
+2. **Enable Model Access**
+   - Click **"Modify model access"** (if you see this option)
+   - Enable these models:
+     - ✅ **Amazon Nova** (all variants: Micro, Lite, Pro, Premier)
+     - ✅ **Anthropic Claude 3.5** (Haiku, Sonnet)
+     - ✅ **Anthropic Claude 4.5** (Haiku, Sonnet)
+
+3. **Save Changes**
+   - Click **"Save changes"**
+   - Access is granted instantly (no approval needed)
+
+### Verify Model Access
+
+```bash
+# List available models
+aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova`) || contains(modelId, `claude`)].modelId' --output table
+
+# You should see Nova and Claude models listed
+```
+
+---
+
+## Step 6: Bootstrap AWS CDK
+
+CDK needs to be bootstrapped once per account and region:
+
+```bash
+# Get your AWS account ID
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
-# Bootstrap CDK (replace us-west-2 with your region if different)
+# Bootstrap CDK in us-west-2
 cdk bootstrap aws://$ACCOUNT_ID/us-west-2
+
+# Expected output:
+# ✅ Bootstrapping environment aws://123456789012/us-west-2...
+# ✅ Environment aws://123456789012/us-west-2 bootstrapped
 ```
 
-**Expected output:**
-```
-⏳  Bootstrapping environment aws://123456789012/us-west-2...
-✅  Environment aws://123456789012/us-west-2 bootstrapped.
+This creates a CloudFormation stack called `CDKToolkit` with resources needed for CDK deployments.
+
+---
+
+## Step 7: Verify Complete Setup
+
+Run the automated validation script:
+
+```bash
+cd genai-agentcore-demos
+./quickstart.sh
 ```
 
-**Note:** You only need to bootstrap once per account/region combination.
+**Expected output**:
+```
+✓ AWS CLI v2.x.x installed
+✓ AWS credentials valid (Account: 123456789012)
+✓ Default region set: us-west-2
+✓ Bedrock model access enabled (8 Nova, 30 Claude models)
+✓ Amazon Nova Premier (required for vision) - Available
+✓ Python 3.13.x installed
+✓ uv vx.x.x installed
+✓ Docker vx.x.x installed
+✓ Docker daemon is running
+✓ AWS CDK vx.x.x installed
+✓ CDK bootstrapped in us-west-2
+✓ In correct directory (genai-agentcore-demos)
+✓ Virtual environment exists (.venv)
+✓ Bedrock API access verified
+✓ ECR access verified
+
+===================================================
+Validation Summary
+===================================================
+
+Passed:   16
+Warnings: 0
+Failed:   0
+
+✓ All checks passed! You're ready to start the workshop.
+```
 
 ---
 
 ## Troubleshooting
 
-### Issue: "aws: command not found"
+### "Unable to locate credentials"
 
-**Problem:** AWS CLI is not installed.
-
-**Solution:**
-1. Install AWS CLI v2: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-2. Verify installation: `aws --version`
-
----
-
-### Issue: "Unable to locate credentials"
-
-**Problem:** No AWS credentials configured or profile not found.
-
-**Solution:**
+**Solution**:
 ```bash
-# List configured profiles
-aws configure list-profiles
+# Re-configure AWS CLI
+aws configure
 
-# If no profiles exist, configure one:
-aws configure sso  # For SSO
-# OR
-aws configure --profile workshop-profile  # For IAM user
+# Verify credentials file exists
+cat ~/.aws/credentials
 
-# Set the profile
-export AWS_PROFILE=workshop-profile
+# Should show:
+# [default]
+# aws_access_key_id = YOUR_ACCESS_KEY
+# aws_secret_access_key = YOUR_SECRET_KEY
 ```
 
----
+### "Access Denied" for Bedrock
 
-### Issue: "Error loading SSO Token: Token has expired"
+**Solution**:
+1. Ensure you're using **Administrator** IAM permissions
+2. For legacy accounts: Enable model access in Bedrock Console
+3. Check your account doesn't have restrictive SCPs (Service Control Policies)
 
-**Problem:** SSO session expired (sessions expire after 8 hours by default).
+### "CDK Bootstrap Failed"
 
-**Solution:**
+**Solution**:
 ```bash
-# Re-authenticate
-aws sso login --profile workshop-profile
-```
-
----
-
-### Issue: "An error occurred (AccessDeniedException)"
-
-**Problem:** Your IAM user/role lacks required permissions.
-
-**Solution:**
-1. Contact your AWS administrator
-2. Request permissions for:
-   - Bedrock model invocation (`bedrock:InvokeModel`)
-   - AgentCore operations (`bedrock-agentcore:*`)
-   - IAM role management (for deployment)
-   - CloudWatch Logs (`logs:*`)
-   - SSM Parameter Store (`ssm:GetParameter`, `ssm:PutParameter`)
-3. Or request the managed policy: `BedrockAgentCoreFullAccess`
-
----
-
-### Issue: "Region not configured"
-
-**Problem:** Default region not set.
-
-**Solution:**
-```bash
-# Set region for current profile
-aws configure set region us-west-2 --profile workshop-profile
-
-# Or export as environment variable
-export AWS_REGION=us-west-2
-```
-
----
-
-### Issue: "Profile not found"
-
-**Problem:** Typo in profile name or profile doesn't exist.
-
-**Solution:**
-```bash
-# List all configured profiles
-aws configure list-profiles
-
-# View profile details
-cat ~/.aws/config
-cat ~/.aws/credentials  # For IAM users only
-
-# Use correct profile name
-export AWS_PROFILE=<exact-profile-name>
-```
-
----
-
-### Issue: CDK Bootstrap Fails
-
-**Problem:** Insufficient permissions or region mismatch.
-
-**Solution:**
-```bash
-# Verify you have permissions for:
-# - CloudFormation
-# - S3
-# - IAM
-# - ECR
-# Contact AWS administrator if needed
-
-# Ensure region matches
-aws configure get region
-
-# Try with explicit profile and region
-cdk bootstrap aws://ACCOUNT_ID/us-west-2 --profile workshop-profile
-```
-
----
-
-## Quick Reference
-
-### Essential Commands
-
-```bash
-# Configure SSO profile
-aws configure sso
-
-# Login to SSO
-aws sso login --profile PROFILE_NAME
-
-# Configure IAM user profile
-aws configure --profile PROFILE_NAME
-
-# Set active profile
-export AWS_PROFILE=PROFILE_NAME
-
-# Verify credentials
+# Ensure you have the correct account ID
 aws sts get-caller-identity
 
-# Check region
-aws configure get region
+# Try bootstrap with verbose output
+cdk bootstrap aws://YOUR_ACCOUNT_ID/us-west-2 --verbose
 
-# List profiles
-aws configure list-profiles
-
-# View configuration
-cat ~/.aws/config
+# Check CloudFormation console for error details
+# https://console.aws.amazon.com/cloudformation/
 ```
 
-### Configuration Files
+### "Region Mismatch"
 
-- **`~/.aws/config`**: AWS profiles and SSO configuration
-- **`~/.aws/credentials`**: IAM user access keys (for Option B only)
-- **`~/.aws/sso/cache/`**: Cached SSO tokens
+**Solution**:
+```bash
+# Ensure us-west-2 is your default region
+aws configure get region
+# Should output: us-west-2
+
+# If not, set it:
+aws configure set region us-west-2
+```
+
+---
+
+## Cost Estimates
+
+**Expected workshop costs** (assuming 2-hour session):
+
+| Service | Usage | Estimated Cost |
+|---------|-------|----------------|
+| **Bedrock (Nova/Claude)** | ~50 requests | ~$0.10 - $0.50 |
+| **AgentCore Runtime** | 2 hours active | ~$0.20 - $0.40 |
+| **ECR Storage** | <1 GB for 1 day | ~$0.01 |
+| **CloudWatch Logs** | <100 MB | ~$0.01 |
+| **DynamoDB (Memory)** | Minimal reads/writes | ~$0.01 |
+| **S3** | CodeBuild artifacts | ~$0.01 |
+
+**Total**: **$0.34 - $0.94** for a 2-hour workshop
+
+**Free Tier**: Some services (S3, ECR, CloudWatch, DynamoDB) have free tier allowances that may cover workshop usage.
+
+### Cleanup After Workshop
+
+To minimize costs after the workshop:
+
+```bash
+cd genai-agentcore-demos/finance-personal-assistant/production
+
+# Complete cleanup (removes all deployed resources)
+uv run cleanup.py
+
+# Verify cleanup
+aws bedrock-agentcore list-agent-runtimes --region us-west-2
+# Should show empty list
+```
+
+---
+
+## Security Best Practices
+
+1. **Never commit credentials to Git**
+   - AWS credentials are in `~/.aws/credentials` (not in repo)
+   - `.gitignore` already excludes credential files
+
+2. **Rotate access keys regularly**
+   - After workshop, consider creating new access keys
+   - Delete old access keys in IAM Console
+
+3. **Use billing alerts**
+   - Set up budget alerts (see Step 1.1)
+   - Monitor AWS Cost Explorer
+
+4. **Delete resources after workshop**
+   - Run `cleanup.py` to remove all deployed resources
+   - Check AWS Console for any remaining resources
+
+---
+
+## Next Steps
+
+✅ Once all steps are complete, return to the main README and start the workshop:
+
+```bash
+cd genai-agentcore-demos
+./quickstart.sh  # Validate everything is ready
+
+# Start workshop
+cd finance-personal-assistant/workshop
+jupyter lab
+```
+
+Open `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb` to begin!
 
 ---
 
 ## Additional Resources
 
-- [AWS CLI Configuration Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)
-- [AWS SSO Setup Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html)
-- [IAM Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
-- [AWS CDK Bootstrap](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping.html)
-
----
-
-## Need Help?
-
-- **During workshop:** Ask your instructor or post in the workshop Slack/chat channel
-- **AWS Support:** https://support.aws.amazon.com/
-- **AWS Documentation:** https://docs.aws.amazon.com/
-
----
-
-**Ready to proceed?** Return to the [main README](README.md) to continue with the workshop setup!
+- [AWS Account Creation Documentation](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-creating.html)
+- [AWS CLI Configuration Guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html)
+- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
+- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/v2/guide/home.html)
+- [AWS Free Tier Details](https://aws.amazon.com/free/)
