@@ -9,7 +9,7 @@ This repository contains two implementations designed for different purposes:
 ```
 finance-personal-assistant/
 │
-├── workshop/          🎓 Workshop materials for learning (1 hour)
+├── workshop/          🎓 Workshop materials for learning
 │   ├── Jupyter notebooks (Lab 1, 2, 3)
 │   ├── Workshop utilities
 │   └── Architecture diagrams
@@ -25,7 +25,7 @@ finance-personal-assistant/
 
 ---
 
-## 🎓 Workshop: Learn Multi-Agent Systems (1 Hour)
+## 🎓 Workshop: Learn Multi-Agent Systems
 
 **Start here if you want to learn** how to build multi-agent systems from scratch.
 
@@ -40,17 +40,17 @@ A lightweight multi-agent financial advisor with:
 
 ### Workshop Structure
 
-| Lab | Duration | Focus |
+| Lab | Duration (approx.) | Focus |
 |-----|----------|-------|
-| **Lab 1** | 20 min | Build a budget agent with tools and structured outputs |
-| **Lab 2** | 20 min | Create multi-agent orchestration |
-| **Lab 3** | 15 min | Deploy to AgentCore Runtime with Cognito |
+| **Lab 1** | 20 minutes | Build a budget agent with tools and structured outputs |
+| **Lab 2** | 20 minutes | Create multi-agent orchestration |
+| **Lab 3** | 15 minutes | Deploy to AgentCore Runtime with Cognito |
 
 ### Getting Started
 
 ```bash
 cd workshop/
-jupyter lab
+cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
 # Open lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
 ```
 

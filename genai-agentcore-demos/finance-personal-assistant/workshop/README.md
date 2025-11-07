@@ -103,10 +103,15 @@ uv sync
 ### Step 3: Start Jupyter Lab
 
 ```bash
-jupyter lab
+cursor .
 
 # Or use VS Code
-code lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
+code .
+
+# Then click on the notebook you want to open.
+# For example, to open Lab 1, click on `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`.
+# To open Lab 2, click on `lab2-build_multi_agent_workflows_with_strands.ipynb`.
+# To open Lab 3, click on `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`.
 ```
 
 ---
@@ -121,14 +126,14 @@ code lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
 - **Conceptual progression**: Each lab introduces new concepts that build on what you learned previously
 - **File artifacts**: Notebooks create Python files (`budget_agent.py`, `main.py`) that later labs import and use
 
-1. **Lab 1** (20 min): `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+1. **Lab 1**: `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
    - Build your first Strands agent with custom tools
 
-2. **Lab 2** (20 min): `lab2-build_multi_agent_workflows_with_strands.ipynb`
+2. **Lab 2**: `lab2-build_multi_agent_workflows_with_strands.ipynb`
    - **Requires**: `budget_agent.py` from Lab 1
    - Create multi-agent orchestration
 
-3. **Lab 3** (15 min): `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
+3. **Lab 3**: `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
    - **Requires**: `main.py` from Lab 2
    - Deploy to AWS AgentCore Runtime
 
@@ -154,12 +159,12 @@ workshop/
 
 By completing this workshop, you will:
 
-✅ Understand core Strands Agents concepts (tools, prompts, conversation management)
-✅ Build specialized agents for different financial domains
-✅ Implement multi-agent orchestration patterns
-✅ Deploy production agents to AWS using AgentCore Runtime
-✅ Configure authentication with Cognito
-✅ Stream responses in real-time from deployed agents
+- ✅ Understand core Strands Agents concepts (tools, prompts, conversation management)
+- ✅ Build specialized agents for different financial domains
+- ✅ Implement multi-agent orchestration patterns
+- ✅ Deploy production agents to AWS using AgentCore Runtime
+- ✅ Configure authentication with Cognito
+- ✅ Stream responses in real-time from deployed agents
 
 ---
 
