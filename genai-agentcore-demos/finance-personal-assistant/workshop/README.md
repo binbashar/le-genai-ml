@@ -1,6 +1,5 @@
 # Workshop: Building Multi-Agent Financial Advisors
 
-**Duration**: 1 hour
 **Difficulty**: Beginner to Intermediate
 **Prerequisites**: AWS account with Bedrock access, Python 3.13+
 
@@ -256,7 +255,7 @@ After completing the workshop:
 | `ModelAccessDeniedException` | Verify IAM permissions (`bedrock:InvokeModel`). For legacy accounts: enable models in Bedrock Console |
 | `AccessDeniedException` | Check AWS credentials: `aws sts get-caller-identity` |
 | Guardrail creation fails | Verify Bedrock permissions in IAM |
-| Agent deployment slow | Normal - CodeBuild can take 2-3 minutes |
+| Agent deployment slow | Normal - CodeBuild build in progress |
 
 ### Getting Help
 

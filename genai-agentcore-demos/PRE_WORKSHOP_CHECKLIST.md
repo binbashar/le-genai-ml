@@ -32,9 +32,7 @@ This workshop requires:
 - ✅ **Docker** running locally
 - ✅ **AWS CDK** bootstrapped in us-west-2
 
-**⏱️ Time Required:** 30-45 minutes for complete setup
-
-**💰 Workshop Cost:** Less than $1 for 2-hour session
+**💰 Workshop Cost:** Less than $1 per session
 
 **Conditional Navigation:**
 - ✅ Already have AWS account configured? → Skip to [Python Environment](#7-python-environment)
@@ -142,7 +140,6 @@ If you don't have an AWS account yet:
 - You can upgrade later if needed
 
 **Step 7: Wait for Account Activation**
-- Account activation takes 5-10 minutes
 - You'll receive a confirmation email when ready
 - Sign in at: https://console.aws.amazon.com/
 
@@ -570,18 +567,18 @@ aws configure set region us-west-2
 
 ## Cost Estimates
 
-**Expected workshop costs** (assuming 2-hour session):
+**Expected workshop costs:**
 
 | Service | Usage | Estimated Cost |
 |---------|-------|----------------|
 | **Bedrock (Nova/Claude)** | ~50 requests | ~$0.10 - $0.20 |
-| **AgentCore Runtime** | 2 hours active | ~$0.10 - $0.20 |
+| **AgentCore Runtime** | Active session | ~$0.10 - $0.20 |
 | **ECR Storage** | <1 GB for 1 day | ~$0.01 |
 | **CloudWatch Logs** | <100 MB | ~$0.01 |
 | **DynamoDB (Memory)** | Minimal reads/writes | ~$0.01 |
 | **S3** | CodeBuild artifacts | ~$0.01 |
 
-**Total:** **$0.34 - $0.44** for a 2-hour workshop
+**Total:** **Less than $1** per workshop session
 
 **Free Tier:** Some services (S3, ECR, CloudWatch, DynamoDB) have free tier allowances that may cover workshop usage. 😎
 
@@ -624,7 +621,6 @@ Once all checks pass, you're ready to begin:
 
 1. **Start with:** `workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
 2. **Follow order:** Lab 1 → Lab 2 → Lab 3 → Streamlit Demo
-3. **Estimated time:** 90-120 minutes total
 
 **Need help?** Refer to the Troubleshooting section above.
 
@@ -634,13 +630,13 @@ Once all checks pass, you're ready to begin:
 
 ```
 Workshop Flow:
-├── Lab 1: Develop Budget Assistant Agent (30 min)
+├── Lab 1: Develop Budget Assistant Agent
 │   └── Learn Strands framework basics
-├── Lab 2: Build Multi-Agent Workflows (30 min)
+├── Lab 2: Build Multi-Agent Workflows
 │   └── Orchestrate multiple specialized agents
-├── Lab 3: Deploy on Bedrock AgentCore (30 min)
+├── Lab 3: Deploy on Bedrock AgentCore
 │   └── Deploy to AWS with OAuth2 authentication
-└── Streamlit Demo: Interactive UI (30 min)
+└── Streamlit Demo: Interactive UI
     └── Test deployed agents with real-time streaming
 ```
 

@@ -26,7 +26,7 @@ A complete financial advisory system with:
 
 **⚠️ PREREQUISITE: Complete all setup steps before workshop**
 
-👉 **[Pre-Workshop Checklist](PRE_WORKSHOP_CHECKLIST.md)** (30-45 minutes)
+👉 **[Pre-Workshop Checklist](PRE_WORKSHOP_CHECKLIST.md)**
 
 This comprehensive guide covers:
 - Creating your AWS account
@@ -34,8 +34,7 @@ This comprehensive guide covers:
 - Configuring credentials and bootstrapping CDK
 - Verifying your complete setup
 
-**📌 Time Required:** 30-45 minutes for complete setup
-**💰 Workshop Cost:** Less than $1 for 2-hour session
+**💰 Workshop Cost:** Less than $1 per session
 
 ---
 
@@ -163,7 +162,7 @@ genai-agentcore-demos/
 
 | Feature | Workshop | Production |
 |---------|----------|------------|
-| **Purpose** | Learn concepts in 1 hour | Deploy production system |
+| **Purpose** | Learn concepts | Deploy production system |
 | **Format** | Jupyter notebooks | Python scripts + CDK |
 | **Memory** | Auto-created STM | 3-strategy LTM (USER_PREFERENCE, SEMANTIC, SUMMARY) |
 | **Authentication** | Basic Cognito (SDK) | CDK-managed OAuth2 |

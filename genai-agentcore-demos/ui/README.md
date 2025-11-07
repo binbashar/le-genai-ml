@@ -2,7 +2,7 @@
 
 Simple demonstration interface for AWS AgentCore's multi-agent orchestration capabilities.
 
-## Quick Setup (5 minutes)
+## Quick Setup
 
 ### Prerequisites
 - Python 3.13+
@@ -47,13 +47,13 @@ AGENTS = {
 
 ## Demo Script
 
-### Finance Demo (2 minutes)
+### Finance Demo
 "Let me show you our Finance Assistant helping Sarah, a tech professional in San Francisco..."
 - Click "Run Demo Scenario"
 - Point out tool messages: budget calculation, spending analysis
 - Highlight personalized recommendations
 
-### Market Demo (2 minutes)
+### Market Demo
 "Now let's see how our Market Trends agent helps Sarah invest..."
 - Switch to Market tab
 - Click "Run Demo Scenario"

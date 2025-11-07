@@ -40,11 +40,11 @@ A lightweight multi-agent financial advisor with:
 
 ### Workshop Structure
 
-| Lab | Duration (approx.) | Focus |
-|-----|----------|-------|
-| **Lab 1** | 20 minutes | Build a budget agent with tools and structured outputs |
-| **Lab 2** | 20 minutes | Create multi-agent orchestration |
-| **Lab 3** | 15 minutes | Deploy to AgentCore Runtime with Cognito |
+| Lab | Focus |
+|-----|-------|
+| **Lab 1** | Build a budget agent with tools and structured outputs |
+| **Lab 2** | Create multi-agent orchestration |
+| **Lab 3** | Deploy to AgentCore Runtime with Cognito |
 
 ### Getting Started
 
@@ -113,7 +113,6 @@ cd cdk && ./deploy.sh && cd ..
 | Feature | Workshop | Production |
 |---------|----------|------------|
 | **Purpose** | Learning & education | Enterprise deployment |
-| **Duration** | 1 hour | Production-ready |
 | **Memory** | STM only (auto-created) | Multi-strategy (3 strategies) |
 | **Authentication** | Basic Cognito | CDK-managed OAuth2 |
 | **Vision** | ❌ Not included | ✅ Amazon Nova Premier |
@@ -167,7 +166,7 @@ Our system consists of three core components:
 - Want to learn multi-agent concepts from scratch
 - Are attending or leading a training session
 - Need hands-on Jupyter notebook tutorials
-- Have 1 hour to build and deploy a working agent
+- Want to build and deploy a working agent step-by-step
 
 ### Use **Production** if you:
 - Need a production-ready deployment
