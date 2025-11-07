@@ -284,6 +284,23 @@ def pretty_print_messages(messages: list) -> None:
         role = msg.get("role", "unknown")
         content = msg.get("content", "")
 
+        # Handle list content (multimodal messages)
+        if isinstance(content, list):
+            # Extract text from content blocks
+            text_parts = []
+            for block in content:
+                if isinstance(block, dict):
+                    if "text" in block:
+                        text_parts.append(block["text"])
+                    elif "type" in block:
+                        text_parts.append(f"[{block['type']} content]")
+                else:
+                    text_parts.append(str(block))
+            content = "\n".join(text_parts)
+
+        # Convert to string if not already
+        content = str(content)
+
         if role == "user":
             user_count += 1
             icon = "👤"
