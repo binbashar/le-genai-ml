@@ -31,6 +31,7 @@
 #   - Automatically copied from .demo_users.json.example if not present
 #   - Customize usernames, passwords, emails before deployment (optional)
 #   - Users created automatically during deployment
+#   - Passwords set as permanent (no forced password change required)
 #   - Format: JSON array with username, password, email, name fields
 #
 # Infrastructure created:
@@ -97,5 +98,33 @@ fi
 
 echo ""
 echo "✅ CDK deployment complete!"
+echo ""
+
+# Extract User Pool ID from outputs
+USER_POOL_ID=$(jq -r '.["finance-personal-assistant-stack"].UserPoolId' outputs.json)
+
+if [ -n "$USER_POOL_ID" ] && [ "$USER_POOL_ID" != "null" ]; then
+    echo "🔐 Setting demo user passwords as permanent..."
+
+    # Read demo users and set their passwords
+    if [ -f "$DEMO_USERS_FILE" ]; then
+        # Use jq to iterate through users and set passwords
+        jq -c '.[]' "$DEMO_USERS_FILE" | while read -r user; do
+            USERNAME=$(echo "$user" | jq -r '.username')
+            PASSWORD=$(echo "$user" | jq -r '.password')
+
+            echo "   Setting password for $USERNAME..."
+            aws cognito-idp admin-set-user-password \
+                --user-pool-id "$USER_POOL_ID" \
+                --username "$USERNAME" \
+                --password "$PASSWORD" \
+                --permanent \
+                2>/dev/null || echo "   ⚠️  Could not set password for $USERNAME (may already be set)"
+        done
+
+        echo "✅ Demo user passwords set as permanent"
+    fi
+fi
+
 echo ""
 echo "🎉 OAuth infrastructure deployed!"

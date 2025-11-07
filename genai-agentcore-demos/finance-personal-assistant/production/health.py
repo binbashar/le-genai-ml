@@ -46,7 +46,7 @@ if __name__ == "__main__":
         default_prompt="Hello, are you operational?",
         aws_profile="binbash",
         demo_credentials=HealthCheckCredentials(
-            username="broker_demo",
+            username="demo_user",
             password="DemoPass123!",
             credential_source="demo",
         ),
