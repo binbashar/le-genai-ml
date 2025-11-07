@@ -113,9 +113,9 @@ cursor .  # Or: code .
 **Why this matters:** VS Code and Cursor look for virtual environments in the folder you open. If you open a subdirectory (like `workshop/`), they won't find the `.venv` folder that lives at the `genai-agentcore-demos/` level, and you'll have trouble selecting the correct kernel for notebooks.
 
 Once your editor opens, navigate to and click on the notebooks in this order:
-1. `finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
-2. `finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb`
-3. `finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
+1. [Lab 1: Develop a Personal Budget Assistant](lab1-develop_a_personal_budget_assistant_strands_agent.ipynb)
+2. [Lab 2: Build Multi-Agent Workflows](lab2-build_multi_agent_workflows_with_strands.ipynb)
+3. [Lab 3: Deploy to AgentCore Runtime](lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb)
 
 ---
 
@@ -129,14 +129,14 @@ Once your editor opens, navigate to and click on the notebooks in this order:
 - **Conceptual progression**: Each lab introduces new concepts that build on what you learned previously
 - **File artifacts**: Notebooks create Python files (`budget_agent.py`, `main.py`) that later labs import and use
 
-1. **Lab 1**: `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+1. [**Lab 1**: Develop a Personal Budget Assistant](lab1-develop_a_personal_budget_assistant_strands_agent.ipynb)
    - Build your first Strands agent with custom tools
 
-2. **Lab 2**: `lab2-build_multi_agent_workflows_with_strands.ipynb`
+2. [**Lab 2**: Build Multi-Agent Workflows](lab2-build_multi_agent_workflows_with_strands.ipynb)
    - **Requires**: `budget_agent.py` from Lab 1
    - Create multi-agent orchestration
 
-3. **Lab 3**: `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
+3. [**Lab 3**: Deploy to AgentCore Runtime](lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb)
    - **Requires**: `main.py` from Lab 2
    - Deploy to AWS AgentCore Runtime
 
@@ -228,10 +228,10 @@ uv run python cleanup.py
 
 After completing the workshop:
 
-1. **Explore Production Code**: Check `../production/` for advanced features
-2. **Try the Streamlit UI**: `cd ../production && ./demo.sh`
-3. **Customize Agents**: Modify prompts, add new tools, experiment!
-4. **Read Documentation**: See `../README.md` for full deployment guide
+1. **Explore Production Code**: Check `../production/` for advanced features (multi-strategy memory, vision analysis, OAuth2, etc.)
+2. **Try the Streamlit UI**: Run `../../demo.sh` from project root to interact with deployed agents
+3. **Customize Agents**: Modify prompts, add new tools, experiment with different models!
+4. **Read Production Guide**: See [`../production/README.md`](../production/README.md) for full enterprise deployment details
 
 ---
 

@@ -265,9 +265,6 @@ agent_configs = get_all_agent_configs()
 #   "finance_personal_assistant": {
 #     "arn": "arn:aws:bedrock-agentcore:...",
 #     "oauth": {"customJWTAuthorizer": {...}}
-#   },
-#   "market_trends_agent": {
-#     "arn": "arn:aws:bedrock-agentcore:..."
 #   }
 # }
 

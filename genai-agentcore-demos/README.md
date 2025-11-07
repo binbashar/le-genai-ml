@@ -68,51 +68,51 @@ cursor .  # Or: code .
 **Important:** Open VS Code or Cursor from the `genai-agentcore-demos/` directory (not from subdirectories). This ensures your editor can find the virtual environment (`.venv`) and properly detect Python kernels for the Jupyter notebooks.
 
 Once your editor opens, navigate to the workshop notebooks:
-1. `finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
-2. `finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb`
-3. `finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
+1. [Lab 1: Develop a Personal Budget Assistant](finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb)
+2. [Lab 2: Build Multi-Agent Workflows](finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb)
+3. [Lab 3: Deploy to AgentCore Runtime](finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb)
 
 ---
 
-### For Production Deployment
+### Ready to Start the Workshop?
 
-**Option 1: Deploy with OAuth Authentication (Recommended)**
+**🎓 Begin with Lab 1:**
 
-```bash
-cd finance-personal-assistant/production
-
-# Deploy Cognito infrastructure
-cd cdk && ./deploy.sh && cd ..
-
-# Configure and launch agent
-./configure.sh  # Reads OAuth from SSM
-./launch.sh     # Deploys to AWS, publishes ARN to SSM
-
-# Verify deployment
-./health.sh
-```
-
-**Option 2: Deploy with IAM Authentication Only**
+Once your setup is validated, start the hands-on labs:
 
 ```bash
-cd finance-personal-assistant/production
+# Navigate to workshop directory
+cd finance-personal-assistant/workshop
 
-./configure.sh  # Creates .bedrock_agentcore.yaml
-./launch.sh     # Deploys to AWS
-./health.sh     # Verify
+# Open your IDE (from genai-agentcore-demos/ root for kernel detection)
+cd ../..
+cursor .  # Or: code .
 ```
 
-**Run the Streamlit Demo**
+**📓 Open the notebooks in order:**
 
-```bash
-# From project root
-./demo.sh
+1. [Lab 1: Develop a Personal Budget Assistant](finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb)
+2. [Lab 2: Build Multi-Agent Workflows](finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb)
+3. [Lab 3: Deploy to AgentCore Runtime](finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb)
 
-# Or from ui directory
-cd ui && ./demo.sh
-```
+**💡 IDE Tip:** Click on the links above (or navigate in your IDE's file explorer) to open each notebook. Make sure you've opened the editor from the `genai-agentcore-demos/` directory so it can detect the Python kernel.
 
-The UI auto-discovers deployed agents via SSM Parameter Store - no manual configuration needed!
+👉 **[Workshop Instructions](finance-personal-assistant/workshop/README.md)** - Detailed lab guide
+
+---
+
+### Want to Deploy Production Agents?
+
+After completing the workshop, explore the production implementation with enterprise features:
+
+- Multi-strategy memory (USER_PREFERENCE, SEMANTIC, SUMMARY)
+- Vision analysis for receipts/invoices (Amazon Nova Premier)
+- OAuth2/Cognito authentication via CDK
+- Streamlit UI with real-time streaming
+- Document processing (CSV/PDF)
+- Service discovery via SSM Parameter Store
+
+👉 **[Production Deployment Guide](finance-personal-assistant/production/README.md)** - Full production setup
 
 ---
 

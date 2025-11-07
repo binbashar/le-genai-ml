@@ -27,7 +27,7 @@ def get_agent_runtime_config(agent_name: str, region: str = "us-west-2") -> Opti
     without manual sync scripts or file dependencies.
 
     Args:
-        agent_name: Agent name (e.g., "finance_personal_assistant", "market_trends_agent")
+        agent_name: Agent name (e.g., "finance_personal_assistant")
         region: AWS region (default: us-west-2)
 
     Returns:
@@ -101,8 +101,7 @@ def get_all_agent_configs(region: str = "us-west-2") -> dict[str, dict]:
     Returns:
         Dict mapping agent names to their runtime configs:
         {
-            "finance_personal_assistant": {"arn": "...", "oauth_config": {...}},
-            "market_trends_agent": {"arn": "...", "oauth_config": null}
+            "finance_personal_assistant": {"arn": "...", "oauth_config": {...}}
         }
 
     Example:

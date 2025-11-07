@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests market-trends-agent and finance-personal-assistant
+Tests finance-personal-assistant agent
 """
 
 import os
@@ -75,10 +75,6 @@ def main():
     base_dir = Path(__file__).parent
 
     agents = [
-        {
-            "name": "Market Trends Agent",
-            "dir": base_dir / "market-trends-agent",
-        },
         {
             "name": "Finance Personal Assistant",
             "dir": base_dir / "finance-personal-assistant",

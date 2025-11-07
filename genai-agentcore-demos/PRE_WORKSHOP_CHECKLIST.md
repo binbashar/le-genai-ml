@@ -570,28 +570,51 @@ aws bedrock-agentcore list-agent-runtimes --region us-west-2
 
 ## Ready to Start?
 
-Once all checks pass, you're ready to begin:
+Once all checks pass, you're ready to begin the workshop! 🚀
 
-1. **Start with:** `workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
-2. **Follow order:** Lab 1 → Lab 2 → Lab 3 → Streamlit Demo
+### Step 1: Open Your IDE
 
-**Need help?** Refer to the Troubleshooting section above.
+**Important:** Open your IDE from the `genai-agentcore-demos/` directory (where `.venv` lives) to ensure proper Python kernel detection:
 
----
-
-## Workshop Structure
-
+```bash
+cd genai-agentcore-demos
+cursor .  # Or: code .
 ```
-Workshop Flow:
-├── Lab 1: Develop Budget Assistant Agent
-│   └── Learn Strands framework basics
-├── Lab 2: Build Multi-Agent Workflows
-│   └── Orchestrate multiple specialized agents
-├── Lab 3: Deploy on Bedrock AgentCore
-│   └── Deploy to AWS with OAuth2 authentication
-└── Streamlit Demo: Interactive UI
-    └── Test deployed agents with real-time streaming
+
+**Why this matters:** Your IDE needs to find the virtual environment (`.venv`) to properly detect the Python kernel for Jupyter notebooks. Opening from a subdirectory will prevent kernel detection.
+
+### Step 2: Navigate to Workshop Notebooks
+
+In your IDE's file explorer, navigate to:
 ```
+finance-personal-assistant/workshop/
+```
+
+### Step 3: Complete Labs in Order
+
+Click on each notebook link to open it:
+
+1. **Lab 1** (20 min): [Develop a Personal Budget Assistant](finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb)
+   - Build a budget agent with custom tools
+   - Learn Strands framework basics
+
+2. **Lab 2** (20 min): [Build Multi-Agent Workflows](finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb)
+   - Create multi-agent orchestration
+   - Coordinate specialized agents
+
+3. **Lab 3** (15 min): [Deploy to AgentCore Runtime](finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb)
+   - Deploy to AWS AgentCore Runtime
+   - Configure authentication
+
+### Next Steps After Workshop
+
+Once you've completed all three labs:
+
+1. **Explore Production Code**: See enterprise features at [`finance-personal-assistant/production/`](finance-personal-assistant/production/)
+2. **Try the Streamlit UI**: Run `./demo.sh` from project root
+3. **Customize Your Agent**: Modify prompts, add new tools, experiment!
+
+**Need detailed lab instructions?** See [Workshop README](finance-personal-assistant/workshop/README.md)
 
 Good luck! 🚀
 

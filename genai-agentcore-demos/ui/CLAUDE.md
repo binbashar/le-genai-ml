@@ -42,7 +42,7 @@ cd ..
 The sync script automatically:
 - Extracts agent ARNs from each agent's `.bedrock_agentcore.yaml`
 - Detects OAuth vs IAM authentication mode
-- Converts directory names to config keys (`market-trends-agent` → `market_trends_agent`)
+- Converts directory names to config keys (`finance-personal-assistant` → `finance_personal_assistant`)
 - Preserves other agents not in sync list
 
 **Configuration file:** `config/agents.yaml` (auto-synced, do not edit manually)
@@ -70,7 +70,7 @@ The application supports three invocation modes (checked in priority order):
 **Agent configuration determines mode:**
 ```yaml
 agents:
-  market_trends_agent:
+  finance_personal_assistant:
     arn: arn:aws:bedrock-agentcore:...
     oauth_config:           # If present → OAuth mode
       discovery_url: https://...
@@ -219,16 +219,10 @@ agents:
       allowed_clients:
         - abc123xyz
     local_port: 8080                 # Optional - port for local mode
-
-  market_trends_agent:
-    name: Market Trends Agent
-    arn: arn:aws:bedrock-agentcore:...
-    # No oauth_config → IAM authentication
 ```
 
 **Configuration is synced from:**
 - `../finance-personal-assistant/.bedrock_agentcore.yaml`
-- `../market-trends-agent/.bedrock_agentcore.yaml`
 
 ### `.env` File (Optional)
 
@@ -330,7 +324,7 @@ st.session_state["agent_type"]    # Currently authenticated agent
 
 1. Start agent locally (from agent directory):
 ```bash
-cd ../market-trends-agent
+cd ../finance-personal-assistant/production
 uv run agentcore launch --local
 ```
 
@@ -348,7 +342,7 @@ Using endpoint: http://localhost:8080
 
 1. Deploy agent:
 ```bash
-cd ../market-trends-agent
+cd ../finance-personal-assistant/production
 ./launch.sh
 ```
 

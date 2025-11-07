@@ -45,7 +45,7 @@ def extract_oauth_config_from_ssm(
     - IAM-based access control
 
     Args:
-        agent_name: Agent name (e.g., "finance_personal_assistant", "market_trends_agent")
+        agent_name: Agent name (e.g., "finance_personal_assistant")
         region: AWS region where SSM parameter is stored (default: us-west-2)
 
     Returns:

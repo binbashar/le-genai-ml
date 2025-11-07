@@ -16,7 +16,7 @@ Usage:
     uv run reset_memory.py --force
 
     # Target specific agent
-    uv run reset_memory.py --agent market-trends-agent
+    uv run reset_memory.py --agent finance-personal-assistant
 """
 
 import argparse
@@ -85,7 +85,6 @@ def reset_memory(agent_name: str, dry_run: bool, force: bool) -> bool:
         # These are the names used by create_memory() / create_or_get_memory() at runtime
         runtime_prefixes = {
             "finance-personal-assistant": "FinancePersonalAssistantMemory",
-            "market-trends-agent": "MarketTrendsAgentMultiStrategy",
         }
 
         memories_to_delete = []

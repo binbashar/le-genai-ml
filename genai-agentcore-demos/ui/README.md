@@ -53,13 +53,6 @@ AGENTS = {
 - Point out tool messages: budget calculation, spending analysis
 - Highlight personalized recommendations
 
-### Market Demo
-"Now let's see how our Market Trends agent helps Sarah invest..."
-- Switch to Market tab
-- Click "Run Demo Scenario"
-- Point out tool messages: stock comparison, portfolio creation
-- Show diversified portfolio result
-
 ## Troubleshooting
 
 | Issue | Solution |

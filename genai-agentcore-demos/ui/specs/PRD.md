@@ -29,19 +29,12 @@ budget and analyze if I'm overspending on dining at $1200/month"
 ```
 **Tools displayed**: Budget breakdown, spending analysis
 
-**Scenario 2 - Market Trends**
-```
-"Compare NVDA, MSFT, and GOOGL over 6 months and create
-a $50K growth portfolio for a tech professional"
-```
-**Tools displayed**: Stock comparison, portfolio creation
-
 ### 4. Key Features
 
 #### 4.1 Single-Page Interface
-- Two tabs: Finance Assistant | Market Trends
+- Finance Assistant interface
 - Fixed persona display
-- One-click demo execution per tab
+- One-click demo execution
 - Real-time response streaming
 
 #### 4.2 Tool Orchestration Visibility

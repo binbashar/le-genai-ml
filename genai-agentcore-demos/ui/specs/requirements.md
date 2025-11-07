@@ -39,11 +39,6 @@
 - THEN the system SHALL invoke the Finance Assistant
 - AND SHALL display loading feedback
 
-**REQ-007**: Market Demo
-- WHEN the user clicks "Run Demo Scenario" on Market tab
-- THEN the system SHALL invoke the Market Trends agent
-- AND SHALL display loading feedback
-
 ### 5. Streaming Response
 
 **REQ-008**: Tool Messages
@@ -68,12 +63,6 @@
 - THEN the system SHALL show:
   - "🔧 Calculating budget breakdown..."
   - "🔧 Analyzing spending patterns..."
-
-**REQ-012**: Market Tools
-- WHEN Market Trends processes
-- THEN the system SHALL show:
-  - "🔧 Comparing stock performance..."
-  - "🔧 Creating portfolio..."
 
 ### 7. Error Handling
 

@@ -324,7 +324,7 @@ SSM Parameter Store utilities for service discovery.
    from libs.python.ssm_utils import get_all_agent_configs
 
    agents = get_all_agent_configs(region="us-west-2")
-   # Returns: {"finance-personal-assistant": {...}, "market-trends-agent": {...}}
+   # Returns: {"finance-personal-assistant": {...}}
    ```
 
 3. **put_agent_config()** - Write agent config to SSM
