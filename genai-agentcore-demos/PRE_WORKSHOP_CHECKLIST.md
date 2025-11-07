@@ -52,6 +52,8 @@ cd genai-agentcore-demos
 ./quickstart.sh
 ```
 
+**Note:** The script already has execution permissions when cloned from git. If you encounter a "Permission denied" error (rare), run: `chmod +x quickstart.sh`
+
 This automated script checks all prerequisites and shows you exactly what's configured and what still needs setup.
 
 **Expected output:**
