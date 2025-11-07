@@ -32,7 +32,6 @@ Each participant must have their own individual AWS account with administrator a
 
 The guide covers:
 - Creating a new AWS account
-- Setting up billing alerts
 - Installing & configuring AWS CLI
 - Creating access keys
 - Enabling Bedrock models
