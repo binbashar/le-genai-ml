@@ -11,11 +11,12 @@
 # Prerequisites:
 #   - AWS credentials configured (AWS_PROFILE=binbash)
 #   - AWS CDK CLI installed (npm install -g aws-cdk)
-#   - Dependencies installed (uv sync from cdk directory)
+#   - Dependencies installed (uv sync from production directory)
 #   - Optional: .demo_users.json file for automatic user creation
 #
 # What this script does:
-#   1. Checks for demo users file (../../.demo_users.json)
+#   1. Checks for demo users file (../../../.demo_users.json)
+#      - If not found, automatically copies from .demo_users.json.example
 #   2. Exports CDK environment variables (account, region)
 #   3. Bootstraps CDK if needed (idempotent, one-time per account/region)
 #   4. Deploys CloudFormation stack with Cognito + IAM resources
@@ -26,8 +27,9 @@
 #      - /agentcore/shared/cognito-pool-id (shared Cognito Pool)
 #
 # Demo users:
-#   - Copy ../../.demo_users.json.example to ../../.demo_users.json
-#   - Customize usernames, passwords, emails
+#   - File location: ../../../.demo_users.json (genai-agentcore-demos root)
+#   - Automatically copied from .demo_users.json.example if not present
+#   - Customize usernames, passwords, emails before deployment (optional)
 #   - Users created automatically during deployment
 #   - Format: JSON array with username, password, email, name fields
 #
@@ -50,11 +52,23 @@ echo "🚀 Deploying infrastructure..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Check if .demo_users.json exists
-DEMO_USERS_FILE="$SCRIPT_DIR/../../.demo_users.json"
+# Check if .demo_users.json exists, if not copy from example
+# Files are at genai-agentcore-demos root (3 levels up from cdk/)
+DEMO_USERS_FILE="$SCRIPT_DIR/../../../.demo_users.json"
+DEMO_USERS_EXAMPLE="$SCRIPT_DIR/../../../.demo_users.json.example"
+
 if [ ! -f "$DEMO_USERS_FILE" ]; then
-    echo "⚠️  Warning: $DEMO_USERS_FILE not found"
-    echo "   To create demo users, copy .demo_users.json.example to .demo_users.json"
+    if [ -f "$DEMO_USERS_EXAMPLE" ]; then
+        echo "📋 Creating demo users file from example..."
+        cp "$DEMO_USERS_EXAMPLE" "$DEMO_USERS_FILE"
+        echo "✅ Demo users file created at $DEMO_USERS_FILE"
+        echo "   You can edit this file to customize demo users"
+    else
+        echo "⚠️  Warning: $DEMO_USERS_FILE not found and no example file exists"
+        echo "   Demo users will not be created"
+    fi
+else
+    echo "✅ Using existing demo users file: $DEMO_USERS_FILE"
 fi
 
 # Export CDK environment variables for account and region resolution

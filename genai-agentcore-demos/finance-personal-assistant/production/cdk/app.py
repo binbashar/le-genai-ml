@@ -6,7 +6,7 @@ from pathlib import Path
 
 from aws_cdk import App, CfnOutput, Environment, Stack, Tags
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from libs.cdk import AgentAppClient, AgentExecutionRole
 from libs.cdk.agent_cognito import AgentCognitoPool
@@ -31,7 +31,7 @@ class FinancePersonalAssistantStack(Stack):
             self,
             "CognitoPool",
             pool_name="finance-personal-assistant",
-            demo_users_file=Path(__file__).parent.parent / ".demo_users.json",
+            demo_users_file=Path(__file__).parent.parent.parent.parent / ".demo_users.json",
         )
 
         app_client = AgentAppClient(
