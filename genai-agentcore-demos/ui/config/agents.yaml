@@ -18,5 +18,9 @@ agents:
     capabilities:
       vision: true
       documents: true  # Enables PDF and CSV uploads
-    # arn: Auto-discovered from SSM
-    # oauth_config: Auto-discovered from SSM
+    arn: arn:aws:bedrock-agentcore:us-west-2:XXXXXXXXXXXX:runtime/personal_finance_agent-GxXXXXXXXX
+    oauth_config:
+      discovery_url: https://cognito-idp.us-west-2.amazonaws.com/us-west-2_WkXXXXXXXX/.well-known/openid-configuration
+      client_id: 7mseb7tXXXXXXXXXXXXXXXX
+      allowed_clients:
+        - 7mseb7tXXXXXXXXXXXXXXXX

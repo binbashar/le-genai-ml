@@ -10,9 +10,8 @@ dependencies = [
     "watchdog>=6.0.0",
     "requests",
     "aiohttp",
-    "genai-agentcore-demos",
+    "python-dotenv",
+    "PyJWT",
     "Pillow>=10.0.0",  # Image processing for vision capability
 ]
 
-[tool.uv.sources]
-genai-agentcore-demos = { path = "../", editable = true }
