@@ -241,23 +241,27 @@ aws --version
 - Search for "IAM" in the top search bar
 - Click **"IAM"** service
 
-**3. Create Access Key**
+**3. Select or Create IAM User**
 - In left menu, click **"Users"**
-- Click your username (or create a new IAM user with Administrator access)
+- **Option A:** Click your existing username
+- **Option B:** Create a new IAM user with Administrator access
+  - **Need help?** See [Creating an IAM User with Administrator Access](https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started_create-admin-group.html)
+
+**4. Create Access Key**
 - Click **"Security credentials"** tab
 - Scroll to **"Access keys"** section
 - Click **"Create access key"**
 
-**4. Choose Use Case**
+**5. Choose Use Case**
 - Select **"Command Line Interface (CLI)"**
 - Check the confirmation box
 - Click **"Next"**
 
-**5. Add Description (Optional)**
+**6. Add Description (Optional)**
 - Description tag: "Workshop CLI Access"
 - Click **"Create access key"**
 
-**6. Save Your Credentials**
+**7. Save Your Credentials**
 - **⚠️ CRITICAL:** Save both keys immediately - you cannot retrieve the Secret Key later!
 - **Access Key ID:** AKIAIOSFODNN7EXAMPLE
 - **Secret Access Key:** wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
