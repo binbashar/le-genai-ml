@@ -13,12 +13,11 @@ Complete this checklist **before** starting the workshop to ensure a smooth expe
 - [Install AWS CLI](#2-install-aws-cli) - If AWS CLI not installed
 - [Create Access Keys](#3-create-access-keys) - If you need AWS credentials
 - [Configure AWS CLI](#4-configure-aws-cli) - Setup AWS credentials
-- [Enable Bedrock Models](#5-enable-bedrock-model-access-legacy-accounts-only) - For older AWS accounts only
-- [Bootstrap AWS CDK](#6-bootstrap-aws-cdk) - Required once per account/region
-- [Python Environment](#7-python-environment) - Install Python and uv
-- [Docker](#8-docker) - Install Docker
-- [AWS CDK](#9-aws-cdk) - Install CDK CLI
-- [Repository Setup](#10-repository-setup) - Clone and install dependencies
+- [Bootstrap AWS CDK](#5-bootstrap-aws-cdk) - Required once per account/region
+- [Python Environment](#6-python-environment) - Install Python and uv
+- [Docker](#7-docker) - Install Docker
+- [AWS CDK](#8-aws-cdk) - Install CDK CLI
+- [Repository Setup](#9-repository-setup) - Clone and install dependencies
 - [Troubleshooting](#troubleshooting) - If you encounter issues
 
 ---
@@ -35,8 +34,8 @@ This workshop requires:
 **💰 Workshop Cost:** Less than $1 per session
 
 **Conditional Navigation:**
-- ✅ Already have AWS account configured? → Skip to [Python Environment](#7-python-environment)
-- ✅ Already have Python, Docker, CDK installed? → Skip to [Repository Setup](#10-repository-setup)
+- ✅ Already have AWS account configured? → Skip to [Python Environment](#6-python-environment)
+- ✅ Already have Python, Docker, CDK installed? → Skip to [Repository Setup](#9-repository-setup)
 - ✅ Setup completed previously? → Go to [Check Your Setup Status](#check-your-setup-status)
 
 ---
@@ -59,8 +58,6 @@ This automated script checks all prerequisites and shows you exactly what's conf
 ✓ AWS CLI v2.x.x installed
 ✓ AWS credentials valid (Account: 123456789012)
 ✓ Default region set: us-west-2
-✓ Bedrock model access enabled (8 Nova, 30 Claude models)
-✓ Amazon Nova Premier (required for vision) - Available
 ✓ Python 3.13.x installed
 ✓ uv vx.x.x installed
 ✓ Docker vx.x.x installed
@@ -88,8 +85,7 @@ Failed:   0
 - ❌ **AWS CLI not installed?** → Go to [Install AWS CLI](#2-install-aws-cli)
 - ❌ **AWS credentials not valid?** → Go to [Create Access Keys](#3-create-access-keys) and [Configure AWS CLI](#4-configure-aws-cli)
 - ❌ **Python/Docker/CDK missing?** → Follow the relevant sections below
-- ❌ **CDK not bootstrapped?** → Go to [Bootstrap AWS CDK](#6-bootstrap-aws-cdk)
-- ❌ **Bedrock model access denied?** → Go to [Enable Bedrock Models](#5-enable-bedrock-model-access-legacy-accounts-only)
+- ❌ **CDK not bootstrapped?** → Go to [Bootstrap AWS CDK](#5-bootstrap-aws-cdk)
 
 **Note:** You can run `./quickstart.sh` at any time to check your progress!
 
@@ -311,45 +307,7 @@ If you see your account ID and ARN, you're configured correctly! ✅
 
 ---
 
-## 5. Enable Bedrock Model Access (Legacy Accounts Only)
-
-👉 **As of October 2025:** Bedrock models are automatically enabled for new AWS accounts. This step is only needed for legacy accounts. 👈
-
-**For New Accounts (created after October 2025):** → Skip to [Bootstrap AWS CDK](#6-bootstrap-aws-cdk)
-
----
-
-### For Legacy Accounts Only
-
-If you have an older AWS account created before October 2025:
-
-**1. Go to Bedrock Console**
-- Visit: https://console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess
-- If you don't see the "Modify model access" option, you're all set!
-
-**2. Enable Model Access**
-- Click **"Modify model access"** (if you see this option)
-- Enable these models:
-  - ✅ **Amazon Nova** (all variants: Micro, Lite, Pro, Premier)
-  - ✅ **Anthropic Claude 3.5** (Haiku, Sonnet)
-  - ✅ **Anthropic Claude 4.5** (Haiku, Sonnet)
-
-**3. Save Changes**
-- Click **"Save changes"**
-- Access is granted instantly (no approval needed)
-
-### Verify Model Access
-
-```bash
-# List available models
-aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?contains(modelId, `nova`) || contains(modelId, `claude`)].modelId' --output table
-
-# You should see Nova and Claude models listed
-```
-
----
-
-## 6. Bootstrap AWS CDK
+## 5. Bootstrap AWS CDK
 
 **What is CDK Bootstrapping?** The AWS Cloud Development Kit (CDK) uses Infrastructure as Code to define AWS resources. Before you can deploy CDK applications, AWS needs to prepare your environment with supporting resources.
 
@@ -361,7 +319,7 @@ aws bedrock list-foundation-models --region us-west-2 --query 'modelSummaries[?c
 
 **Why only once per region?** Bootstrap resources are shared across all CDK applications in that account/region, so you only need to set this up once.
 
-**Already bootstrapped?** → Verify with `aws cloudformation describe-stacks --stack-name CDKToolkit --region us-west-2`, then skip to [Python Environment](#7-python-environment)
+**Already bootstrapped?** → Verify with `aws cloudformation describe-stacks --stack-name CDKToolkit --region us-west-2`, then skip to [Python Environment](#6-python-environment)
 
 ---
 
@@ -383,13 +341,13 @@ This creates a CloudFormation stack called `CDKToolkit` with resources needed fo
 
 ---
 
-## 7. Python Environment
+## 6. Python Environment
 
 **Required:**
 - Python 3.13 or higher
 - `uv` package manager
 
-**Already have Python 3.13+ and uv?** → Skip to [Docker](#8-docker)
+**Already have Python 3.13+ and uv?** → Skip to [Docker](#7-docker)
 
 ---
 
@@ -420,11 +378,11 @@ uv --version
 
 ---
 
-## 8. Docker
+## 7. Docker
 
 **Required:** Docker Desktop or Docker Engine running
 
-**Already have Docker?** → Verify with `docker ps`, then skip to [AWS CDK](#9-aws-cdk)
+**Already have Docker?** → Verify with `docker ps`, then skip to [AWS CDK](#8-aws-cdk)
 
 ---
 
@@ -452,11 +410,11 @@ CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
 
 ---
 
-## 9. AWS CDK
+## 8. AWS CDK
 
 **Required:** AWS CDK CLI for infrastructure deployment
 
-**Already have CDK?** → Verify with `cdk --version`, then skip to [Repository Setup](#10-repository-setup)
+**Already have CDK?** → Verify with `cdk --version`, then skip to [Repository Setup](#9-repository-setup)
 
 ---
 
@@ -471,7 +429,7 @@ cdk --version
 
 ---
 
-## 10. Repository Setup
+## 9. Repository Setup
 
 **Clone and setup repository:**
 
@@ -516,8 +474,7 @@ cat ~/.aws/credentials
 
 **Solution:**
 1. Ensure you're using **Administrator** IAM permissions
-2. For legacy accounts: Enable model access in Bedrock Console (see [section](#5-enable-bedrock-model-access-legacy-accounts-only))
-3. Check your account doesn't have restrictive SCPs (Service Control Policies)
+2. Check your account doesn't have restrictive SCPs (Service Control Policies)
 
 ---
 
@@ -558,14 +515,6 @@ aws configure set region us-west-2
 # macOS: Open Docker Desktop app
 # Linux: sudo systemctl start docker
 ```
-
----
-
-### Issue: Bedrock model access denied
-
-**Solution:** This is rare for accounts created after October 2025. If you encounter this error:
-1. Verify IAM permissions: `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream`
-2. For legacy accounts only: Enable model access in Bedrock Console (see [section](#5-enable-bedrock-model-access-legacy-accounts-only))
 
 ---
 

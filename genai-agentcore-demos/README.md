@@ -52,7 +52,6 @@ cd genai-agentcore-demos
 This checks:
 - ✓ AWS CLI and credentials configured
 - ✓ Python 3.13+, Docker, AWS CDK installed
-- ✓ Bedrock model access enabled
 - ✓ CDK bootstrapped in your region
 
 **Step 2: Start the Workshop**

@@ -24,7 +24,7 @@ cd ../../  # Navigate to genai-agentcore-demos root
 ./quickstart.sh
 ```
 
-This checks: AWS CLI, Python 3.13+, Docker, AWS CDK, uv, Bedrock model access, CDK bootstrap.
+This checks: AWS CLI, Python 3.13+, Docker, AWS CDK, uv, CDK bootstrap.
 
 **Need help?** See [Pre-Workshop Checklist](../../PRE_WORKSHOP_CHECKLIST.md) for detailed configuration.
 

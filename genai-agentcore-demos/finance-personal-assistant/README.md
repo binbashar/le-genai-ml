@@ -216,23 +216,6 @@ aws sts get-caller-identity
 
 **Note:** Throughout this documentation, replace any reference to `AWS_PROFILE=binbash` with your configured profile name. For detailed setup instructions, see [Pre-Workshop Checklist](../../PRE_WORKSHOP_CHECKLIST.md).
 
-### Bedrock Model Access (October 2025 Update)
-
-**No manual configuration needed.** As of October 2025, Amazon Bedrock automatically enables all serverless foundation models for every AWS account by default.
-
-**What Changed:**
-- All foundation models (Nova, Claude, etc.) are automatically accessible without setup
-- The Model Access page and manual enablement process have been deprecated
-
-**For Legacy Accounts Only:**
-If you're using an older AWS account that still requires manual enablement:
-1. Visit [Bedrock Console](https://console.aws.amazon.com/bedrock/home#/modelaccess)
-2. Click "Modify model access"
-3. Enable: Amazon Nova (all variants), Anthropic Claude 3.5/4.5
-4. Access granted instantly (no approval needed)
-
-**Reference:** [AWS Security Blog - Simplified Model Access](https://aws.amazon.com/blogs/security/simplified-amazon-bedrock-model-access/)
-
 ---
 
 ## 💡 Sample Queries

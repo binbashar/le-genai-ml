@@ -250,13 +250,6 @@ else
     check_warn "Virtual environment not found" "Run: uv sync"
 fi
 
-# Check .env file
-if [ -f ".env" ]; then
-    check_pass ".env file exists"
-else
-    check_warn ".env file not found" "Run: cp .env.example .env"
-fi
-
 # ============================================================
 # 9. IAM Permissions Check
 # ============================================================

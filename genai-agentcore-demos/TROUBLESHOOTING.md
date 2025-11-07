@@ -19,15 +19,14 @@ This will automatically check all prerequisites and identify most common setup i
 ## Table of Contents
 
 1. [AWS Credentials & Authentication](#aws-credentials--authentication)
-2. [Bedrock Model Access](#bedrock-model-access)
-3. [AgentCore Deployment](#agentcore-deployment)
-4. [Docker Issues](#docker-issues)
-5. [Python & Dependencies](#python--dependencies)
-6. [CDK Infrastructure](#cdk-infrastructure)
-7. [Agent Runtime Issues](#agent-runtime-issues)
-8. [Streamlit UI Issues](#streamlit-ui-issues)
-9. [Memory & Session Issues](#memory--session-issues)
-10. [OAuth/Cognito Issues](#oauthcognito-issues)
+2. [AgentCore Deployment](#agentcore-deployment)
+3. [Docker Issues](#docker-issues)
+4. [Python & Dependencies](#python--dependencies)
+5. [CDK Infrastructure](#cdk-infrastructure)
+6. [Agent Runtime Issues](#agent-runtime-issues)
+7. [Streamlit UI Issues](#streamlit-ui-issues)
+8. [Memory & Session Issues](#memory--session-issues)
+9. [OAuth/Cognito Issues](#oauthcognito-issues)
 
 ---
 
@@ -100,49 +99,6 @@ aws bedrock list-foundation-models --max-results 1
 ```
 
 **Note:** The **AgentCore agents** themselves run with least-privilege execution roles that are automatically created by the CDK stack and AgentCore CLI.
-
----
-
-## Bedrock Model Access
-
-### Error: "Access denied to model"
-
-**Symptom:**
-```
-AccessDeniedException: Your account is not authorized to invoke this model
-```
-
-**Solution:**
-1. Go to: https://console.aws.amazon.com/bedrock/home#/modelaccess
-2. Click "Modify model access"
-3. Enable required models:
-   - Amazon Nova (all variants)
-   - Anthropic Claude 3.5/4.5 (Haiku, Sonnet)
-4. Save changes (access is instant)
-
-**Verify:**
-```bash
-AWS_PROFILE=binbash aws bedrock list-foundation-models \
-  --region us-west-2 \
-  --query 'modelSummaries[?contains(modelId, `nova`) || contains(modelId, `claude`)].modelId'
-```
-
----
-
-### Error: "ThrottlingException" or "Rate exceeded"
-
-**Symptom:**
-```
-ThrottlingException: Rate exceeded for model XXX
-```
-
-**Solution:**
-- Nova/Claude models have default quotas (requests/minute)
-- Use inference profiles (us.amazon.nova-*, us.anthropic.claude-*) for cross-region routing
-- Request quota increase: https://console.aws.amazon.com/servicequotas/
-
-**Temporary workaround:**
-Add retry logic or reduce concurrent requests.
 
 ---
 
