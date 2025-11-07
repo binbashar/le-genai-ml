@@ -450,6 +450,39 @@ When working with the Jupyter notebooks, make sure to open your code editor (VS 
 
 ---
 
+## ✅ Setup Complete! What's Next?
+
+Congratulations! You've completed all the prerequisites. Now it's time to validate your setup and start the workshop.
+
+### Verify Your Setup
+
+Run the automated validation script to confirm everything is configured correctly:
+
+```bash
+cd genai-agentcore-demos
+./quickstart.sh
+```
+
+**Expected output:**
+```
+✓ All checks passed! You're ready for LIFTOFF! 🚀
+```
+
+If you see any failures, check the [Troubleshooting](#troubleshooting) section below.
+
+### Start the Workshop
+
+Once all checks pass, you're ready to begin! Jump to the **[Ready to Start?](#ready-to-start)** section below for step-by-step instructions on opening the notebooks and completing the labs.
+
+**Quick start:**
+1. Open your IDE from the project root: `cursor .` (or `code .`)
+2. Navigate to workshop notebooks
+3. Complete [Lab 1](finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb), [Lab 2](finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb), [Lab 3](finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb) in order
+
+👉 **See full workshop instructions:** [Ready to Start?](#ready-to-start)
+
+---
+
 ## Troubleshooting
 
 ### "Unable to locate credentials"
