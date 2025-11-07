@@ -49,10 +49,18 @@ A lightweight multi-agent financial advisor with:
 ### Getting Started
 
 ```bash
-cd workshop/
-cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
-# Open lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
+# Install dependencies from the main demo folder
+cd ../../genai-agentcore-demos  # Or navigate to where pyproject.toml lives
+uv sync
+
+# Open your editor at this level (where .venv is located)
+cursor .  # Or: code .
+
+# Then navigate to and open:
+# finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
 ```
+
+**Note:** Open VS Code/Cursor from `genai-agentcore-demos/` (not subdirectories) so your editor can find the virtual environment and detect notebook kernels.
 
 **Full workshop guide**: [workshop/README.md](./workshop/README.md)
 

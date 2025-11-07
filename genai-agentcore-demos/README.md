@@ -58,15 +58,20 @@ This checks:
 **Step 2: Start the Workshop**
 
 ```bash
-cd finance-personal-assistant/workshop
+# Install dependencies
+cd genai-agentcore-demos
 uv sync
-cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
+
+# Open your editor at the project root (where .venv lives)
+cursor .  # Or: code .
 ```
 
-Open the notebooks in order:
-1. `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
-2. `lab2-build_multi_agent_workflows_with_strands.ipynb`
-3. `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
+**Important:** Open VS Code or Cursor from the `genai-agentcore-demos/` directory (not from subdirectories). This ensures your editor can find the virtual environment (`.venv`) and properly detect Python kernels for the Jupyter notebooks.
+
+Once your editor opens, navigate to the workshop notebooks:
+1. `finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+2. `finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb`
+3. `finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
 
 ---
 

@@ -91,8 +91,8 @@ This checks:
 ### Step 2: Install Dependencies
 
 ```bash
-# Navigate to workshop directory
-cd finance-personal-assistant/workshop
+# Navigate to the main demo folder (where pyproject.toml lives)
+cd ../../  # Or: cd genai-agentcore-demos
 
 # Install dependencies
 uv sync
@@ -100,19 +100,21 @@ uv sync
 
 ---
 
-### Step 3: Start Jupyter Lab
+### Step 3: Open Your Editor
+
+**Important:** Open VS Code or Cursor from the `genai-agentcore-demos/` directory, **not** from the workshop subdirectory. This ensures your editor recognizes the virtual environment (`.venv`) and can properly detect the Python kernel for Jupyter notebooks.
 
 ```bash
-cursor .
-
-# Or use VS Code
-code .
-
-# Then click on the notebook you want to open.
-# For example, to open Lab 1, click on `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`.
-# To open Lab 2, click on `lab2-build_multi_agent_workflows_with_strands.ipynb`.
-# To open Lab 3, click on `lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`.
+# From genai-agentcore-demos/ directory
+cursor .  # Or: code .
 ```
+
+**Why this matters:** VS Code and Cursor look for virtual environments in the folder you open. If you open a subdirectory (like `workshop/`), they won't find the `.venv` folder that lives at the `genai-agentcore-demos/` level, and you'll have trouble selecting the correct kernel for notebooks.
+
+Once your editor opens, navigate to and click on the notebooks in this order:
+1. `finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb`
+2. `finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb`
+3. `finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb`
 
 ---
 

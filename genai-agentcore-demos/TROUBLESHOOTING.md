@@ -800,6 +800,36 @@ cd finance-personal-assistant/production
 
 ---
 
+### "My Jupyter notebooks can't find the Python kernel"
+
+**Symptom:** Kernel picker shows no environments, or notebooks can't import installed packages.
+
+**Solution:**
+This usually happens when you opened VS Code or Cursor from a subdirectory instead of the main project folder.
+
+```bash
+# 1. Close your editor completely
+
+# 2. Navigate to the main demo folder (where .venv lives)
+cd genai-agentcore-demos  # Or: cd le-genai-ml/genai-agentcore-demos
+
+# 3. Open your editor from this directory
+cursor .  # Or: code .
+
+# 4. Now navigate to your notebook within the editor
+# The kernel picker should now show the correct Python environment
+```
+
+**Why this works:** VS Code and Cursor automatically detect virtual environments located in the workspace root folder. When you open a subdirectory (like `workshop/`), they can't find the `.venv` folder that lives at the `genai-agentcore-demos/` level.
+
+**Alternative manual selection:**
+If reopening from the correct folder doesn't work, manually select the interpreter:
+1. Open Command Palette (Cmd/Ctrl + Shift + P)
+2. Type: "Python: Select Interpreter"
+3. Choose the interpreter at `.venv/bin/python`
+
+---
+
 ### "I accidentally committed workshop artifacts"
 
 ```bash

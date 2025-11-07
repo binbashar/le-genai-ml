@@ -173,6 +173,9 @@ uv sync
 uv run python --version
 ```
 
+**Important for workshop participants:**
+When working with the Jupyter notebooks, make sure to open your code editor (VS Code or Cursor) from the `genai-agentcore-demos/` directory. This folder contains the virtual environment (`.venv`) that your editor needs to detect the correct Python kernel for notebooks. Opening subdirectories will prevent proper kernel detection.
+
 ---
 
 ### ☐ 7. AWS Permissions

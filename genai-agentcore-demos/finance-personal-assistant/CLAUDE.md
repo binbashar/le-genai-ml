@@ -12,8 +12,8 @@ cd production && ./configure.sh && ./launch.sh && ./health.sh
 # Local testing (no deployment)
 cd production && uv run python budget_agent.py
 
-# Workshop learning
-cd workshop && jupyter lab
+# Workshop learning (open editor from genai-agentcore-demos/ for kernel detection)
+cd ../../genai-agentcore-demos && cursor .  # Then navigate to workshop notebooks
 
 # Run Streamlit UI
 cd ../ui && ./demo.sh

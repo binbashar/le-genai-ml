@@ -22,7 +22,7 @@ def create_guardrail() -> Tuple[str, str]:
     """
     bedrock = boto3.client("bedrock", region_name="us-west-2")
 
-    guardrail_name = "guardrail-no-bitcoin-advice"
+    guardrail_name = "guardrail-no-gambling-advice"
 
     # Check if guardrail already exists
     try:
@@ -40,21 +40,7 @@ def create_guardrail() -> Tuple[str, str]:
     try:
         response = bedrock.create_guardrail(
             name=guardrail_name,
-            description="Workshop guardrail - blocks Bitcoin investment advice",
-            topicPolicyConfig={
-                "topicsConfig": [
-                    {
-                        "name": "Bitcoin Investment",
-                        "definition": "Investment advice related to Bitcoin or cryptocurrency",
-                        "examples": [
-                            "Should I invest in Bitcoin?",
-                            "How do I buy Bitcoin?",
-                            "Bitcoin investment advice"
-                        ],
-                        "type": "DENY"
-                    }
-                ]
-            },
+            description="Workshop guardrail - blocks gambling-related content",
             contentPolicyConfig={
                 "filtersConfig": [
                     {"type": "SEXUAL", "inputStrength": "HIGH", "outputStrength": "HIGH"},
@@ -66,11 +52,35 @@ def create_guardrail() -> Tuple[str, str]:
                 ]
             },
             wordPolicyConfig={
-                "wordsConfig": [],
+                "wordsConfig": [
+                    # Gambling activities
+                    {"text": "gambling"},
+                    {"text": "casino"},
+                    {"text": "betting"},
+                    {"text": "poker"},
+                    {"text": "blackjack"},
+                    {"text": "roulette"},
+                    {"text": "slot machine"},
+                    {"text": "sports betting"},
+                    {"text": "online gambling"},
+                    {"text": "gaming tables"},
+                    # Gambling advice
+                    {"text": "gambling strategy"},
+                    {"text": "betting tips"},
+                    {"text": "casino advice"},
+                    {"text": "poker strategy"},
+                    {"text": "how to gamble"},
+                    {"text": "gambling recommendations"},
+                    # Gambling-related financial terms
+                    {"text": "gambling winnings"},
+                    {"text": "betting odds"},
+                    {"text": "casino stocks"},
+                    {"text": "gambling investment"},
+                ],
                 "managedWordListsConfig": [{"type": "PROFANITY"}]
             },
-            blockedInputMessaging="I apologize, but I am not able to provide Bitcoin investment advice. It is best to consult with trusted finance specialists to learn about cryptocurrency investments",
-            blockedOutputsMessaging="I cannot provide that type of advice. Please consult a financial advisor."
+            blockedInputMessaging="I apologize, but I'm not able to provide advice or information about that topic. As a financial advisor, I can help with budgeting, investing, savings, and other responsible financial planning topics. How can I assist you with your financial goals?",
+            blockedOutputsMessaging="I apologize, but I cannot provide information related to that topic. For your safety and responsible financial management, please ask about other financial topics such as budgeting, investing, or savings strategies."
         )
 
         guardrail_id = response["guardrailId"]
@@ -91,7 +101,7 @@ def delete_guardrail() -> None:
     """Delete the workshop guardrail."""
     bedrock = boto3.client("bedrock", region_name="us-west-2")
 
-    guardrail_name = "guardrail-no-bitcoin-advice"
+    guardrail_name = "guardrail-no-gambling-advice"
 
     try:
         # Find the guardrail
@@ -318,7 +328,7 @@ def get_guardrail_id() -> Optional[str]:
     try:
         response = bedrock.list_guardrails()
         for guardrail in response.get("guardrails", []):
-            if guardrail["name"] == "guardrail-no-bitcoin-advice":
+            if guardrail["name"] == "guardrail-no-gambling-advice":
                 return guardrail["id"]
     except Exception:
         pass

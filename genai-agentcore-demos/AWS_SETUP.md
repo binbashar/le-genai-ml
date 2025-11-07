@@ -451,12 +451,13 @@ aws bedrock-agentcore list-agent-runtimes --region us-west-2
 cd genai-agentcore-demos
 ./quickstart.sh  # Validate everything is ready
 
-# Start workshop
-cd finance-personal-assistant/workshop
-cursor .  # Open the workshop in Cursor. Or run `code .` to open the workshop in VS Code.
+# Open editor at project root (where .venv lives)
+cursor .  # Or: code .
 ```
 
-Open `lab1-develop_a_personal_budget_assistant_strands_agent.ipynb` to begin!
+**Important:** Open your editor from the `genai-agentcore-demos/` directory so it can find the virtual environment (`.venv`) and properly detect Python kernels for notebooks. Opening subdirectories will prevent kernel detection.
+
+Navigate to and open `finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb` to begin!
 
 ---
 

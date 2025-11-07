@@ -16,6 +16,12 @@ dependencies = [
     "aws-cdk-lib>=2.221.0",
     "constructs>=10.0.0",
     "pyyaml>=6.0.3",
+    "ipython",
+    "jupyter",
+    "ipykernel",
+    "matplotlib",
+    "strands-agents",
+    "strands-agents-tools"
 ]
 
 [tool.setuptools]

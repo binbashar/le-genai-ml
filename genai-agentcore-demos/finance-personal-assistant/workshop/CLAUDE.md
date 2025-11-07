@@ -45,18 +45,19 @@ uv sync
 
 ### Running Notebooks
 
+**Important:** Open VS Code or Cursor from the `genai-agentcore-demos/` directory (where `.venv` lives), not from the workshop subdirectory. This ensures proper Python kernel detection for notebooks.
+
 ```bash
-# Option 1: Jupyter Lab (recommended)
-jupyter lab
+# From genai-agentcore-demos/ directory
+cursor .  # Or: code .
 
-# Then open notebooks in order:
-# - lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
-# - lab2-build_multi_agent_workflows_with_strands.ipynb
-# - lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb
-
-# Option 2: VS Code
-code lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
+# Then navigate to notebooks in order:
+# - finance-personal-assistant/workshop/lab1-develop_a_personal_budget_assistant_strands_agent.ipynb
+# - finance-personal-assistant/workshop/lab2-build_multi_agent_workflows_with_strands.ipynb
+# - finance-personal-assistant/workshop/lab3-deploy_agents_on_amazon_bedrock_agentcore.ipynb
 ```
+
+**Why this matters:** VS Code and Cursor automatically detect virtual environments in the workspace root folder. Opening from a subdirectory prevents them from finding the `.venv` at the `genai-agentcore-demos/` level.
 
 ### Post-Workshop Cleanup
 
