@@ -601,6 +601,61 @@ aws bedrock-agentcore list-agent-runtimes --region us-west-2
 
 ---
 
+## 📓 What is a Jupyter Notebook?
+
+Before starting the workshop, let's understand what Jupyter Notebooks are and how to use them.
+
+### What is it?
+
+A **Jupyter Notebook** (`.ipynb` file) is an interactive document that combines:
+- **Code cells**: Executable Python code
+- **Markdown cells**: Text, images, and documentation
+- **Output cells**: Results from running code (text, charts, tables)
+
+### How is it different from regular Python files?
+
+| Regular Python File (`.py`) | Jupyter Notebook (`.ipynb`) |
+|------------------------------|------------------------------|
+| Run entire file at once | Run one cell at a time |
+| Use terminal: `python script.py` | Use IDE: Click "Run Cell" button |
+| No inline outputs | See results immediately below code |
+| Plain text only | Mix code, text, charts, images |
+
+### How to use notebooks in the workshop:
+
+**✅ DO:**
+- Click the ▶️ "Run Cell" button (or press `Shift+Enter`) to execute code cells
+- Run cells in order from top to bottom
+- Wait for each cell to complete before running the next
+- Look for output directly below each code cell
+
+**❌ DON'T:**
+- Don't copy code from notebook cells and run in your terminal
+- Don't skip cells or run them out of order
+- Don't close the notebook while cells are running
+
+### Visual Guide:
+
+```
+┌─────────────────────────────────────────┐
+│ # This is a Markdown cell               │  ← Documentation/explanations
+│ Explains what the next code does        │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ import boto3                            │  ← Code cell (has In [1]: label)
+│ client = boto3.client('bedrock')        │  Click ▶️ to run this
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ Success! Client created.                │  ← Output cell (shows results)
+└─────────────────────────────────────────┘
+```
+
+**Pro tip:** Look for the `In [1]:` label on the left of code cells. The number shows execution order.
+
+---
+
 ## Ready to Start?
 
 Once all checks pass, you're ready to begin the workshop! 🚀

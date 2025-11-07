@@ -97,6 +97,8 @@ cursor .  # Or: code .
 
 **💡 IDE Tip:** Click on the links above (or navigate in your IDE's file explorer) to open each notebook. Make sure you've opened the editor from the `genai-agentcore-demos/` directory so it can detect the Python kernel.
 
+**📓 New to Jupyter Notebooks?** Check the [Jupyter Notebook Guide](PRE_WORKSHOP_CHECKLIST.md#-what-is-a-jupyter-notebook) to learn how to run code cells (they're different from terminal commands!).
+
 👉 **[Workshop Instructions](finance-personal-assistant/workshop/README.md)** - Detailed lab guide
 
 ---

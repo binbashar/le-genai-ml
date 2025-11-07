@@ -66,6 +66,78 @@ By the end, you'll have deployed a working agent to AWS!
 
 ---
 
+## 📓 What is a Jupyter Notebook?
+
+If you're new to Jupyter Notebooks, here's what you need to know:
+
+### Key Concepts
+
+A **Jupyter Notebook** is an interactive document that lets you:
+- Write and run code in small chunks called **cells**
+- See results immediately below each code cell
+- Mix documentation (text, images) with executable code
+- Experiment with code without rerunning entire files
+
+### How to Run Code in Notebooks
+
+**Important:** Commands in notebook cells are NOT terminal commands. They run inside the notebook environment.
+
+**To execute a code cell:**
+1. Click on the cell to select it
+2. Press `Shift+Enter` (or click the ▶️ "Run Cell" button)
+3. Wait for output to appear below the cell
+4. Move to the next cell
+
+**Cell execution order matters:**
+- Run cells from top to bottom in sequence
+- Each cell builds on previous cells
+- Skipping cells or running out of order may cause errors
+
+### Example Notebook Structure
+
+```
+┌──────────────────────────────────┐
+│ # Step 1: Import Libraries       │  ← Markdown (documentation)
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ from strands import Agent        │  ← Code cell
+│ import boto3                     │  Run this with Shift+Enter
+└──────────────────────────────────┘
+    ↓
+┌──────────────────────────────────┐
+│ (no output)                      │  ← Output cell
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ # Step 2: Test the import        │  ← Markdown
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ print("Setup complete!")         │  ← Code cell
+└──────────────────────────────────┘
+    ↓
+┌──────────────────────────────────┐
+│ Setup complete!                  │  ← Output appears here
+└──────────────────────────────────┘
+```
+
+### Common Notebook Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Run cell and move to next | `Shift+Enter` |
+| Run cell and stay | `Ctrl+Enter` |
+| Insert cell below | `B` (in command mode) |
+| Insert cell above | `A` (in command mode) |
+| Delete cell | `D+D` (press D twice) |
+| Enter edit mode | `Enter` |
+| Exit edit mode | `Esc` |
+
+**Tip:** Press `Esc` to enter "command mode" (cell has blue border), then use keyboard shortcuts. Press `Enter` to edit cell content.
+
+---
+
 ## 🚀 Getting Started
 
 ### Step 1: Validate Prerequisites
