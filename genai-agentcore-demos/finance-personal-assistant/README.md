@@ -271,12 +271,16 @@ If you cannot execute the notebook cleanup cells, follow these manual steps usin
    - Repeat for all users
 6. Verify all users are deleted before proceeding
 
+📖 [AWS Docs: Tutorial - Cleaning up AWS Resources (Cognito)](https://docs.aws.amazon.com/cognito/latest/developerguide/tutorial-cleanup-tutorial.html)
+
 **2. Delete Cognito User Pool**
 
 1. While still in the user pool details page
 2. Click the **Delete** button (top right)
 3. Type the user pool name to confirm deletion
 4. Click **Delete** to permanently remove the pool
+
+📖 [AWS Docs: User Pool Deletion Protection](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-deletion-protection.html)
 
 **3. Delete AgentCore Runtime**
 
@@ -288,6 +292,8 @@ If you cannot execute the notebook cleanup cells, follow these manual steps usin
 6. Click **Delete** button
 7. Confirm deletion in the dialog
 
+📖 [AWS Docs: What is Amazon Bedrock AgentCore?](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/what-is-bedrock-agentcore.html)
+
 **4. Delete Bedrock Guardrail (Optional)**
 
 1. In the Bedrock Console, click **Guardrails** in the left navigation
@@ -295,6 +301,8 @@ If you cannot execute the notebook cleanup cells, follow these manual steps usin
 3. Select the guardrail by clicking the checkbox
 4. Click **Delete** button
 5. Confirm deletion in the dialog
+
+📖 [AWS Docs: Deleting Guardrails](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-delete.html)
 
 ##### Option 2: AWS CLI
 
@@ -348,6 +356,12 @@ aws bedrock delete-guardrail \
 - **User Pool ID**: Check the Lab 3 notebook outputs or run `aws cognito-idp list-user-pools --max-results 10`
 - **Agent ID**: Check `.bedrock_agentcore.yaml` in the workshop directory or run `aws bedrock-agentcore list-agent-runtimes`
 - **Guardrail ID**: Check notebook outputs or run `aws bedrock list-guardrails`
+
+**CLI Documentation References:**
+- 📖 [AWS CLI: admin-delete-user](https://docs.aws.amazon.com/cli/latest/reference/cognito-idp/admin-delete-user.html)
+- 📖 [AWS CLI: delete-user-pool](https://docs.aws.amazon.com/cli/latest/reference/cognito-idp/delete-user-pool.html)
+- 📖 [AWS CLI: bedrock-agentcore-control](https://docs.aws.amazon.com/cli/latest/reference/bedrock-agentcore-control/)
+- 📖 [AWS API: DeleteGuardrail](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_DeleteGuardrail.html)
 
 ### Production Cleanup
 ```bash
