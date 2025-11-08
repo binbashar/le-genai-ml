@@ -243,12 +243,69 @@ aws sts get-caller-identity
 ## 🧹 Cleanup
 
 ### Workshop Cleanup
+
+#### Automated Cleanup (Recommended)
 ```bash
 # In Lab 3 notebook, uncomment and run cleanup cells
 agentcore_runtime.delete_agent(agent_id=launch_result.agent_id)
 delete_cognito_user_pool()
 delete_guardrail()
 ```
+
+#### Manual Cleanup (If Notebooks Are Unavailable)
+
+If you cannot execute the notebook cleanup cells, follow these manual steps:
+
+**1. Delete Cognito Users (Security Critical)**
+```bash
+# List all users in the user pool
+aws cognito-idp list-users \
+  --user-pool-id <YOUR_USER_POOL_ID> \
+  --profile <YOUR_PROFILE>
+
+# Delete each user individually
+aws cognito-idp admin-delete-user \
+  --user-pool-id <YOUR_USER_POOL_ID> \
+  --username <USERNAME> \
+  --profile <YOUR_PROFILE>
+```
+
+**2. Delete Cognito User Pool**
+```bash
+# Delete the user pool
+aws cognito-idp delete-user-pool \
+  --user-pool-id <YOUR_USER_POOL_ID> \
+  --profile <YOUR_PROFILE>
+```
+
+**3. Delete AgentCore Runtime**
+```bash
+# List your agents to find the agent ID
+aws bedrock-agentcore list-agent-runtimes \
+  --profile <YOUR_PROFILE>
+
+# Delete the agent
+aws bedrock-agentcore delete-agent-runtime \
+  --agent-id <YOUR_AGENT_ID> \
+  --profile <YOUR_PROFILE>
+```
+
+**4. Delete Bedrock Guardrail (Optional)**
+```bash
+# List guardrails to find the ID
+aws bedrock list-guardrails \
+  --profile <YOUR_PROFILE>
+
+# Delete the guardrail
+aws bedrock delete-guardrail \
+  --guardrail-identifier <GUARDRAIL_ID> \
+  --profile <YOUR_PROFILE>
+```
+
+**Finding Your Resource IDs:**
+- **User Pool ID**: Check the Lab 3 notebook outputs or run `aws cognito-idp list-user-pools --max-results 10`
+- **Agent ID**: Check `.bedrock_agentcore.yaml` in the workshop directory or run `aws bedrock-agentcore list-agent-runtimes`
+- **Guardrail ID**: Check notebook outputs or run `aws bedrock list-guardrails`
 
 ### Production Cleanup
 ```bash
@@ -260,6 +317,8 @@ uv run python cleanup.py --dry-run
 # Complete cleanup
 uv run python cleanup.py
 ```
+
+**Note**: The production cleanup script automatically handles all resources including Cognito, AgentCore, ECR, IAM roles, and SSM parameters.
 
 ---
 
