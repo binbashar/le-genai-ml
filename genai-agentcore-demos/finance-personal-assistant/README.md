@@ -254,7 +254,49 @@ delete_guardrail()
 
 #### Manual Cleanup (If Notebooks Are Unavailable)
 
-If you cannot execute the notebook cleanup cells, follow these manual steps:
+If you cannot execute the notebook cleanup cells, follow these manual steps using either the AWS Console (recommended for most users) or AWS CLI.
+
+##### Option 1: AWS Console (Recommended)
+
+**1. Delete Cognito Users (Security Critical)** ⚠️
+
+1. Navigate to [Amazon Cognito Console](https://console.aws.amazon.com/cognito/)
+2. Click **User Pools** in the left navigation
+3. Select your workshop user pool (e.g., `FinanceAssistantUserPool`)
+4. Click the **Users** tab
+5. **Delete each user individually**:
+   - Select a user by clicking the checkbox
+   - Click **Delete** button
+   - Confirm deletion in the dialog
+   - Repeat for all users
+6. Verify all users are deleted before proceeding
+
+**2. Delete Cognito User Pool**
+
+1. While still in the user pool details page
+2. Click the **Delete** button (top right)
+3. Type the user pool name to confirm deletion
+4. Click **Delete** to permanently remove the pool
+
+**3. Delete AgentCore Runtime**
+
+1. Navigate to [Amazon Bedrock Console](https://console.aws.amazon.com/bedrock/)
+2. In the left navigation, expand **Agentic** section
+3. Click **Agent Runtimes**
+4. Find your workshop agent (check the name or tags)
+5. Select the agent by clicking the checkbox
+6. Click **Delete** button
+7. Confirm deletion in the dialog
+
+**4. Delete Bedrock Guardrail (Optional)**
+
+1. In the Bedrock Console, click **Guardrails** in the left navigation
+2. Find your workshop guardrail
+3. Select the guardrail by clicking the checkbox
+4. Click **Delete** button
+5. Confirm deletion in the dialog
+
+##### Option 2: AWS CLI
 
 **1. Delete Cognito Users (Security Critical)**
 ```bash
@@ -302,7 +344,7 @@ aws bedrock delete-guardrail \
   --profile <YOUR_PROFILE>
 ```
 
-**Finding Your Resource IDs:**
+**Finding Your Resource IDs (for CLI):**
 - **User Pool ID**: Check the Lab 3 notebook outputs or run `aws cognito-idp list-user-pools --max-results 10`
 - **Agent ID**: Check `.bedrock_agentcore.yaml` in the workshop directory or run `aws bedrock-agentcore list-agent-runtimes`
 - **Guardrail ID**: Check notebook outputs or run `aws bedrock list-guardrails`
