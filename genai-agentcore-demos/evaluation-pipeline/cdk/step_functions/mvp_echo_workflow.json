@@ -1,0 +1,19 @@
+{
+  "Comment": "MVP Evaluation Pipeline - Configuration Echo Test",
+  "StartAt": "EchoConfiguration",
+  "States": {
+    "EchoConfiguration": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${EchoConfigLambdaArn}",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "statusCode.$": "$.Payload.statusCode",
+        "body.$": "$.Payload"
+      },
+      "End": true
+    }
+  }
+}

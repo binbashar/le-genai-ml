@@ -1,0 +1,23 @@
+# Test Evaluation Configuration
+# Minimal configuration for testing pipeline connectivity
+
+evaluation:
+  name: "test-connectivity-001"
+  description: "Test S3 and Bedrock API connectivity"
+
+filters:
+  agent_name: "nova-lite"  # Model name from Parquet partitions
+  date_range:
+    start: "2025-11-24"
+    end: "2025-11-24"
+  limit: 5  # Small limit for connectivity test
+
+metrics:
+  - "Builtin.Correctness"
+
+evaluator:
+  model_id: "amazon.nova-pro-v1:0"
+
+output:
+  s3_bucket: "eval-pipeline-905418344519-us-west-2"
+  s3_prefix: "evaluation-results"

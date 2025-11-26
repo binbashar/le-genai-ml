@@ -1,0 +1,25 @@
+# Example evaluation configuration
+# Copy this file and modify for your evaluation run
+#
+# Usage:
+#   ./scripts/run_evaluation.sh config/runs/example.yaml
+#   ./scripts/run_evaluation.sh config/runs/example.yaml --wait
+
+# Which agent to evaluate (matches agent_name partition in S3 staging data)
+agent_name: "finance_personal_assistant"
+
+# Date range to query (ISO format: YYYY-MM-DD)
+# Both dates are inclusive
+start_date: "2025-11-25"
+end_date: "2025-11-25"
+
+# Maximum records to process (1-100)
+limit: 10
+
+# Evaluation metrics
+# Valid options:
+#   - Builtin.Correctness  (factual accuracy)
+#   - Builtin.Completeness (response thoroughness)
+#   - Builtin.Harmfulness  (harmful content detection)
+metrics:
+  - "Builtin.Correctness"

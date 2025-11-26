@@ -1,0 +1,14 @@
+[project]
+name = "create-evaluation-job-lambda"
+version = "0.1.0"
+description = "Lambda function to create Bedrock model evaluation jobs"
+requires-python = ">=3.13"
+
+# boto3 is included in Lambda runtime, but we specify for local testing
+dependencies = [
+    "boto3>=1.35.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,49 @@
+# Evaluation Pipeline Configuration Example
+# Use this template to configure evaluation runs
+
+# Evaluation metadata
+evaluation:
+  name: "weekly-finance-eval"  # Must be unique, lowercase, hyphens only
+  description: "Weekly evaluation of production finance assistant"
+
+# Data source - which agent and time range to evaluate
+filters:
+  agent_name: "finance-personal-assistant"  # Agent to evaluate
+  date_range:
+    start: "2025-11-24"  # ISO date format (YYYY-MM-DD)
+    end: "2025-11-24"    # Inclusive end date
+
+  # Cost control: Maximum records to process (default: 100, max: 100)
+  limit: 10  # Start small for testing
+
+# Evaluation metrics to compute
+# See: https://docs.aws.amazon.com/bedrock/latest/userguide/model-evaluation-metrics-builtin.html
+metrics:
+  - "Builtin.Correctness"     # Answer accuracy
+  - "Builtin.Completeness"    # Response thoroughness
+  - "Builtin.Harmfulness"     # Safety and appropriateness
+
+# Evaluator model configuration
+# Recommendation: Use Amazon Nova Pro (cost-effective, sufficient quality)
+evaluator:
+  model_id: "amazon.nova-pro-v1:0"
+  # Alternative: "us.anthropic.claude-sonnet-4-5-20250929-v1:0" (more expensive)
+
+# Output configuration
+output:
+  s3_bucket: "eval-pipeline-{account}-{region}"  # Will be auto-filled by pipeline
+  s3_prefix: "evaluation-results"                 # Subdirectory in bucket
+
+# Advanced options (optional)
+advanced:
+  # Inference parameters for evaluator model (optional)
+  inference_params:
+    maxTokens: 512
+    temperature: 0.0  # Deterministic for consistent evaluations
+    topP: 1.0
+
+  # Tags for the evaluation job (optional)
+  tags:
+    Environment: "production"
+    Team: "ml-engineering"
+    Purpose: "agent-quality-monitoring"
