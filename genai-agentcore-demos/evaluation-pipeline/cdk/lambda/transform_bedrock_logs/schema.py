@@ -4,13 +4,13 @@ Parquet Schema Definition for Bedrock Invocation Logs
 Defines the structured schema for storing Bedrock agent conversations
 in a queryable Parquet format.
 
-17 columns total:
+18 columns total:
 - Metadata (5): timestamp, request_id, agent_name, model_id, region
 - Input (2): prompt, system_prompt
 - Output (3): response, stop_reason, finish_reason
 - Token Metrics (4): input_tokens, output_tokens, total_tokens, latency_ms
 - Error Handling (1): error_message
-- Partitioning (2): _agent_name, _date (for Athena efficiency)
+- Partitioning (3): _agent_name, _date, _hour (for Athena efficiency)
 """
 
 import re
@@ -48,6 +48,7 @@ BEDROCK_LOG_SCHEMA = pa.schema([
     # Partition keys (for Athena efficiency)
     ('_agent_name', pa.string()),
     ('_date', pa.string()),  # Format: YYYY-MM-DD
+    ('_hour', pa.string()),  # Format: HH (00-23)
 ])
 
 
@@ -144,6 +145,7 @@ def extract_structured_record(bedrock_log: Dict[str, Any]) -> Dict[str, Any]:
     # Falls back to model family if no identity ARN
     agent_name = _extract_agent_name_from_identity(identity_arn) or _extract_model_family(model_id)
     date_partition = timestamp[:10] if timestamp else ''  # YYYY-MM-DD
+    hour_partition = timestamp[11:13] if timestamp and len(timestamp) >= 13 else '00'  # HH
 
     return {
         'timestamp': timestamp,
@@ -163,6 +165,7 @@ def extract_structured_record(bedrock_log: Dict[str, Any]) -> Dict[str, Any]:
         'error_message': error_message,
         '_agent_name': agent_name,
         '_date': date_partition,
+        '_hour': hour_partition,
     }
 
 

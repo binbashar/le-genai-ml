@@ -2,19 +2,20 @@
 Parquet Storage Manager - Incremental S3 writes with partitioning
 
 Manages Parquet file creation and incremental storage in S3:
-1. Batches records by partition key (agent_name + date)
+1. Batches records by partition key (agent_name + yyyy/mm/dd/hh)
 2. Creates Parquet files with PyArrow
 3. Writes directly to S3 with proper directory structure
 4. Handles incremental appends (creates new files, doesn't append to existing)
 
-Directory Structure:
+Directory Structure (Hive-style partitioning):
 s3://bucket/staging/
     agent_name=nova-lite/
-        date=2025-11-24/
+        yyyy=2025/mm=11/dd=24/hh=14/
             part-001.parquet
-            part-002.parquet
+        yyyy=2025/mm=11/dd=24/hh=15/
+            part-001.parquet
     agent_name=claude-sonnet/
-        date=2025-11-24/
+        yyyy=2025/mm=11/dd=24/hh=09/
             part-001.parquet
 """
 
@@ -87,7 +88,7 @@ class ParquetStorageManager:
 
     def _group_by_partition(self, records: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Group records by partition key (agent_name + date).
+        Group records by partition key (agent_name + yyyy/mm/dd/hh).
 
         Args:
             records: List of structured records
@@ -100,8 +101,11 @@ class ParquetStorageManager:
         for record in records:
             agent_name = record.get('_agent_name', 'unknown')
             date = record.get('_date', datetime.utcnow().strftime('%Y-%m-%d'))
+            hour = record.get('_hour', '00')
 
-            partition_key = f"agent_name={agent_name}/date={date}"
+            # Hive-style partitioning: yyyy=YYYY/mm=MM/dd=DD/hh=HH
+            year, month, day = date.split('-')
+            partition_key = f"agent_name={agent_name}/yyyy={year}/mm={month}/dd={day}/hh={hour}"
 
             if partition_key not in partitions:
                 partitions[partition_key] = []
@@ -117,7 +121,7 @@ class ParquetStorageManager:
         Creates a new Parquet file with timestamp-based naming for incremental storage.
 
         Args:
-            partition_key: Partition path (e.g., "agent_name=nova-lite/date=2025-11-24")
+            partition_key: Partition path (e.g., "agent_name=nova-lite/yyyy=2025/mm=11/dd=24/hh=14")
             records: List of structured records for this partition
         """
         # Generate unique filename with timestamp

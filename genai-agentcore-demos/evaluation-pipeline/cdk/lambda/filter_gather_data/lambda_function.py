@@ -7,15 +7,19 @@ and generates JSONL dataset in Bedrock evaluation format.
 Input (from Step Functions):
 {
   "agent_name": "finance-personal-assistant",
-  "start_date": "2025-11-24T00:00:00Z",   # ISO 8601 UTC (recommended)
-  "end_date": "2025-11-24T23:59:59Z",     # ISO 8601 UTC (recommended)
+  "start_date": "2025-11-24T00:00:00Z",   # ISO 8601 UTC
+  "end_date": "2025-11-24T23:59:59Z",     # ISO 8601 UTC
   "limit": 100,
   "metrics": ["Builtin.Correctness"]
 }
 
-Date formats accepted:
-- ISO 8601 with time: "2025-11-24T00:00:00Z" (recommended)
+Date formats accepted (all times in UTC):
 - Date only: "2025-11-24" (normalized to 00:00:00Z for start, 23:59:59Z for end)
+- With hour:minute: "2025-11-24T14:00Z" (normalized to 14:00:00Z)
+- Full ISO 8601: "2025-11-24T14:30:00Z"
+
+S3 Structure (Hive-style partitioning):
+staging/agent_name={name}/yyyy={YYYY}/mm={MM}/dd={DD}/hh={HH}/*.parquet
 
 Output:
 {
@@ -52,20 +56,27 @@ def normalize_date(date_str: str, is_end_date: bool = False) -> str:
 
     Accepts:
     - YYYY-MM-DD (date only) -> adds T00:00:00Z or T23:59:59Z
-    - YYYY-MM-DDTHH:MM:SSZ (full ISO 8601)
+    - YYYY-MM-DDTHH:MMZ (hour:minute) -> adds :00 seconds
+    - YYYY-MM-DDTHH:MM:SSZ (full ISO 8601) -> unchanged
 
     Args:
-        date_str: Date string in either format
+        date_str: Date string in any accepted format
         is_end_date: If True and date-only input, use 23:59:59Z instead of 00:00:00Z
 
     Returns:
         ISO 8601 UTC format: YYYY-MM-DDTHH:MM:SSZ
     """
-    if 'T' in date_str:
-        return date_str  # Already has time component
-    # Date-only: add default time (full day range)
-    time_suffix = "T23:59:59Z" if is_end_date else "T00:00:00Z"
-    return date_str + time_suffix
+    if 'T' not in date_str:
+        # Date only: YYYY-MM-DD -> add full day range
+        time_suffix = "T23:59:59Z" if is_end_date else "T00:00:00Z"
+        return date_str + time_suffix
+
+    # Has time component - check if missing seconds
+    if date_str.count(':') == 1:
+        # Format: YYYY-MM-DDTHH:MMZ -> add :00 before Z
+        return date_str.replace('Z', ':00Z')
+
+    return date_str  # Full format: YYYY-MM-DDTHH:MM:SSZ
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -154,7 +165,7 @@ def read_staging_data(
     end_date: str
 ) -> List[Dict[str, Any]]:
     """
-    Read Parquet files from S3 staging with date filtering.
+    Read Parquet files from S3 staging with hour-level filtering.
 
     Args:
         bucket_name: S3 bucket name
@@ -163,32 +174,39 @@ def read_staging_data(
         end_date: End date (ISO 8601 UTC: YYYY-MM-DDTHH:MM:SSZ)
 
     Returns:
-        List of records from Parquet files
+        List of records from Parquet files (filtered by exact timestamp range)
     """
     records = []
 
     # Parse ISO 8601 dates (replace Z with +00:00 for fromisoformat compatibility)
     start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
     end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-    # Extract date-only for S3 partition queries (partitions are date-based)
-    current_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Iterate hour by hour through the range
+    current_dt = start_dt.replace(minute=0, second=0, microsecond=0)
 
     while current_dt <= end_dt:
-        date_str = current_dt.strftime('%Y-%m-%d')
-        prefix = f"staging/agent_name={agent_name}/date={date_str}/"
+        # Build Hive-style partition prefix
+        prefix = (
+            f"staging/agent_name={agent_name}/"
+            f"yyyy={current_dt.year}/"
+            f"mm={current_dt.month:02d}/"
+            f"dd={current_dt.day:02d}/"
+            f"hh={current_dt.hour:02d}/"
+        )
 
         logger.info(f"Listing objects in prefix: {prefix}")
 
         try:
-            # List all Parquet files for this partition
+            # List all Parquet files for this hour partition
             response = s3_client.list_objects_v2(
                 Bucket=bucket_name,
                 Prefix=prefix
             )
 
             if 'Contents' not in response:
-                logger.warning(f"No files found in prefix: {prefix}")
-                current_dt += timedelta(days=1)
+                logger.debug(f"No files found in prefix: {prefix}")
+                current_dt += timedelta(hours=1)
                 continue
 
             # Read each Parquet file
@@ -211,13 +229,24 @@ def read_staging_data(
                 df = table.to_pandas()
                 file_records = df.to_dict('records')
 
-                records.extend(file_records)
+                # Filter records by exact timestamp range (for partial hour boundaries)
+                for record in file_records:
+                    ts = record.get('timestamp')
+                    if ts is not None:
+                        # pandas timestamp -> python datetime
+                        record_dt = ts.to_pydatetime() if hasattr(ts, 'to_pydatetime') else ts
+                        if start_dt <= record_dt <= end_dt:
+                            records.append(record)
+                    else:
+                        # Include records without timestamp
+                        records.append(record)
+
                 logger.info(f"Read {len(file_records)} records from {key}")
 
         except Exception as e:
             logger.error(f"Error reading partition {prefix}: {str(e)}", exc_info=True)
 
-        current_dt += timedelta(days=1)
+        current_dt += timedelta(hours=1)
 
     return records
 

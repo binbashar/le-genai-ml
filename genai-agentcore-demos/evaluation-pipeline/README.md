@@ -2,7 +2,7 @@
 
 Automated evaluation pipeline for AWS Bedrock AgentCore agents using LLM-as-a-judge metrics.
 
-**Status**: 90% Complete | [Full Specifications →](PRD.md)
+**Status**: 95% Complete | [Full Specifications →](PRD.md)
 
 ## Architecture
 
@@ -26,36 +26,121 @@ export CDK_DEFAULT_REGION=us-west-2
 ```bash
 cd cdk
 
-# Data pipeline (CloudWatch → Firehose → Lambda → S3)
-uv run cdk deploy EvaluationPipeline
-
-# Filter Lambda (Parquet → JSONL)
-uv run cdk deploy EvaluationPipelineFilterLambda -c deploy_filter_lambda=true
-
-# Evaluation Job Lambda (Bedrock API)
-uv run cdk deploy EvaluationPipelineEvaluationJob -c deploy_evaluation_job=true
+# Deploy all stacks
+uv run cdk deploy --all \
+  -c deploy_filter_lambda=true \
+  -c deploy_evaluation_job=true \
+  -c deploy_orchestration=true \
+  --require-approval never
 ```
 
-### Test Filter Lambda
+## Running Evaluations
+
+Three ways to run evaluations:
+
+### Option 1: YAML Configuration (Recommended)
 
 ```bash
-FUNC=$(aws cloudformation describe-stacks \
-  --stack-name EvaluationPipelineFilterLambda \
-  --query 'Stacks[0].Outputs[?OutputKey==`FilterLambdaName`].OutputValue' \
+# Run evaluation
+./scripts/run_evaluation.sh config/runs/example.yaml
+
+# Run and wait for results
+./scripts/run_evaluation.sh config/runs/example.yaml --wait
+```
+
+### Option 2: AWS CLI Direct
+
+```bash
+STATE_MACHINE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name EvaluationPipelineOrchestration \
+  --query 'Stacks[0].Outputs[?OutputKey==`StateMachineArn`].OutputValue' \
   --output text)
 
-# ISO 8601 UTC format (recommended)
-aws lambda invoke --function-name $FUNC \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{"agent_name":"claude-sonnet","start_date":"2025-11-25T00:00:00Z","end_date":"2025-11-25T23:59:59Z","limit":10,"metrics":["Builtin.Correctness"]}' \
-  response.json && cat response.json | jq .
-
-# Date-only format (backward compatible, normalized to full day UTC range)
-aws lambda invoke --function-name $FUNC \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{"agent_name":"claude-sonnet","start_date":"2025-11-25","end_date":"2025-11-25","limit":10,"metrics":["Builtin.Correctness"]}' \
-  response.json && cat response.json | jq .
+aws stepfunctions start-execution \
+  --state-machine-arn $STATE_MACHINE_ARN \
+  --input '{"agent_name":"finance_personal_assistant","start_date":"2025-11-25","end_date":"2025-11-25","limit":10,"metrics":["Builtin.Correctness"]}'
 ```
+
+### Option 3: Web UI
+
+```bash
+cd ui && npm install && npm run dev
+# Open http://localhost:3000
+```
+
+## YAML Configuration
+
+Create a config file in `config/runs/`:
+
+```yaml
+# Agent to evaluate (matches agent_name in S3 staging data)
+agent_name: "finance_personal_assistant"
+
+# Date/time range (ISO 8601 UTC)
+start_date: "2025-11-25"           # Full day
+end_date: "2025-11-25"
+
+# Or with specific hours
+start_date: "2025-11-25T09:00:00Z" # 9am UTC
+end_date: "2025-11-25T17:00:00Z"   # 5pm UTC
+
+# Max records to evaluate (1-100)
+limit: 50
+
+# Metrics to calculate
+metrics:
+  - "Builtin.Correctness"
+  - "Builtin.Completeness"
+```
+
+### Filter Examples
+
+**Single day:**
+```yaml
+agent_name: "finance_personal_assistant"
+start_date: "2025-11-25"
+end_date: "2025-11-25"
+limit: 10
+metrics: ["Builtin.Correctness"]
+```
+
+**Date range (week):**
+```yaml
+agent_name: "finance_personal_assistant"
+start_date: "2025-11-18"
+end_date: "2025-11-25"
+limit: 100
+metrics: ["Builtin.Correctness", "Builtin.Completeness"]
+```
+
+**Specific hours (business hours only):**
+```yaml
+agent_name: "finance_personal_assistant"
+start_date: "2025-11-25T14:00:00Z"  # 2pm UTC
+end_date: "2025-11-25T18:00:00Z"    # 6pm UTC
+limit: 20
+metrics: ["Builtin.Correctness"]
+```
+
+**Different agent:**
+```yaml
+agent_name: "claude-sonnet"  # Non-AgentCore invocations
+start_date: "2025-11-25"
+end_date: "2025-11-25"
+limit: 50
+metrics: ["Builtin.Harmfulness"]
+```
+
+## Available Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `Builtin.Correctness` | Factual accuracy |
+| `Builtin.Completeness` | Response thoroughness |
+| `Builtin.Helpfulness` | Usefulness to user |
+| `Builtin.Harmfulness` | Harmful content detection |
+| `Builtin.Stereotyping` | Bias detection |
+| `Builtin.Refusal` | Appropriate refusals |
 
 ## Current Status
 
@@ -74,28 +159,24 @@ aws lambda invoke --function-name $FUNC \
 
 ```
 evaluation-pipeline/
-├── README.md           # This file
-├── PRD.md              # Specifications & requirements
-├── SCHEMAS.md          # Data format reference
-├── CLAUDE.md           # AI assistant context
-├── cdk/                # Infrastructure as Code
-│   ├── app.py          # CDK entry point
-│   ├── stacks/         # Stack definitions
-│   └── lambda/         # Lambda functions
-│       ├── transform_bedrock_logs/
-│       ├── filter_gather_data/
-│       └── create_evaluation_job/
-├── config/             # Configuration templates
-└── docs/               # Additional documentation
+├── README.md              # This file
+├── PRD.md                 # Specifications & requirements
+├── SCHEMAS.md             # Data format reference
+├── cdk/                   # Infrastructure as Code
+│   └── lambda/            # Lambda functions (5)
+├── scripts/               # CLI utilities
+│   └── run_evaluation.sh  # Run from YAML config
+├── config/runs/           # YAML evaluation configs
+└── ui/                    # Next.js web interface
 ```
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| [PRD.md](PRD.md) | Requirements, architecture, specifications |
+| [PRD.md](PRD.md) | Requirements & architecture |
 | [SCHEMAS.md](SCHEMAS.md) | Data format reference |
-| [cdk/README.md](cdk/README.md) | CDK deployment guide |
+| [ui/README.md](ui/README.md) | Web UI setup & troubleshooting |
 
 ## Cost
 

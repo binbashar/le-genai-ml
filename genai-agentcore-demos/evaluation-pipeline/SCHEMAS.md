@@ -5,7 +5,7 @@
 ## Data Flow
 
 ```
-Bedrock Log (JSON) → Staging Parquet (17 cols) → Evaluation JSONL (2 fields)
+Bedrock Log (JSON) → Staging Parquet (18 cols) → Evaluation JSONL (2 fields)
 ```
 
 ---
@@ -14,30 +14,18 @@ Bedrock Log (JSON) → Staging Parquet (17 cols) → Evaluation JSONL (2 fields)
 
 ### Input Dates (Step Function Parameters)
 
-- **Accepted formats**:
-  - Full ISO 8601 UTC: `YYYY-MM-DDTHH:MM:SSZ` (e.g., `"2025-11-25T00:00:00Z"`) - **recommended**
-  - Date only: `YYYY-MM-DD` (e.g., `"2025-11-25"`) - backward compatible
-- **Timezone**: All dates are interpreted as **UTC**
-- **Default times** (for date-only format):
-  - `start_date`: `00:00:00 UTC` (beginning of day)
-  - `end_date`: `23:59:59 UTC` (end of day)
+- **Accepted formats** (all UTC):
+  - Date only: `YYYY-MM-DD` → normalized to `00:00:00Z` / `23:59:59Z`
+  - Hour:minute: `YYYY-MM-DDTHH:MMZ` → normalized to `HH:MM:00Z`
+  - Full ISO 8601: `YYYY-MM-DDTHH:MM:SSZ` → unchanged
 - **Range**: Both `start_date` and `end_date` are **inclusive**
 
 ### Examples
 
 ```json
-// Full ISO 8601 UTC (recommended)
-{
-  "start_date": "2025-11-25T00:00:00Z",
-  "end_date": "2025-11-25T23:59:59Z"
-}
-
-// Date-only (backward compatible, normalized internally)
-{
-  "start_date": "2025-11-25",
-  "end_date": "2025-11-25"
-}
-// Normalized to: start=2025-11-25T00:00:00Z, end=2025-11-25T23:59:59Z
+{"start_date": "2025-11-25", "end_date": "2025-11-25"}
+{"start_date": "2025-11-25T09:00Z", "end_date": "2025-11-25T17:00Z"}
+{"start_date": "2025-11-25T09:30:00Z", "end_date": "2025-11-25T17:45:00Z"}
 ```
 
 ---
@@ -103,52 +91,18 @@ Bedrock Log (JSON) → Staging Parquet (17 cols) → Evaluation JSONL (2 fields)
 
 ## 2. Staging Parquet
 
-**Location**: `s3://bucket/staging/agent_name={agent}/date={date}/`
-**Format**: Apache Parquet (17 columns)
-**Schema**: See `cdk/lambda/transform_bedrock_logs/schema.py` (lines 21-50)
+**Location**: `s3://bucket/staging/agent_name={agent}/yyyy={YYYY}/mm={MM}/dd={DD}/hh={HH}/`
+**Format**: Apache Parquet (18 columns)
+**Schema**: See `cdk/lambda/transform_bedrock_logs/schema.py`
 
 **Columns**:
-```python
-1.  timestamp (timestamp[ms, UTC])
-2.  request_id (string)
-3.  agent_name (string) - extracted from identity.arn (AgentCore Runtime name)
-4.  model_id (string)
-5.  region (string)
-6.  prompt (string)
-7.  system_prompt (string)
-8.  response (string)
-9.  stop_reason (string)
-10. finish_reason (string)
-11. input_tokens (int64)
-12. output_tokens (int64)
-13. total_tokens (int64)
-14. latency_ms (int64)
-15. error_message (string)
-16. _agent_name (string) - partition key
-17. _date (string) - partition key (YYYY-MM-DD)
 ```
-
-**Example Record**:
-```python
-{
-    "timestamp": "2025-11-25T13:10:36.000Z",
-    "request_id": "73ecc88e-d2a5-44ef-acae-f13cfb0e5a56",
-    "agent_name": "finance_personal_assistant",
-    "model_id": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "region": "us-west-2",
-    "prompt": "Hello, are you operational?",
-    "system_prompt": "You are a financial advisor...",
-    "response": "¡Hola! Yes, I'm fully operational...",
-    "stop_reason": "end_turn",
-    "finish_reason": "",
-    "input_tokens": 1959,
-    "output_tokens": 89,
-    "total_tokens": 2048,
-    "latency_ms": 3176,
-    "error_message": "",
-    "_agent_name": "finance_personal_assistant",
-    "_date": "2025-11-25"
-}
+1-5.   timestamp, request_id, agent_name, model_id, region
+6-7.   prompt, system_prompt
+8-10.  response, stop_reason, finish_reason
+11-14. input_tokens, output_tokens, total_tokens, latency_ms
+15.    error_message
+16-18. _agent_name, _date (YYYY-MM-DD), _hour (HH)  ← partition keys
 ```
 
 ---
