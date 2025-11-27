@@ -143,7 +143,9 @@ class DefaultContextExtractor:
         actor_id = headers.get(self.ACTOR_ID_HEADER, self.DEFAULT_ACTOR_ID)
 
         if actor_id == self.DEFAULT_ACTOR_ID:
-            logger.warning(f"[AUTH] ⚠ Using default actor_id={actor_id} (no payload or header found)")
+            logger.warning(
+                f"[AUTH] ⚠ Using default actor_id={actor_id} (no payload or header found)"
+            )
         else:
             logger.info(f"[AUTH] ✓ Extracted actor_id={actor_id} from request headers")
         return actor_id

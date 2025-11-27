@@ -165,12 +165,14 @@ def group_by_timestamp(conversations: List[Dict[str, Any]]) -> List[Dict[str, An
             response_ts = response.get("timestamp", 0)
             # Response should be after prompt and within 60 seconds
             if response_ts > prompt_ts and (response_ts - prompt_ts) < 60000:
-                complete.append({
-                    "prompt": prompt.get("prompt"),
-                    "response": response.get("response"),
-                    "agent": prompt.get("agent", "finance_personal_assistant"),
-                    "timestamp": prompt_ts,
-                })
+                complete.append(
+                    {
+                        "prompt": prompt.get("prompt"),
+                        "response": response.get("response"),
+                        "agent": prompt.get("agent", "finance_personal_assistant"),
+                        "timestamp": prompt_ts,
+                    }
+                )
                 responses.remove(response)  # Don't reuse this response
                 break
 
@@ -236,7 +238,9 @@ def lambda_handler(event, context):
     logger.debug("LAMBDA INVOCATION - Complete Event Received")
     logger.debug("=" * 80)
     logger.debug(f"Event record count: {len(event.get('records', []))}")
-    logger.debug(f"Complete event structure: {json.dumps(event, indent=2, default=str)}")
+    logger.debug(
+        f"Complete event structure: {json.dumps(event, indent=2, default=str)}"
+    )
     logger.debug("=" * 80)
 
     output_records = []
@@ -253,20 +257,28 @@ def lambda_handler(event, context):
             # DEBUG: Log complete CloudWatch Logs data structure
             logger.debug("-" * 80)
             logger.debug(f"Record ID: {record_id}")
-            logger.debug(f"CloudWatch Logs Data: {json.dumps(log_data, indent=2, default=str)}")
+            logger.debug(
+                f"CloudWatch Logs Data: {json.dumps(log_data, indent=2, default=str)}"
+            )
             logger.debug("-" * 80)
 
             # CloudWatch subscription filter format
             log_events = log_data.get("logEvents", [])
 
-            logger.info(f"Processing {len(log_events)} log events in record {record_id}")
+            logger.info(
+                f"Processing {len(log_events)} log events in record {record_id}"
+            )
 
             # DEBUG: Log each individual log event
             for idx, log_event in enumerate(log_events):
                 logger.debug(f"Log Event {idx + 1}/{len(log_events)}:")
                 logger.debug(f"  Timestamp: {log_event.get('timestamp')}")
-                logger.debug(f"  Message: {log_event.get('message')[:500]}...")  # First 500 chars
-                logger.debug(f"  Full event: {json.dumps(log_event, indent=2, default=str)}")
+                logger.debug(
+                    f"  Message: {log_event.get('message')[:500]}..."
+                )  # First 500 chars
+                logger.debug(
+                    f"  Full event: {json.dumps(log_event, indent=2, default=str)}"
+                )
 
             # Extract conversation data from all log events
             conversations = []
@@ -275,9 +287,13 @@ def lambda_handler(event, context):
                 if conv_data:
                     conversations.append(conv_data)
                     # DEBUG: Log extracted conversation data
-                    logger.debug(f"Extracted conversation data: {json.dumps(conv_data, indent=2, default=str)}")
+                    logger.debug(
+                        f"Extracted conversation data: {json.dumps(conv_data, indent=2, default=str)}"
+                    )
                 else:
-                    logger.debug(f"No conversation data found in log event: {log_event.get('id', 'unknown')}")
+                    logger.debug(
+                        f"No conversation data found in log event: {log_event.get('id', 'unknown')}"
+                    )
 
             logger.info(f"Extracted {len(conversations)} conversation fragments")
 
@@ -288,11 +304,17 @@ def lambda_handler(event, context):
 
             # DEBUG: Log complete conversations after grouping
             for idx, conv in enumerate(complete_conversations):
-                logger.debug(f"Complete Conversation {idx + 1}/{len(complete_conversations)}:")
+                logger.debug(
+                    f"Complete Conversation {idx + 1}/{len(complete_conversations)}:"
+                )
                 logger.debug(f"  Trace ID: {conv.get('trace_id', 'N/A')}")
                 logger.debug(f"  Agent: {conv.get('agent', 'N/A')}")
-                logger.debug(f"  Prompt: {conv.get('prompt', 'N/A')[:200]}...")  # First 200 chars
-                logger.debug(f"  Response: {conv.get('response', 'N/A')[:200]}...")  # First 200 chars
+                logger.debug(
+                    f"  Prompt: {conv.get('prompt', 'N/A')[:200]}..."
+                )  # First 200 chars
+                logger.debug(
+                    f"  Response: {conv.get('response', 'N/A')[:200]}..."
+                )  # First 200 chars
 
             # Transform to Bedrock evaluation format
             if complete_conversations:
@@ -302,7 +324,9 @@ def lambda_handler(event, context):
                     bedrock_format = to_bedrock_evaluation_format(conv)
                     jsonl_lines.append(json.dumps(bedrock_format))
                     # DEBUG: Log Bedrock evaluation format
-                    logger.debug(f"Bedrock Evaluation Format: {json.dumps(bedrock_format, indent=2, default=str)}")
+                    logger.debug(
+                        f"Bedrock Evaluation Format: {json.dumps(bedrock_format, indent=2, default=str)}"
+                    )
 
                 # Join with newlines
                 output_data = "\n".join(jsonl_lines) + "\n"
@@ -312,33 +336,47 @@ def lambda_handler(event, context):
                 logger.debug(output_data)
 
                 # Encode for Firehose
-                encoded_data = base64.b64encode(output_data.encode("utf-8")).decode("utf-8")
+                encoded_data = base64.b64encode(output_data.encode("utf-8")).decode(
+                    "utf-8"
+                )
 
-                output_records.append({
-                    "recordId": record_id,
-                    "result": "Ok",
-                    "data": encoded_data,
-                })
+                output_records.append(
+                    {
+                        "recordId": record_id,
+                        "result": "Ok",
+                        "data": encoded_data,
+                    }
+                )
 
-                logger.info(f"Successfully transformed {len(complete_conversations)} conversations")
-                logger.debug(f"Output record result: Ok, data size: {len(encoded_data)} bytes")
+                logger.info(
+                    f"Successfully transformed {len(complete_conversations)} conversations"
+                )
+                logger.debug(
+                    f"Output record result: Ok, data size: {len(encoded_data)} bytes"
+                )
             else:
                 # No conversation data found - drop this record
-                logger.info(f"No conversation data found in record {record_id}, dropping")
-                output_records.append({
-                    "recordId": record_id,
-                    "result": "Dropped",
-                    "data": record["data"],  # Return original data
-                })
+                logger.info(
+                    f"No conversation data found in record {record_id}, dropping"
+                )
+                output_records.append(
+                    {
+                        "recordId": record_id,
+                        "result": "Dropped",
+                        "data": record["data"],  # Return original data
+                    }
+                )
 
         except Exception as e:
             logger.error(f"Error processing record {record_id}: {e}", exc_info=True)
 
             # Mark as processing failed
-            output_records.append({
-                "recordId": record_id,
-                "result": "ProcessingFailed",
-                "data": record["data"],
-            })
+            output_records.append(
+                {
+                    "recordId": record_id,
+                    "result": "ProcessingFailed",
+                    "data": record["data"],
+                }
+            )
 
     return {"records": output_records}

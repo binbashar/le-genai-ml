@@ -267,7 +267,9 @@ class EvaluationPipelineStack(Stack):
         )
 
         # Grant Firehose permission to invoke Lambda
-        self.transform_lambda.grant_invoke(iam.ServicePrincipal("firehose.amazonaws.com"))
+        self.transform_lambda.grant_invoke(
+            iam.ServicePrincipal("firehose.amazonaws.com")
+        )
         self.firehose_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -484,7 +486,10 @@ class EvaluationPipelineStack(Stack):
             iam.PolicyStatement(
                 sid="BedrockModelAccess",
                 effect=iam.Effect.ALLOW,
-                actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+                actions=[
+                    "bedrock:InvokeModel",
+                    "bedrock:InvokeModelWithResponseStream",
+                ],
                 resources=[
                     f"arn:aws:bedrock:{region}::foundation-model/amazon.nova-pro-v1:0",
                     "arn:aws:bedrock:*::foundation-model/amazon.nova-pro*",
@@ -534,7 +539,9 @@ class EvaluationPipelineStack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=["iam:PassRole"],
                 resources=[self.evaluation_job_role.role_arn],
-                conditions={"StringEquals": {"iam:PassedToService": "bedrock.amazonaws.com"}},
+                conditions={
+                    "StringEquals": {"iam:PassedToService": "bedrock.amazonaws.com"}
+                },
             )
         )
 
@@ -926,7 +933,9 @@ class EvaluationPipelineStack(Stack):
                 include_execution_data=True,
                 level="ALL",
             ),
-            tracing_configuration=sfn.CfnStateMachine.TracingConfigurationProperty(enabled=True),
+            tracing_configuration=sfn.CfnStateMachine.TracingConfigurationProperty(
+                enabled=True
+            ),
         )
 
         # Add explicit dependencies to ensure log group and permissions exist first
@@ -958,7 +967,8 @@ class EvaluationPipelineStack(Stack):
         CfnOutput(
             self,
             "FirehoseStreamName",
-            value=self.delivery_stream.delivery_stream_name or "evaluation-pipeline-cloudwatch-to-s3",
+            value=self.delivery_stream.delivery_stream_name
+            or "evaluation-pipeline-cloudwatch-to-s3",
             description="Kinesis Firehose delivery stream name",
         )
 
@@ -1022,7 +1032,7 @@ class EvaluationPipelineStack(Stack):
                 value=(
                     f"aws stepfunctions start-execution "
                     f"--state-machine-arn {self.state_machine.attr_arn} "
-                    f"--input '{{\"agent_name\":\"claude-sonnet\",\"start_date\":\"2025-11-25\",\"end_date\":\"2025-11-25\",\"limit\":10,\"metrics\":[\"Builtin.Correctness\"]}}'"
+                    f'--input \'{{"agent_name":"claude-sonnet","start_date":"2025-11-25","end_date":"2025-11-25","limit":10,"metrics":["Builtin.Correctness"]}}\''
                 ),
                 description="Command to test the evaluation pipeline",
             )

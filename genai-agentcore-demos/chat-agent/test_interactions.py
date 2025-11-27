@@ -66,7 +66,11 @@ async def invoke_agent(client, agent_arn: str, prompt: str, session_id: str) -> 
         response_stream = response.get("response")
         if not response_stream:
             print("❌ No response stream received")
-            return {"status": "error", "error": "No response stream", "session_id": session_id}
+            return {
+                "status": "error",
+                "error": "No response stream",
+                "session_id": session_id,
+            }
 
         full_response = ""
         thinking_msgs = []
@@ -85,7 +89,11 @@ async def invoke_agent(client, agent_arn: str, prompt: str, session_id: str) -> 
                         thinking_msgs.append(event.get("message", ""))
                     elif event.get("type") == "error":
                         print(f"\n❌ Agent error: {event.get('message')}")
-                        return {"status": "error", "error": event.get("message"), "session_id": session_id}
+                        return {
+                            "status": "error",
+                            "error": event.get("message"),
+                            "session_id": session_id,
+                        }
                 except json.JSONDecodeError:
                     continue
 

@@ -163,7 +163,9 @@ class FinancePersonalAssistantCleaner:
             self.ssm_client.delete_parameter(Name=guardrail_param_name)
             logger.info(f"   ✅ Deleted SSM parameter: {guardrail_param_name}")
         except self.ssm_client.exceptions.ParameterNotFound:
-            logger.debug(f"   📋 Guardrail SSM parameter not found: {guardrail_param_name}")
+            logger.debug(
+                f"   📋 Guardrail SSM parameter not found: {guardrail_param_name}"
+            )
         except Exception as e:
             logger.warning(f"   ⚠️  Could not delete guardrail SSM parameter: {e}")
 
@@ -172,7 +174,10 @@ class FinancePersonalAssistantCleaner:
         logger.info("🗑️  Cleaning up Bedrock Guardrails...")
 
         try:
-            from utils.guardrail import delete_gambling_guardrail, get_gambling_guardrail_id
+            from utils.guardrail import (
+                delete_gambling_guardrail,
+                get_gambling_guardrail_id,
+            )
 
             guardrail_id = get_gambling_guardrail_id()
 

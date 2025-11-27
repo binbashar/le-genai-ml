@@ -293,7 +293,7 @@ with st.sidebar:
     # Determine active agent (logged in agent or selected agent)
     all_agents = list(agents_config["agents"].keys())
     current_agent_in_session = st.session_state.get("agent_type")
-    
+
     logger.info(f"--- RERUN START ---")
     logger.info(f"Session State Keys: {list(st.session_state.keys())}")
     logger.info(f"current_agent_in_session: {current_agent_in_session}")
@@ -311,7 +311,9 @@ with st.sidebar:
     agent_info_for_title = agents_config["agents"][agent_type]
 
     # Display agent title at top of sidebar
-    st.markdown(f"### {get_agent_display_name(agent_type, agent_info_for_title['name'])}")
+    st.markdown(
+        f"### {get_agent_display_name(agent_type, agent_info_for_title['name'])}"
+    )
     st.markdown("---")
 
     # ============================================================================
@@ -624,7 +626,9 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
     """
     start_time = time.time()
     prev_char = ""  # Track last character from previous token for header formatting
-    tokens_yielded = False  # Track if we've yielded any tokens to avoid duplication on final event
+    tokens_yielded = (
+        False  # Track if we've yielded any tokens to avoid duplication on final event
+    )
 
     for line in response_stream.iter_lines(chunk_size=10):
         # Check timeout

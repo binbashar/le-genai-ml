@@ -13,24 +13,25 @@ import yaml
 @dataclass
 class EvaluationConfig:
     """Minimal evaluation configuration for MVP connectivity test"""
+
     agent_name: str
     start_date: str  # ISO format: YYYY-MM-DD
-    end_date: str    # ISO format: YYYY-MM-DD
+    end_date: str  # ISO format: YYYY-MM-DD
     limit: int
     metrics: List[str]
 
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "EvaluationConfig":
         """Load configuration from YAML file"""
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path, "r") as f:
             data = yaml.safe_load(f)
 
         return cls(
-            agent_name=data['agent_name'],
-            start_date=data['start_date'],
-            end_date=data['end_date'],
-            limit=data.get('limit', 10),
-            metrics=data['metrics']
+            agent_name=data["agent_name"],
+            start_date=data["start_date"],
+            end_date=data["end_date"],
+            limit=data.get("limit", 10),
+            metrics=data["metrics"],
         )
 
     def validate(self) -> List[str]:
@@ -45,18 +46,24 @@ class EvaluationConfig:
         try:
             start = date.fromisoformat(self.start_date)
         except ValueError:
-            errors.append(f"start_date must be ISO format (YYYY-MM-DD), got: {self.start_date}")
+            errors.append(
+                f"start_date must be ISO format (YYYY-MM-DD), got: {self.start_date}"
+            )
             start = None
 
         try:
             end = date.fromisoformat(self.end_date)
         except ValueError:
-            errors.append(f"end_date must be ISO format (YYYY-MM-DD), got: {self.end_date}")
+            errors.append(
+                f"end_date must be ISO format (YYYY-MM-DD), got: {self.end_date}"
+            )
             end = None
 
         # Validate date range
         if start and end and start > end:
-            errors.append(f"start_date ({self.start_date}) must be before or equal to end_date ({self.end_date})")
+            errors.append(
+                f"start_date ({self.start_date}) must be before or equal to end_date ({self.end_date})"
+            )
 
         # Validate limit
         if self.limit < 1:
@@ -71,12 +78,14 @@ class EvaluationConfig:
         valid_metrics = [
             "Builtin.Correctness",
             "Builtin.Completeness",
-            "Builtin.Harmfulness"
+            "Builtin.Harmfulness",
         ]
 
         for metric in self.metrics:
             if metric not in valid_metrics:
-                errors.append(f"Invalid metric '{metric}'. Valid: {', '.join(valid_metrics)}")
+                errors.append(
+                    f"Invalid metric '{metric}'. Valid: {', '.join(valid_metrics)}"
+                )
 
         return errors
 
@@ -87,7 +96,7 @@ class EvaluationConfig:
             "start_date": self.start_date,
             "end_date": self.end_date,
             "limit": self.limit,
-            "metrics": self.metrics
+            "metrics": self.metrics,
         }
 
 
@@ -131,4 +140,5 @@ if __name__ == "__main__":
         print(f"  Metrics: {', '.join(config.metrics)}")
         print(f"\nStep Functions input:")
         import json
+
         print(json.dumps(config.to_dict(), indent=2))

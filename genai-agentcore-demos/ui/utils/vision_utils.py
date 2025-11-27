@@ -67,7 +67,9 @@ def process_image_to_base64(uploaded_file) -> Optional[str]:
         img.save(buffer, format="JPEG", quality=JPEG_QUALITY, optimize=True)
         image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-        logger.info(f"Image processed: size={img.size}, encoded_size={len(image_base64)} bytes")
+        logger.info(
+            f"Image processed: size={img.size}, encoded_size={len(image_base64)} bytes"
+        )
         return image_base64
 
     except Exception as e:

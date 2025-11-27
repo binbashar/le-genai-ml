@@ -65,11 +65,7 @@ def create_s3_bucket(s3_client, bucket_name, region):
             Bucket=bucket_name,
             ServerSideEncryptionConfiguration={
                 "Rules": [
-                    {
-                        "ApplyServerSideEncryptionByDefault": {
-                            "SSEAlgorithm": "AES256"
-                        }
-                    }
+                    {"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}
                 ]
             },
         )
@@ -82,7 +78,9 @@ def create_s3_bucket(s3_client, bucket_name, region):
         return bucket_name
 
 
-def create_lambda_function(lambda_client, iam_client, function_name, role_name, account, region):
+def create_lambda_function(
+    lambda_client, iam_client, function_name, role_name, account, region
+):
     """Create Lambda transformation function"""
     print(f"λ Creating Lambda transformation function: {function_name}")
 
@@ -159,7 +157,9 @@ def create_lambda_function(lambda_client, iam_client, function_name, role_name, 
     return function_arn, lambda_role_arn
 
 
-def create_firehose_role(iam_client, role_name, bucket_name, lambda_arn, account, region):
+def create_firehose_role(
+    iam_client, role_name, bucket_name, lambda_arn, account, region
+):
     """Create IAM role for Firehose to write to S3 and invoke Lambda"""
     print(f"🔐 Creating IAM role for Firehose: {role_name}")
 
@@ -286,7 +286,9 @@ def create_firehose_stream(
         print("   ⏳ Waiting for stream to become active...")
         max_attempts = 30
         for attempt in range(max_attempts):
-            response = firehose_client.describe_delivery_stream(DeliveryStreamName=stream_name)
+            response = firehose_client.describe_delivery_stream(
+                DeliveryStreamName=stream_name
+            )
             status = response["DeliveryStreamDescription"]["DeliveryStreamStatus"]
             if status == "ACTIVE":
                 print("   ✅ Stream is active")
@@ -296,7 +298,9 @@ def create_firehose_stream(
             else:
                 raise Exception(f"Unexpected stream status: {status}")
         else:
-            raise Exception(f"Stream did not become active after {max_attempts * 2} seconds")
+            raise Exception(
+                f"Stream did not become active after {max_attempts * 2} seconds"
+            )
 
         return stream_arn
 
@@ -438,7 +442,12 @@ def main():
 
         # 2. Create Lambda transformation function
         lambda_arn, lambda_role_arn = create_lambda_function(
-            lambda_client, iam_client, lambda_function_name, lambda_role_name, account, region
+            lambda_client,
+            iam_client,
+            lambda_function_name,
+            lambda_role_name,
+            account,
+            region,
         )
         print()
 
@@ -489,7 +498,9 @@ def main():
         print(f"      aws s3 ls s3://{bucket_name}/evaluation-data/ --recursive")
         print()
         print(f"   4. Download and view evaluation data (JSONL format):")
-        print(f"      aws s3 cp s3://{bucket_name}/evaluation-data/year=2025/... - | head")
+        print(
+            f"      aws s3 cp s3://{bucket_name}/evaluation-data/year=2025/... - | head"
+        )
         print()
         print("📝 Next Steps:")
         print(f"   - Review transformed data in S3 bucket")
@@ -502,6 +513,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

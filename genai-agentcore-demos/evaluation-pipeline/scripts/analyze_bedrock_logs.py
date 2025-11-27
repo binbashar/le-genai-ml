@@ -23,7 +23,9 @@ import sys
 class BedrockLogAnalyzer:
     """Analyzer for Bedrock model invocation logs"""
 
-    def __init__(self, bucket_name: str, profile: str = "binbash", region: str = "us-west-2"):
+    def __init__(
+        self, bucket_name: str, profile: str = "binbash", region: str = "us-west-2"
+    ):
         """
         Initialize the log analyzer
 
@@ -34,9 +36,11 @@ class BedrockLogAnalyzer:
         """
         self.bucket_name = bucket_name
         self.session = boto3.Session(profile_name=profile, region_name=region)
-        self.s3 = self.session.client('s3')
+        self.s3 = self.session.client("s3")
 
-    def list_log_files(self, prefix: str = "invocation-logging/", hours_back: int = 24) -> List[str]:
+    def list_log_files(
+        self, prefix: str = "invocation-logging/", hours_back: int = 24
+    ) -> List[str]:
         """
         List log files in the S3 bucket
 
@@ -49,21 +53,21 @@ class BedrockLogAnalyzer:
         """
         cutoff_time = datetime.now() - timedelta(hours=hours_back)
 
-        paginator = self.s3.get_paginator('list_objects_v2')
+        paginator = self.s3.get_paginator("list_objects_v2")
         log_files = []
 
         for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
-            if 'Contents' not in page:
+            if "Contents" not in page:
                 continue
 
-            for obj in page['Contents']:
-                key = obj['Key']
+            for obj in page["Contents"]:
+                key = obj["Key"]
                 # Skip permission check files
-                if 'permission-check' in key or obj['Size'] == 0:
+                if "permission-check" in key or obj["Size"] == 0:
                     continue
 
                 # Check if file is recent enough
-                if obj['LastModified'].replace(tzinfo=None) >= cutoff_time:
+                if obj["LastModified"].replace(tzinfo=None) >= cutoff_time:
                     log_files.append(key)
 
         return sorted(log_files, reverse=True)  # Most recent first
@@ -80,15 +84,15 @@ class BedrockLogAnalyzer:
         """
         # Download file
         response = self.s3.get_object(Bucket=self.bucket_name, Key=s3_key)
-        content = response['Body'].read()
+        content = response["Body"].read()
 
         # Decompress if gzipped
-        if s3_key.endswith('.gz'):
+        if s3_key.endswith(".gz"):
             content = gzip.decompress(content)
 
         # Parse JSONL (each line is a separate JSON object)
         records = []
-        for line in content.decode('utf-8').strip().split('\n'):
+        for line in content.decode("utf-8").strip().split("\n"):
             if line:
                 records.append(json.loads(line))
 
@@ -105,20 +109,20 @@ class BedrockLogAnalyzer:
             User prompt text or None
         """
         try:
-            messages = record['input']['inputBodyJson']['messages']
+            messages = record["input"]["inputBodyJson"]["messages"]
 
             # Find the last user message
             for msg in reversed(messages):
-                if msg['role'] == 'user':
+                if msg["role"] == "user":
                     # Extract text from content
-                    for content in msg['content']:
-                        if 'text' in content:
-                            text = content['text']
+                    for content in msg["content"]:
+                        if "text" in content:
+                            text = content["text"]
 
                             # Remove memory context if present
-                            if '<retrieved_memories>' in text:
+                            if "<retrieved_memories>" in text:
                                 # Extract just the user prompt after memories
-                                parts = text.split('User:')
+                                parts = text.split("User:")
                                 if len(parts) > 1:
                                     return parts[-1].strip()
 
@@ -139,21 +143,21 @@ class BedrockLogAnalyzer:
             Assistant response text or None
         """
         try:
-            output = record['output']['outputBodyJson']['output']
+            output = record["output"]["outputBodyJson"]["output"]
 
             # Handle different response structures
-            if 'message' in output:
-                message = output['message']
-                if 'content' in message:
+            if "message" in output:
+                message = output["message"]
+                if "content" in message:
                     text_parts = []
-                    for content in message['content']:
-                        if 'text' in content:
-                            text_parts.append(content['text'])
-                        elif 'toolUse' in content:
-                            tool_use = content['toolUse']
+                    for content in message["content"]:
+                        if "text" in content:
+                            text_parts.append(content["text"])
+                        elif "toolUse" in content:
+                            tool_use = content["toolUse"]
                             text_parts.append(f"[Tool Call: {tool_use['name']}]")
 
-                    return '\n'.join(text_parts)
+                    return "\n".join(text_parts)
 
             return None
         except (KeyError, IndexError):
@@ -170,17 +174,26 @@ class BedrockLogAnalyzer:
             Dict with inputTokens, outputTokens, totalTokens
         """
         try:
-            usage = record['output']['outputBodyJson']['usage']
+            usage = record["output"]["outputBodyJson"]["usage"]
             return {
-                'inputTokens': usage.get('inputTokens', 0),
-                'outputTokens': usage.get('outputTokens', 0),
-                'totalTokens': usage.get('totalTokens', 0),
-                'latencyMs': record['output']['outputBodyJson']['metrics'].get('latencyMs', 0)
+                "inputTokens": usage.get("inputTokens", 0),
+                "outputTokens": usage.get("outputTokens", 0),
+                "totalTokens": usage.get("totalTokens", 0),
+                "latencyMs": record["output"]["outputBodyJson"]["metrics"].get(
+                    "latencyMs", 0
+                ),
             }
         except (KeyError, IndexError):
-            return {'inputTokens': 0, 'outputTokens': 0, 'totalTokens': 0, 'latencyMs': 0}
+            return {
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "totalTokens": 0,
+                "latencyMs": 0,
+            }
 
-    def search_prompts(self, search_term: str, hours_back: int = 24, max_results: int = 10) -> List[Dict[str, Any]]:
+    def search_prompts(
+        self, search_term: str, hours_back: int = 24, max_results: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Search for prompts containing a specific term
 
@@ -211,16 +224,18 @@ class BedrockLogAnalyzer:
                     response = self.extract_assistant_response(record)
                     tokens = self.get_token_stats(record)
 
-                    results.append({
-                        'timestamp': record['timestamp'],
-                        'requestId': record['requestId'],
-                        'modelId': record['modelId'],
-                        'operation': record['operation'],
-                        'prompt': prompt,
-                        'response': response,
-                        'tokens': tokens,
-                        'raw_record': record
-                    })
+                    results.append(
+                        {
+                            "timestamp": record["timestamp"],
+                            "requestId": record["requestId"],
+                            "modelId": record["modelId"],
+                            "operation": record["operation"],
+                            "prompt": prompt,
+                            "response": response,
+                            "tokens": tokens,
+                            "raw_record": record,
+                        }
+                    )
 
         return results
 
@@ -247,33 +262,32 @@ class BedrockLogAnalyzer:
                 tokens = self.get_token_stats(record)
 
                 # Extract conversation history from input
-                messages = record['input']['inputBodyJson'].get('messages', [])
+                messages = record["input"]["inputBodyJson"].get("messages", [])
                 history = []
 
                 for msg in messages[:-1]:  # Exclude the current user message
-                    role = msg['role']
+                    role = msg["role"]
                     text_parts = []
-                    for content in msg.get('content', []):
-                        if 'text' in content:
-                            text_parts.append(content['text'])
+                    for content in msg.get("content", []):
+                        if "text" in content:
+                            text_parts.append(content["text"])
 
                     if text_parts:
-                        history.append({
-                            'role': role,
-                            'content': '\n'.join(text_parts)
-                        })
+                        history.append({"role": role, "content": "\n".join(text_parts)})
 
-                conversations.append({
-                    'timestamp': record['timestamp'],
-                    'requestId': record['requestId'],
-                    'modelId': record['modelId'],
-                    'history': history,
-                    'current_prompt': prompt,
-                    'current_response': response,
-                    'tokens': tokens
-                })
+                conversations.append(
+                    {
+                        "timestamp": record["timestamp"],
+                        "requestId": record["requestId"],
+                        "modelId": record["modelId"],
+                        "history": history,
+                        "current_prompt": prompt,
+                        "current_response": response,
+                        "tokens": tokens,
+                    }
+                )
 
-        return sorted(conversations, key=lambda x: x['timestamp'])
+        return sorted(conversations, key=lambda x: x["timestamp"])
 
     def print_log_structure(self, hours_back: int = 1):
         """
@@ -327,7 +341,7 @@ class BedrockLogAnalyzer:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Analyze Bedrock model invocation logs',
+        description="Analyze Bedrock model invocation logs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -339,35 +353,51 @@ Examples:
 
   # Print log structure documentation
   python analyze_bedrock_logs.py structure --bucket bb-bedrock-invocations-ab4d1c24
-        """
+        """,
     )
 
-    parser.add_argument('command', choices=['search', 'conversation', 'structure'],
-                        help='Command to execute')
-    parser.add_argument('search_term', nargs='?', help='Search term (for search command)')
-    parser.add_argument('--bucket', required=True, help='S3 bucket name')
-    parser.add_argument('--profile', default='binbash', help='AWS profile (default: binbash)')
-    parser.add_argument('--region', default='us-west-2', help='AWS region (default: us-west-2)')
-    parser.add_argument('--hours', type=int, default=24, help='Hours back to search (default: 24)')
-    parser.add_argument('--max-results', type=int, default=10, help='Max search results (default: 10)')
+    parser.add_argument(
+        "command",
+        choices=["search", "conversation", "structure"],
+        help="Command to execute",
+    )
+    parser.add_argument(
+        "search_term", nargs="?", help="Search term (for search command)"
+    )
+    parser.add_argument("--bucket", required=True, help="S3 bucket name")
+    parser.add_argument(
+        "--profile", default="binbash", help="AWS profile (default: binbash)"
+    )
+    parser.add_argument(
+        "--region", default="us-west-2", help="AWS region (default: us-west-2)"
+    )
+    parser.add_argument(
+        "--hours", type=int, default=24, help="Hours back to search (default: 24)"
+    )
+    parser.add_argument(
+        "--max-results", type=int, default=10, help="Max search results (default: 10)"
+    )
 
     args = parser.parse_args()
 
     # Validate arguments
-    if args.command == 'search' and not args.search_term:
+    if args.command == "search" and not args.search_term:
         parser.error("search command requires search_term argument")
 
     # Initialize analyzer
     analyzer = BedrockLogAnalyzer(
-        bucket_name=args.bucket,
-        profile=args.profile,
-        region=args.region
+        bucket_name=args.bucket, profile=args.profile, region=args.region
     )
 
     # Execute command
-    if args.command == 'search':
-        print(f"Searching for: '{args.search_term}' in last {args.hours} hours...\n", file=sys.stderr)
-        results = analyzer.search_prompts(args.search_term, hours_back=args.hours, max_results=args.max_results)
+    if args.command == "search":
+        print(
+            f"Searching for: '{args.search_term}' in last {args.hours} hours...\n",
+            file=sys.stderr,
+        )
+        results = analyzer.search_prompts(
+            args.search_term, hours_back=args.hours, max_results=args.max_results
+        )
 
         if not results:
             print("No matching prompts found!", file=sys.stderr)
@@ -388,14 +418,19 @@ Examples:
             print(f"ASSISTANT RESPONSE:")
             print(f"{result['response']}")
             print()
-            print(f"TOKENS: Input={result['tokens']['inputTokens']}, "
-                  f"Output={result['tokens']['outputTokens']}, "
-                  f"Total={result['tokens']['totalTokens']}, "
-                  f"Latency={result['tokens']['latencyMs']}ms")
+            print(
+                f"TOKENS: Input={result['tokens']['inputTokens']}, "
+                f"Output={result['tokens']['outputTokens']}, "
+                f"Total={result['tokens']['totalTokens']}, "
+                f"Latency={result['tokens']['latencyMs']}ms"
+            )
             print()
 
-    elif args.command == 'conversation':
-        print(f"Analyzing conversation flow in last {args.hours} hours...\n", file=sys.stderr)
+    elif args.command == "conversation":
+        print(
+            f"Analyzing conversation flow in last {args.hours} hours...\n",
+            file=sys.stderr,
+        )
         conversations = analyzer.analyze_conversation_flow(hours_back=args.hours)
 
         if not conversations:
@@ -408,11 +443,11 @@ Examples:
             print(f"Turn {i}/{len(conversations)} - {conv['timestamp']}")
             print(f"{'=' * 80}")
 
-            if conv['history']:
+            if conv["history"]:
                 print("CONVERSATION HISTORY:")
-                for msg in conv['history']:
-                    role_label = "USER" if msg['role'] == 'user' else "ASSISTANT"
-                    content = msg['content']
+                for msg in conv["history"]:
+                    role_label = "USER" if msg["role"] == "user" else "ASSISTANT"
+                    content = msg["content"]
                     # Truncate long content
                     if len(content) > 200:
                         content = content[:200] + "... [truncated]"
@@ -425,15 +460,17 @@ Examples:
             print(f"CURRENT RESPONSE:")
             print(f"{conv['current_response']}")
             print()
-            print(f"TOKENS: Input={conv['tokens']['inputTokens']}, "
-                  f"Output={conv['tokens']['outputTokens']}, "
-                  f"Total={conv['tokens']['totalTokens']}, "
-                  f"Latency={conv['tokens']['latencyMs']}ms")
+            print(
+                f"TOKENS: Input={conv['tokens']['inputTokens']}, "
+                f"Output={conv['tokens']['outputTokens']}, "
+                f"Total={conv['tokens']['totalTokens']}, "
+                f"Latency={conv['tokens']['latencyMs']}ms"
+            )
             print()
 
-    elif args.command == 'structure':
+    elif args.command == "structure":
         analyzer.print_log_structure(hours_back=args.hours)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -61,7 +61,9 @@ def pdf_first_page_to_image(pdf_base64: str) -> Optional[str]:
         # Encode to base64
         img_base64 = base64.b64encode(img_bytes).decode("utf-8")
 
-        logger.info(f"Successfully converted PDF first page to image ({len(img_base64)} bytes)")
+        logger.info(
+            f"Successfully converted PDF first page to image ({len(img_base64)} bytes)"
+        )
         return img_base64
 
     except Exception as e:

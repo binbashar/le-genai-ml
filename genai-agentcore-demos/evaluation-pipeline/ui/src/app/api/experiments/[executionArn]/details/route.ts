@@ -129,7 +129,8 @@ export async function GET(
                 job_arn: finalResults.job_arn,
                 job_name: finalResults.job_name,
                 agent_name: finalResults.agent_name,
-                metrics: finalResults.results?.metrics || []
+                metrics: finalResults.results?.metrics || [],
+                input_configuration: JSON.parse(execution.input || "{}")
             },
             questions
         });

@@ -63,7 +63,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Initialize AWS clients
-s3_client = boto3.client('s3')
+s3_client = boto3.client("s3")
 
 
 def normalize_date(date_str: str, is_end_date: bool = False) -> str:
@@ -82,15 +82,15 @@ def normalize_date(date_str: str, is_end_date: bool = False) -> str:
     Returns:
         ISO 8601 UTC format: YYYY-MM-DDTHH:MM:SSZ
     """
-    if 'T' not in date_str:
+    if "T" not in date_str:
         # Date only: YYYY-MM-DD -> add full day range
         time_suffix = "T23:59:59Z" if is_end_date else "T00:00:00Z"
         return date_str + time_suffix
 
     # Has time component - check if missing seconds
-    if date_str.count(':') == 1:
+    if date_str.count(":") == 1:
         # Format: YYYY-MM-DDTHH:MMZ -> add :00 before Z
-        return date_str.replace('Z', ':00Z')
+        return date_str.replace("Z", ":00Z")
 
     return date_str  # Full format: YYYY-MM-DDTHH:MM:SSZ
 
@@ -117,48 +117,49 @@ def extract_user_question(full_prompt: str) -> Tuple[str, str]:
     content = full_prompt
 
     # 1. Handle <retrieved_memories>...</retrieved_memories>\n\nUser: pattern
-    if '<retrieved_memories>' in content:
+    if "<retrieved_memories>" in content:
         mem_match = re.search(
-            r'<retrieved_memories>(.*?)</retrieved_memories>',
-            content, re.DOTALL
+            r"<retrieved_memories>(.*?)</retrieved_memories>", content, re.DOTALL
         )
         if mem_match:
             context_parts.append(f"[Retrieved Memories]\n{mem_match.group(1).strip()}")
 
         # Extract content after "User: "
         user_match = re.search(
-            r'</retrieved_memories>\s*\n+User:\s*(.+)',
-            content, re.DOTALL
+            r"</retrieved_memories>\s*\n+User:\s*(.+)", content, re.DOTALL
         )
         if user_match:
             content = user_match.group(1).strip()
 
     # 2. Handle [Vision Analysis: ...] prefix
-    if content.startswith('[Vision Analysis:'):
+    if content.startswith("[Vision Analysis:"):
         # Find the closing bracket and newlines
-        vision_match = re.match(r'(\[Vision Analysis:.*?\])\s*\n+(.+)', content, re.DOTALL)
+        vision_match = re.match(
+            r"(\[Vision Analysis:.*?\])\s*\n+(.+)", content, re.DOTALL
+        )
         if vision_match:
             context_parts.append(vision_match.group(1))
             content = vision_match.group(2).strip()
 
     # 3. Handle [CSV File Data]...User Query: pattern
-    if '[CSV File Data]' in content:
+    if "[CSV File Data]" in content:
         csv_match = re.search(
-            r'\[CSV File Data\](.*?)User Query:\s*(.+)',
-            content, re.DOTALL
+            r"\[CSV File Data\](.*?)User Query:\s*(.+)", content, re.DOTALL
         )
         if csv_match:
             context_parts.append(f"[CSV File Data]{csv_match.group(1).strip()}")
             content = csv_match.group(2).strip()
 
     # 4. Handle [Document Error: ...] prefix (edge case)
-    if content.startswith('[Document Error:'):
-        error_match = re.match(r'(\[Document Error:.*?\])\s*\n+(.+)', content, re.DOTALL)
+    if content.startswith("[Document Error:"):
+        error_match = re.match(
+            r"(\[Document Error:.*?\])\s*\n+(.+)", content, re.DOTALL
+        )
         if error_match:
             context_parts.append(error_match.group(1))
             content = error_match.group(2).strip()
 
-    context = '\n\n'.join(context_parts) if context_parts else ''
+    context = "\n\n".join(context_parts) if context_parts else ""
     return content, context
 
 
@@ -177,10 +178,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Extract configuration
     config = event
-    agent_name = config['agent_name']
-    start_date = normalize_date(config['start_date'], is_end_date=False)
-    end_date = normalize_date(config['end_date'], is_end_date=True)
-    limit = config['limit']
+    agent_name = config["agent_name"]
+    start_date = normalize_date(config["start_date"], is_end_date=False)
+    end_date = normalize_date(config["end_date"], is_end_date=True)
+    limit = config["limit"]
 
     logger.info(f"Normalized dates: start={start_date}, end={end_date}")
 
@@ -188,28 +189,31 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # strip_context: Extract user question from full prompt (default: True)
     # include_context_as_reference: Put context in referenceResponse field (default: False)
     strip_context = config.get(
-        'strip_context',
-        os.environ.get('STRIP_CONTEXT', 'true').lower() == 'true'
+        "strip_context", os.environ.get("STRIP_CONTEXT", "true").lower() == "true"
     )
     include_context_as_reference = config.get(
-        'include_context_as_reference',
-        os.environ.get('INCLUDE_CONTEXT_AS_REFERENCE', 'false').lower() == 'true'
+        "include_context_as_reference",
+        os.environ.get("INCLUDE_CONTEXT_AS_REFERENCE", "false").lower() == "true",
     )
-    logger.info(f"Context handling: strip_context={strip_context}, "
-                f"include_context_as_reference={include_context_as_reference}")
+    logger.info(
+        f"Context handling: strip_context={strip_context}, "
+        f"include_context_as_reference={include_context_as_reference}"
+    )
 
     # Get S3 bucket from environment
-    bucket_name = os.environ.get('STAGING_BUCKET')
+    bucket_name = os.environ.get("STAGING_BUCKET")
     if not bucket_name:
         raise ValueError("STAGING_BUCKET environment variable not set")
 
     # Step 1: List and read Parquet files from staging
-    logger.info(f"Reading staging data for agent={agent_name}, date_range={start_date} to {end_date}")
+    logger.info(
+        f"Reading staging data for agent={agent_name}, date_range={start_date} to {end_date}"
+    )
     records = read_staging_data(
         bucket_name=bucket_name,
         agent_name=agent_name,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
     )
 
     total_records = len(records)
@@ -225,50 +229,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         sampled_records,
         agent_name,
         strip_context=strip_context,
-        include_context_as_reference=include_context_as_reference
+        include_context_as_reference=include_context_as_reference,
     )
 
     # Step 4: Write JSONL to S3
-    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     dataset_key = f"evaluation-datasets/{agent_name}/{timestamp}/dataset.jsonl"
     dataset_s3_uri = write_jsonl_to_s3(
-        bucket_name=bucket_name,
-        key=dataset_key,
-        records=evaluation_dataset
+        bucket_name=bucket_name, key=dataset_key, records=evaluation_dataset
     )
 
     # Step 5: Write sampling stats
     stats = {
-        'total_records': total_records,
-        'filtered_records': total_records,  # No filtering yet (MVP)
-        'sampled_records': sampled_count,
-        'timestamp': timestamp,
-        'context_handling': {
-            'strip_context': strip_context,
-            'include_context_as_reference': include_context_as_reference
-        }
+        "total_records": total_records,
+        "filtered_records": total_records,  # No filtering yet (MVP)
+        "sampled_records": sampled_count,
+        "timestamp": timestamp,
+        "context_handling": {
+            "strip_context": strip_context,
+            "include_context_as_reference": include_context_as_reference,
+        },
     }
 
     stats_key = f"evaluation-datasets/{agent_name}/{timestamp}/sampling_stats.json"
-    write_json_to_s3(
-        bucket_name=bucket_name,
-        key=stats_key,
-        data=stats
-    )
+    write_json_to_s3(bucket_name=bucket_name, key=stats_key, data=stats)
 
     # Return results to Step Functions
     return {
-        'dataset_s3_uri': dataset_s3_uri,
-        'question_count': sampled_count,
-        'sampling_stats': stats
+        "dataset_s3_uri": dataset_s3_uri,
+        "question_count": sampled_count,
+        "sampling_stats": stats,
     }
 
 
 def read_staging_data(
-    bucket_name: str,
-    agent_name: str,
-    start_date: str,
-    end_date: str
+    bucket_name: str, agent_name: str, start_date: str, end_date: str
 ) -> List[Dict[str, Any]]:
     """
     Read Parquet files from S3 staging with hour-level filtering.
@@ -285,8 +280,8 @@ def read_staging_data(
     records = []
 
     # Parse ISO 8601 dates (replace Z with +00:00 for fromisoformat compatibility)
-    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+    start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+    end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
 
     # Iterate hour by hour through the range
     current_dt = start_dt.replace(minute=0, second=0, microsecond=0)
@@ -305,42 +300,41 @@ def read_staging_data(
 
         try:
             # List all Parquet files for this hour partition
-            response = s3_client.list_objects_v2(
-                Bucket=bucket_name,
-                Prefix=prefix
-            )
+            response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
 
-            if 'Contents' not in response:
+            if "Contents" not in response:
                 logger.debug(f"No files found in prefix: {prefix}")
                 current_dt += timedelta(hours=1)
                 continue
 
             # Read each Parquet file
-            for obj in response['Contents']:
-                key = obj['Key']
+            for obj in response["Contents"]:
+                key = obj["Key"]
 
-                if not key.endswith('.parquet'):
+                if not key.endswith(".parquet"):
                     continue
 
                 logger.info(f"Reading Parquet file: {key}")
 
                 # Download Parquet file
                 parquet_obj = s3_client.get_object(Bucket=bucket_name, Key=key)
-                parquet_bytes = parquet_obj['Body'].read()
+                parquet_bytes = parquet_obj["Body"].read()
 
                 # Read with PyArrow
                 table = pq.read_table(BytesIO(parquet_bytes))
 
                 # Convert to list of dicts
                 df = table.to_pandas()
-                file_records = df.to_dict('records')
+                file_records = df.to_dict("records")
 
                 # Filter records by exact timestamp range (for partial hour boundaries)
                 for record in file_records:
-                    ts = record.get('timestamp')
+                    ts = record.get("timestamp")
                     if ts is not None:
                         # pandas timestamp -> python datetime
-                        record_dt = ts.to_pydatetime() if hasattr(ts, 'to_pydatetime') else ts
+                        record_dt = (
+                            ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
+                        )
                         if start_dt <= record_dt <= end_dt:
                             records.append(record)
                     else:
@@ -375,6 +369,7 @@ def apply_sampling(records: List[Dict[str, Any]], limit: int) -> List[Dict[str, 
 
     # Simple random sampling (MVP)
     import random
+
     random.seed(42)  # Reproducible sampling
     return random.sample(records, limit)
 
@@ -383,7 +378,7 @@ def transform_to_bedrock_format(
     records: List[Dict[str, Any]],
     agent_name: str,
     strip_context: bool = True,
-    include_context_as_reference: bool = False
+    include_context_as_reference: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Transform staging records to Bedrock evaluation JSONL format.
@@ -413,12 +408,14 @@ def transform_to_bedrock_format(
 
     for record in records:
         # Extract prompt and response from record
-        full_prompt = record.get('prompt', '')
-        response = record.get('response', '')
+        full_prompt = record.get("prompt", "")
+        response = record.get("response", "")
 
         # Skip records with missing data
         if not full_prompt or not response:
-            logger.warning(f"Skipping record with missing prompt/response: {record.get('request_id')}")
+            logger.warning(
+                f"Skipping record with missing prompt/response: {record.get('request_id')}"
+            )
             continue
 
         # Determine prompt and context based on configuration
@@ -427,38 +424,33 @@ def transform_to_bedrock_format(
             # Fallback: if extraction returned empty, use full prompt
             prompt = user_question if user_question.strip() else full_prompt
             if prompt != full_prompt:
-                logger.debug(f"Extracted user question: '{prompt[:100]}...' from full prompt")
+                logger.debug(
+                    f"Extracted user question: '{prompt[:100]}...' from full prompt"
+                )
         else:
             prompt = full_prompt
-            context = ''
+            context = ""
 
         # Build Bedrock evaluation record
         eval_record = {
-            'prompt': prompt,
-            'modelResponses': [{
-                'response': response,
-                'modelIdentifier': agent_name
-            }]
+            "prompt": prompt,
+            "modelResponses": [{"response": response, "modelIdentifier": agent_name}],
         }
 
         # Optionally add context as referenceResponse
         if strip_context and include_context_as_reference and context:
-            eval_record['referenceResponse'] = context
+            eval_record["referenceResponse"] = context
 
         # Add optional category if available
-        if 'category' in record and record['category']:
-            eval_record['category'] = record['category']
+        if "category" in record and record["category"]:
+            eval_record["category"] = record["category"]
 
         evaluation_records.append(eval_record)
 
     return evaluation_records
 
 
-def write_jsonl_to_s3(
-    bucket_name: str,
-    key: str,
-    records: List[Dict[str, Any]]
-) -> str:
+def write_jsonl_to_s3(bucket_name: str, key: str, records: List[Dict[str, Any]]) -> str:
     """
     Write JSONL (newline-delimited JSON) to S3.
 
@@ -472,15 +464,15 @@ def write_jsonl_to_s3(
     """
     # Convert to JSONL format
     jsonl_lines = [json.dumps(record) for record in records]
-    jsonl_content = '\n'.join(jsonl_lines)
+    jsonl_content = "\n".join(jsonl_lines)
 
     # Upload to S3
     s3_client.put_object(
         Bucket=bucket_name,
         Key=key,
-        Body=jsonl_content.encode('utf-8'),
-        ContentType='application/x-ndjson',
-        ServerSideEncryption='AES256'
+        Body=jsonl_content.encode("utf-8"),
+        ContentType="application/x-ndjson",
+        ServerSideEncryption="AES256",
     )
 
     s3_uri = f"s3://{bucket_name}/{key}"
@@ -489,11 +481,7 @@ def write_jsonl_to_s3(
     return s3_uri
 
 
-def write_json_to_s3(
-    bucket_name: str,
-    key: str,
-    data: Dict[str, Any]
-) -> str:
+def write_json_to_s3(bucket_name: str, key: str, data: Dict[str, Any]) -> str:
     """
     Write JSON to S3.
 
@@ -510,9 +498,9 @@ def write_json_to_s3(
     s3_client.put_object(
         Bucket=bucket_name,
         Key=key,
-        Body=json_content.encode('utf-8'),
-        ContentType='application/json',
-        ServerSideEncryption='AES256'
+        Body=json_content.encode("utf-8"),
+        ContentType="application/json",
+        ServerSideEncryption="AES256",
     )
 
     s3_uri = f"s3://{bucket_name}/{key}"

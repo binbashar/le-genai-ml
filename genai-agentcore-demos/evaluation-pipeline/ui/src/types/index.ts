@@ -126,6 +126,7 @@ export interface DetailedEvaluationResults {
     job_name: string;
     agent_name: string;
     metrics: MetricResult[];
+    input_configuration?: Record<string, any>;
   };
   questions: QuestionResult[];
 }

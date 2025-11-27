@@ -5,6 +5,7 @@ import { formatDateTime, formatDuration, formatScore } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { ExperimentStatusResponse, ExecutionStatus, DetailedEvaluationResults } from "@/types";
 import { DetailedResultsList } from "./detailed-results-list";
+import { Modal } from "./modal";
 import { useState } from "react";
 import { FEATURES } from "@/features";
 
@@ -30,6 +31,7 @@ export function ExperimentStatus({
   const [detailedResults, setDetailedResults] = useState<DetailedEvaluationResults | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   const fetchDetails = async () => {
     if (detailedResults) {
@@ -239,6 +241,29 @@ export function ExperimentStatus({
                       </>
                     )}
                   </button>
+
+                  {detailedResults?.summary?.input_configuration && (
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        onClick={() => setShowConfigModal(true)}
+                        className="text-sm text-gray-500 hover:text-gray-700 underline"
+                      >
+                        View Input Configuration
+                      </button>
+                    </div>
+                  )}
+
+                  <Modal
+                    isOpen={showConfigModal}
+                    onClose={() => setShowConfigModal(false)}
+                    title="Input Configuration"
+                  >
+                    <div className="bg-gray-50 p-4 rounded-md overflow-auto max-h-96">
+                      <pre className="text-xs text-gray-800 whitespace-pre-wrap">
+                        {JSON.stringify(detailedResults?.summary?.input_configuration, null, 2)}
+                      </pre>
+                    </div>
+                  </Modal>
 
                   {detailsError && (
                     <div className="mt-2 text-sm text-red-600 text-center">

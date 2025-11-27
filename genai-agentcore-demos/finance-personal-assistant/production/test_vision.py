@@ -58,22 +58,24 @@ def test_vision_analysis():
     # Build request with CORRECT format (text, not inputText)
     request_body = {
         "schemaVersion": "messages-v1",
-        "messages": [{
-            "role": "user",
-            "content": [
-                {
-                    "image": {
-                        "format": "png",  # Changed to png since receipt is .png
-                        "source": {"bytes": image_base64}
-                    }
-                },
-                {"text": VISION_ANALYSIS_PROMPT}  # CORRECT: "text" not "inputText"
-            ]
-        }],
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "image": {
+                            "format": "png",  # Changed to png since receipt is .png
+                            "source": {"bytes": image_base64},
+                        }
+                    },
+                    {"text": VISION_ANALYSIS_PROMPT},  # CORRECT: "text" not "inputText"
+                ],
+            }
+        ],
         "inferenceConfig": {
             "maxTokens": VISION_MAX_TOKENS,
-            "temperature": VISION_TEMPERATURE
-        }
+            "temperature": VISION_TEMPERATURE,
+        },
     }
 
     print(f"\nInvoking model: {VISION_MODEL_ID}")
@@ -84,8 +86,7 @@ def test_vision_analysis():
 
     try:
         response = client.invoke_model(
-            modelId=VISION_MODEL_ID,
-            body=json.dumps(request_body)
+            modelId=VISION_MODEL_ID, body=json.dumps(request_body)
         )
 
         # Parse response
@@ -112,6 +113,7 @@ def test_vision_analysis():
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

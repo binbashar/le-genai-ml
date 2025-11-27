@@ -29,7 +29,7 @@ from typing import Dict, Any
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-bedrock_client = boto3.client('bedrock')
+bedrock_client = boto3.client("bedrock")
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -45,29 +45,29 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     logger.info(f"Received event: {json.dumps(event)}")
 
-    job_arn = event['job_arn']
+    job_arn = event["job_arn"]
 
     try:
         response = bedrock_client.get_evaluation_job(jobIdentifier=job_arn)
 
-        status = response['status']
+        status = response["status"]
         logger.info(f"Job {job_arn} status: {status}")
 
         # Build response preserving input fields
         result = {
             **event,  # Pass through all input fields
-            'status': status,
-            'failure_reasons': [],  # Always include (empty list if not failed)
+            "status": status,
+            "failure_reasons": [],  # Always include (empty list if not failed)
         }
 
         # Add failure reasons if job failed
-        if status == 'Failed' and 'failureReasons' in response:
-            result['failure_reasons'] = response['failureReasons']
+        if status == "Failed" and "failureReasons" in response:
+            result["failure_reasons"] = response["failureReasons"]
             logger.error(f"Job failed: {response['failureReasons']}")
 
         # Add output location if completed
-        if status == 'Completed' and 'outputDataConfig' in response:
-            result['output_data_config'] = response['outputDataConfig']
+        if status == "Completed" and "outputDataConfig" in response:
+            result["output_data_config"] = response["outputDataConfig"]
 
         return result
 
@@ -75,8 +75,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error(f"Evaluation job not found: {job_arn}")
         return {
             **event,
-            'status': 'NotFound',
-            'failure_reasons': [f'Job not found: {job_arn}']
+            "status": "NotFound",
+            "failure_reasons": [f"Job not found: {job_arn}"],
         }
 
     except Exception as e:

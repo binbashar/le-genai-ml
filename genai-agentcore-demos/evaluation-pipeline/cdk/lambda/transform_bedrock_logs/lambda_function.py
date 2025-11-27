@@ -38,7 +38,9 @@ logger.setLevel(logging.INFO)
 storage_manager = None
 
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, List[Dict[str, Any]]]:
+def lambda_handler(
+    event: Dict[str, Any], context: Any
+) -> Dict[str, List[Dict[str, Any]]]:
     """
     Kinesis Firehose transformation handler.
 
@@ -85,9 +87,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, List[Dict[s
     structured_records = []
     output_records = []
 
-    for record in event['records']:
-        record_id = record['recordId']
-        encoded_data = record['data']
+    for record in event["records"]:
+        record_id = record["recordId"]
+        encoded_data = record["data"]
 
         try:
             # Decode Firehose record (base64 → bytes)
@@ -98,11 +100,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, List[Dict[s
 
             if not cloudwatch_log:
                 logger.warning(f"Record {record_id}: No valid CloudWatch log found")
-                output_records.append({
-                    'recordId': record_id,
-                    'result': 'Dropped',
-                    'data': encoded_data
-                })
+                output_records.append(
+                    {"recordId": record_id, "result": "Dropped", "data": encoded_data}
+                )
                 continue
 
             # Extract Bedrock invocation log
@@ -110,11 +110,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, List[Dict[s
 
             if not bedrock_log:
                 logger.warning(f"Record {record_id}: No valid Bedrock log found")
-                output_records.append({
-                    'recordId': record_id,
-                    'result': 'Dropped',
-                    'data': encoded_data
-                })
+                output_records.append(
+                    {"recordId": record_id, "result": "Dropped", "data": encoded_data}
+                )
                 continue
 
             # Apply PII scrubbing
@@ -125,21 +123,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, List[Dict[s
             structured_records.append(structured_record)
 
             # Return "Dropped" to Firehose (Lambda writes to S3 directly)
-            output_records.append({
-                'recordId': record_id,
-                'result': 'Dropped',
-                'data': encoded_data
-            })
+            output_records.append(
+                {"recordId": record_id, "result": "Dropped", "data": encoded_data}
+            )
 
             logger.info(f"Record {record_id}: Processed successfully")
 
         except Exception as e:
-            logger.error(f"Record {record_id}: Processing failed - {str(e)}", exc_info=True)
-            output_records.append({
-                'recordId': record_id,
-                'result': 'ProcessingFailed',
-                'data': encoded_data
-            })
+            logger.error(
+                f"Record {record_id}: Processing failed - {str(e)}", exc_info=True
+            )
+            output_records.append(
+                {
+                    "recordId": record_id,
+                    "result": "ProcessingFailed",
+                    "data": encoded_data,
+                }
+            )
 
     # Write all structured records to S3 as Parquet (batched by partition)
     if structured_records:
@@ -153,7 +153,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, List[Dict[s
             logger.error(f"Failed to write Parquet batch: {str(e)}", exc_info=True)
 
     logger.info(f"Transformation complete: {len(output_records)} records processed")
-    return {'records': output_records}
+    return {"records": output_records}
 
 
 def _parse_cloudwatch_logs(data: bytes) -> Dict[str, Any]:
@@ -208,12 +208,12 @@ def _extract_bedrock_log(cloudwatch_log: Dict[str, Any]) -> Dict[str, Any]:
     """
     try:
         # Extract first log event
-        log_events = cloudwatch_log.get('logEvents', [])
+        log_events = cloudwatch_log.get("logEvents", [])
         if not log_events:
             return {}
 
         first_event = log_events[0]
-        message = first_event.get('message', '')
+        message = first_event.get("message", "")
 
         # Parse message as JSON (Bedrock invocation log)
         bedrock_log = json.loads(message)

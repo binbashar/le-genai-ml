@@ -73,7 +73,9 @@ def reset_memory(agent_name: str, dry_run: bool, force: bool) -> bool:
         region = config["region"]
 
         logger.info(f"🌍 Region: {region}")
-        logger.info(f"🔒 Configured STM memory (will be preserved): {configured_memory_id}")
+        logger.info(
+            f"🔒 Configured STM memory (will be preserved): {configured_memory_id}"
+        )
 
         # Initialize client
         client = MemoryClient(region_name=region)
@@ -96,25 +98,31 @@ def reset_memory(agent_name: str, dry_run: bool, force: bool) -> bool:
                 mem_id = mem.get("id", "")
                 # Only delete runtime memories, not the configured one
                 if mem_id.startswith(prefix) and mem_id != configured_memory_id:
-                    memories_to_delete.append({
-                        "id": mem_id,
-                        "name": mem_id,
-                        "type": "runtime"
-                    })
+                    memories_to_delete.append(
+                        {"id": mem_id, "name": mem_id, "type": "runtime"}
+                    )
 
         # Show what will be deleted
         if memories_to_delete:
-            logger.info(f"\n📋 Found {len(memories_to_delete)} runtime memory instance(s) to delete:")
+            logger.info(
+                f"\n📋 Found {len(memories_to_delete)} runtime memory instance(s) to delete:"
+            )
             for mem in memories_to_delete:
                 logger.info(f"   • {mem['id']} ({mem['type']})")
         else:
             logger.info("\n📋 No runtime memories found to delete")
-            logger.info("💡 All runtime memories have already been cleared or never existed")
+            logger.info(
+                "💡 All runtime memories have already been cleared or never existed"
+            )
             return True
 
         if dry_run:
-            logger.info("\n✅ [DRY RUN] Runtime memories would be deleted (no changes made)")
-            logger.info(f"🔒 Configured memory will be preserved: {configured_memory_id}")
+            logger.info(
+                "\n✅ [DRY RUN] Runtime memories would be deleted (no changes made)"
+            )
+            logger.info(
+                f"🔒 Configured memory will be preserved: {configured_memory_id}"
+            )
             logger.info("💡 Next agent invocation will auto-create fresh runtime memory")
             return True
 
@@ -132,11 +140,13 @@ def reset_memory(agent_name: str, dry_run: bool, force: bool) -> bool:
                 return False
 
         # Delete runtime memories
-        logger.info(f"\n🗑️  Deleting {len(memories_to_delete)} runtime memory instance(s)...")
+        logger.info(
+            f"\n🗑️  Deleting {len(memories_to_delete)} runtime memory instance(s)..."
+        )
         for mem in memories_to_delete:
             try:
                 logger.info(f"   Deleting: {mem['id']}")
-                client.delete_memory(mem['id'])
+                client.delete_memory(mem["id"])
                 logger.info(f"   ✅ Deleted: {mem['id']}")
             except Exception as e:
                 logger.error(f"   ❌ Failed: {e}")

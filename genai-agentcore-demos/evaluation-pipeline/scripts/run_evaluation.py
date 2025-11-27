@@ -45,7 +45,9 @@ def get_state_machine_arn(region: str = None) -> str:
         raise
 
 
-def start_execution(state_machine_arn: str, config: EvaluationConfig, region: str = None) -> str:
+def start_execution(
+    state_machine_arn: str, config: EvaluationConfig, region: str = None
+) -> str:
     """Start Step Function execution with config."""
     sfn = boto3.client("stepfunctions", region_name=region)
 
@@ -57,7 +59,9 @@ def start_execution(state_machine_arn: str, config: EvaluationConfig, region: st
     return response["executionArn"]
 
 
-def wait_for_completion(execution_arn: str, region: str = None, poll_interval: int = 10) -> dict:
+def wait_for_completion(
+    execution_arn: str, region: str = None, poll_interval: int = 10
+) -> dict:
     """Wait for execution to complete and return final status."""
     sfn = boto3.client("stepfunctions", region_name=region)
 
@@ -87,8 +91,12 @@ Examples:
         """,
     )
     parser.add_argument("config_file", help="Path to YAML configuration file")
-    parser.add_argument("--wait", action="store_true", help="Wait for execution to complete")
-    parser.add_argument("--region", default="us-west-2", help="AWS region (default: us-west-2)")
+    parser.add_argument(
+        "--wait", action="store_true", help="Wait for execution to complete"
+    )
+    parser.add_argument(
+        "--region", default="us-west-2", help="AWS region (default: us-west-2)"
+    )
 
     args = parser.parse_args()
 

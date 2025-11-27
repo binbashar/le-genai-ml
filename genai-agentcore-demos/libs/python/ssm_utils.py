@@ -13,13 +13,16 @@ logger = logging.getLogger(__name__)
 # Try to import boto3 (optional dependency)
 try:
     import boto3
+
     BOTO3_AVAILABLE = True
 except ImportError:
     BOTO3_AVAILABLE = False
     logger.debug("boto3 not available - SSM utilities disabled")
 
 
-def get_agent_runtime_config(agent_name: str, region: str = "us-west-2") -> Optional[dict]:
+def get_agent_runtime_config(
+    agent_name: str, region: str = "us-west-2"
+) -> Optional[dict]:
     """
     Get agent runtime configuration from SSM Parameter Store.
 

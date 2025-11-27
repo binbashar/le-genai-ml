@@ -13,6 +13,7 @@ import yaml
 @dataclass
 class EvaluationMetadata:
     """Evaluation run metadata"""
+
     name: str
     description: Optional[str] = None
 
@@ -23,7 +24,9 @@ class EvaluationMetadata:
         if not self.name:
             errors.append("evaluation.name is required")
         elif not self.name.replace("-", "").replace("_", "").isalnum():
-            errors.append("evaluation.name must contain only alphanumeric characters, hyphens, and underscores")
+            errors.append(
+                "evaluation.name must contain only alphanumeric characters, hyphens, and underscores"
+            )
 
         return errors
 
@@ -31,9 +34,10 @@ class EvaluationMetadata:
 @dataclass
 class FilterConfig:
     """Data filtering configuration"""
+
     agent_name: str
     start_date: str  # ISO format: YYYY-MM-DD
-    end_date: str    # ISO format: YYYY-MM-DD
+    end_date: str  # ISO format: YYYY-MM-DD
     limit: int = 10  # Default 10 for testing, max 100
 
     def validate(self) -> List[str]:
@@ -47,24 +51,32 @@ class FilterConfig:
         try:
             start = date.fromisoformat(self.start_date)
         except ValueError:
-            errors.append(f"filters.date_range.start must be ISO format (YYYY-MM-DD), got: {self.start_date}")
+            errors.append(
+                f"filters.date_range.start must be ISO format (YYYY-MM-DD), got: {self.start_date}"
+            )
             start = None
 
         try:
             end = date.fromisoformat(self.end_date)
         except ValueError:
-            errors.append(f"filters.date_range.end must be ISO format (YYYY-MM-DD), got: {self.end_date}")
+            errors.append(
+                f"filters.date_range.end must be ISO format (YYYY-MM-DD), got: {self.end_date}"
+            )
             end = None
 
         # Validate date range
         if start and end and start > end:
-            errors.append(f"filters.date_range.start ({self.start_date}) must be before or equal to end ({self.end_date})")
+            errors.append(
+                f"filters.date_range.start ({self.start_date}) must be before or equal to end ({self.end_date})"
+            )
 
         # Validate limit
         if self.limit < 1:
             errors.append(f"filters.limit must be at least 1, got: {self.limit}")
         elif self.limit > 100:
-            errors.append(f"filters.limit must be at most 100 (Bedrock evaluation limit), got: {self.limit}")
+            errors.append(
+                f"filters.limit must be at most 100 (Bedrock evaluation limit), got: {self.limit}"
+            )
 
         return errors
 
@@ -72,6 +84,7 @@ class FilterConfig:
 @dataclass
 class EvaluatorConfig:
     """Evaluator model configuration"""
+
     model_id: str
     inference_params: Optional[Dict] = None
 
@@ -87,7 +100,7 @@ class EvaluatorConfig:
             "amazon.nova-pro-v1:0",
             "amazon.nova-lite-v1:0",
             "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-            "us.anthropic.claude-haiku-3-5-20241022-v1:0"
+            "us.anthropic.claude-haiku-3-5-20241022-v1:0",
         ]
 
         if self.model_id not in recommended_models:
@@ -102,6 +115,7 @@ class EvaluatorConfig:
 @dataclass
 class OutputConfig:
     """Output configuration"""
+
     s3_bucket: str
     s3_prefix: str = "evaluation-results"
 
@@ -114,7 +128,9 @@ class OutputConfig:
 
         # S3 bucket name validation
         if not (3 <= len(self.s3_bucket) <= 63):
-            errors.append(f"output.s3_bucket must be 3-63 characters, got: {len(self.s3_bucket)}")
+            errors.append(
+                f"output.s3_bucket must be 3-63 characters, got: {len(self.s3_bucket)}"
+            )
 
         return errors
 
@@ -122,6 +138,7 @@ class OutputConfig:
 @dataclass
 class EvaluationConfig:
     """Complete evaluation configuration"""
+
     evaluation: EvaluationMetadata
     filters: FilterConfig
     metrics: List[str]
@@ -132,30 +149,30 @@ class EvaluationConfig:
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "EvaluationConfig":
         """Load configuration from YAML file"""
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path, "r") as f:
             data = yaml.safe_load(f)
 
         return cls(
             evaluation=EvaluationMetadata(
-                name=data['evaluation']['name'],
-                description=data['evaluation'].get('description')
+                name=data["evaluation"]["name"],
+                description=data["evaluation"].get("description"),
             ),
             filters=FilterConfig(
-                agent_name=data['filters']['agent_name'],
-                start_date=data['filters']['date_range']['start'],
-                end_date=data['filters']['date_range']['end'],
-                limit=data['filters'].get('limit', 10)
+                agent_name=data["filters"]["agent_name"],
+                start_date=data["filters"]["date_range"]["start"],
+                end_date=data["filters"]["date_range"]["end"],
+                limit=data["filters"].get("limit", 10),
             ),
-            metrics=data['metrics'],
+            metrics=data["metrics"],
             evaluator=EvaluatorConfig(
-                model_id=data['evaluator']['model_id'],
-                inference_params=data.get('advanced', {}).get('inference_params')
+                model_id=data["evaluator"]["model_id"],
+                inference_params=data.get("advanced", {}).get("inference_params"),
             ),
             output=OutputConfig(
-                s3_bucket=data['output']['s3_bucket'],
-                s3_prefix=data['output'].get('s3_prefix', 'evaluation-results')
+                s3_bucket=data["output"]["s3_bucket"],
+                s3_prefix=data["output"].get("s3_prefix", "evaluation-results"),
             ),
-            tags=data.get('advanced', {}).get('tags')
+            tags=data.get("advanced", {}).get("tags"),
         )
 
     def validate(self) -> List[str]:
@@ -176,7 +193,7 @@ class EvaluationConfig:
             "Builtin.Completeness",
             "Builtin.Harmfulness",
             "Builtin.Accuracy",
-            "Builtin.Robustness"
+            "Builtin.Robustness",
         ]
 
         for metric in self.metrics:
@@ -192,26 +209,26 @@ class EvaluationConfig:
         return {
             "evaluation": {
                 "name": self.evaluation.name,
-                "description": self.evaluation.description
+                "description": self.evaluation.description,
             },
             "filters": {
                 "agent_name": self.filters.agent_name,
                 "date_range": {
                     "start": self.filters.start_date,
-                    "end": self.filters.end_date
+                    "end": self.filters.end_date,
                 },
-                "limit": self.filters.limit
+                "limit": self.filters.limit,
             },
             "metrics": self.metrics,
             "evaluator": {
                 "model_id": self.evaluator.model_id,
-                "inference_params": self.evaluator.inference_params
+                "inference_params": self.evaluator.inference_params,
             },
             "output": {
                 "s3_bucket": self.output.s3_bucket,
-                "s3_prefix": self.output.s3_prefix
+                "s3_prefix": self.output.s3_prefix,
             },
-            "tags": self.tags
+            "tags": self.tags,
         }
 
 

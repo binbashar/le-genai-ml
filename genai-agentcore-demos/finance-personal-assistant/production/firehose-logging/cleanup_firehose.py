@@ -82,7 +82,9 @@ def delete_iam_role(iam_client, role_name):
         # Detach managed policies
         attached_policies = iam_client.list_attached_role_policies(RoleName=role_name)
         for policy in attached_policies["AttachedPolicies"]:
-            iam_client.detach_role_policy(RoleName=role_name, PolicyArn=policy["PolicyArn"])
+            iam_client.detach_role_policy(
+                RoleName=role_name, PolicyArn=policy["PolicyArn"]
+            )
 
         # Delete role
         iam_client.delete_role(RoleName=role_name)
@@ -100,7 +102,9 @@ def delete_s3_bucket(s3_client, bucket_name):
         for page in paginator.paginate(Bucket=bucket_name):
             if "Contents" in page:
                 objects = [{"Key": obj["Key"]} for obj in page["Contents"]]
-                s3_client.delete_objects(Bucket=bucket_name, Delete={"Objects": objects})
+                s3_client.delete_objects(
+                    Bucket=bucket_name, Delete={"Objects": objects}
+                )
 
         # Delete bucket
         s3_client.delete_bucket(Bucket=bucket_name)

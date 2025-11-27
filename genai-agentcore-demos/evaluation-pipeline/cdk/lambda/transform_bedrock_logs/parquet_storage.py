@@ -49,7 +49,7 @@ class ParquetStorageManager:
         """
         self.bucket_name = bucket_name
         self.prefix = prefix
-        self.s3_client = boto3.client('s3')
+        self.s3_client = boto3.client("s3")
 
     def write_batch(self, records: List[Dict[str, Any]]) -> Dict[str, int]:
         """
@@ -65,7 +65,7 @@ class ParquetStorageManager:
             Dict with counts: {'total': N, 'successful': M, 'failed': K}
         """
         if not records:
-            return {'total': 0, 'successful': 0, 'failed': 0}
+            return {"total": 0, "successful": 0, "failed": 0}
 
         # Group records by partition key
         partitions = self._group_by_partition(records)
@@ -79,14 +79,21 @@ class ParquetStorageManager:
             try:
                 self._write_partition(partition_key, partition_records)
                 successful += len(partition_records)
-                logger.info(f"Wrote {len(partition_records)} records to partition: {partition_key}")
+                logger.info(
+                    f"Wrote {len(partition_records)} records to partition: {partition_key}"
+                )
             except Exception as e:
-                logger.error(f"Failed to write partition {partition_key}: {str(e)}", exc_info=True)
+                logger.error(
+                    f"Failed to write partition {partition_key}: {str(e)}",
+                    exc_info=True,
+                )
                 failed += len(partition_records)
 
-        return {'total': total, 'successful': successful, 'failed': failed}
+        return {"total": total, "successful": successful, "failed": failed}
 
-    def _group_by_partition(self, records: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    def _group_by_partition(
+        self, records: List[Dict[str, Any]]
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Group records by partition key (agent_name + yyyy/mm/dd/hh).
 
@@ -99,13 +106,15 @@ class ParquetStorageManager:
         partitions = {}
 
         for record in records:
-            agent_name = record.get('_agent_name', 'unknown')
-            date = record.get('_date', datetime.utcnow().strftime('%Y-%m-%d'))
-            hour = record.get('_hour', '00')
+            agent_name = record.get("_agent_name", "unknown")
+            date = record.get("_date", datetime.utcnow().strftime("%Y-%m-%d"))
+            hour = record.get("_hour", "00")
 
             # Hive-style partitioning: yyyy=YYYY/mm=MM/dd=DD/hh=HH
-            year, month, day = date.split('-')
-            partition_key = f"agent_name={agent_name}/yyyy={year}/mm={month}/dd={day}/hh={hour}"
+            year, month, day = date.split("-")
+            partition_key = (
+                f"agent_name={agent_name}/yyyy={year}/mm={month}/dd={day}/hh={hour}"
+            )
 
             if partition_key not in partitions:
                 partitions[partition_key] = []
@@ -114,7 +123,9 @@ class ParquetStorageManager:
 
         return partitions
 
-    def _write_partition(self, partition_key: str, records: List[Dict[str, Any]]) -> None:
+    def _write_partition(
+        self, partition_key: str, records: List[Dict[str, Any]]
+    ) -> None:
         """
         Write records to a Parquet file in S3.
 
@@ -125,7 +136,7 @@ class ParquetStorageManager:
             records: List of structured records for this partition
         """
         # Generate unique filename with timestamp
-        timestamp = datetime.utcnow().strftime('%Y%m%d-%H%M%S-%f')
+        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S-%f")
         filename = f"part-{timestamp}.parquet"
 
         # Full S3 key
@@ -139,8 +150,8 @@ class ParquetStorageManager:
         pq.write_table(
             table,
             buffer,
-            compression='snappy',  # Good balance of compression and speed
-            use_dictionary=True,    # Efficient encoding for repeated strings
+            compression="snappy",  # Good balance of compression and speed
+            use_dictionary=True,  # Efficient encoding for repeated strings
             write_statistics=True,  # Enable column statistics for query optimization
         )
 
@@ -150,11 +161,13 @@ class ParquetStorageManager:
             Bucket=self.bucket_name,
             Key=s3_key,
             Body=buffer.getvalue(),
-            ContentType='application/parquet',
-            ServerSideEncryption='AES256',
+            ContentType="application/parquet",
+            ServerSideEncryption="AES256",
         )
 
-        logger.info(f"Uploaded Parquet file: s3://{self.bucket_name}/{s3_key} ({len(records)} records)")
+        logger.info(
+            f"Uploaded Parquet file: s3://{self.bucket_name}/{s3_key} ({len(records)} records)"
+        )
 
     def _records_to_table(self, records: List[Dict[str, Any]]) -> pa.Table:
         """
@@ -176,7 +189,7 @@ class ParquetStorageManager:
                 # Handle None values and type conversions
                 if value is None:
                     if pa.types.is_string(field.type):
-                        value = ''
+                        value = ""
                     elif pa.types.is_integer(field.type):
                         value = 0
                     elif pa.types.is_timestamp(field.type):
@@ -197,7 +210,7 @@ class ParquetStorageManager:
                     if ts:
                         try:
                             # Parse ISO format: 2025-11-24T12:34:56.789Z
-                            dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                             parsed_timestamps.append(dt)
                         except Exception:
                             parsed_timestamps.append(None)
@@ -221,7 +234,7 @@ def get_bucket_name_from_env() -> str:
     Raises:
         ValueError: If BUCKET_NAME not set
     """
-    bucket_name = os.environ.get('BUCKET_NAME')
+    bucket_name = os.environ.get("BUCKET_NAME")
     if not bucket_name:
         raise ValueError("BUCKET_NAME environment variable not set")
     return bucket_name

@@ -78,7 +78,8 @@ class HealthCheckConstants:
 class BotoClientFactory(Protocol):
     """Protocol for boto3 client factory functions."""
 
-    def __call__(self, service: str, *, config: Any) -> Any: ...
+    def __call__(self, service: str, *, config: Any) -> Any:
+        ...
 
 
 @dataclass
@@ -225,7 +226,9 @@ def _validate_response(response_text: str, elapsed: float) -> bool:
     if len(response_text) > HealthCheckConstants.MIN_RESPONSE_LENGTH:
         print(f"  ✓ ok [{elapsed:.2f}s]")
         return True
-    print(f"  ❌ error: response too short ({len(response_text)} chars, minimum {HealthCheckConstants.MIN_RESPONSE_LENGTH}) [{elapsed:.2f}s]")
+    print(
+        f"  ❌ error: response too short ({len(response_text)} chars, minimum {HealthCheckConstants.MIN_RESPONSE_LENGTH}) [{elapsed:.2f}s]"
+    )
     return False
 
 
@@ -367,7 +370,9 @@ def _invoke_with_token_auth(
     """
     try:
         # Authenticate and get token
-        auth_result = authenticate(auth_config, credentials.username, credentials.password)
+        auth_result = authenticate(
+            auth_config, credentials.username, credentials.password
+        )
         token = auth_result["AccessToken"]
 
         # Extract region from ARN
@@ -386,7 +391,9 @@ def _invoke_with_token_auth(
         # Check HTTP status code
         if response.status_code != 200:
             elapsed = time.time() - start_time
-            print(f"  ❌ HTTP {response.status_code}: {response.text[:200]} [{elapsed:.2f}s]")
+            print(
+                f"  ❌ HTTP {response.status_code}: {response.text[:200]} [{elapsed:.2f}s]"
+            )
             return False, "", elapsed
 
         # Parse SSE response

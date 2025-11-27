@@ -226,7 +226,12 @@ def compare_stock_performance(symbols: List[str], period: str = "1y") -> str:
 financial_analysis_agent = Agent(
     model=model,
     system_prompt=FINANCIAL_ANALYSIS_PROMPT,
-    tools=[get_stock_analysis, create_diversified_portfolio, compare_stock_performance, browser_tool.browser],
+    tools=[
+        get_stock_analysis,
+        create_diversified_portfolio,
+        compare_stock_performance,
+        browser_tool.browser,
+    ],
     callback_handler=None,
 )
 
