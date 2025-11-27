@@ -7,7 +7,7 @@ Reads Parquet files from S3 staging, applies sampling, and generates JSONL datas
 **Input** (from Step Functions):
 ```json
 {
-  "agent_name": "claude-sonnet",
+  "agent_name": "my-agent",
   "start_date": "2025-11-25",
   "end_date": "2025-11-25",
   "limit": 10,
@@ -18,7 +18,7 @@ Reads Parquet files from S3 staging, applies sampling, and generates JSONL datas
 **Output** (to Step Functions):
 ```json
 {
-  "dataset_s3_uri": "s3://bucket/evaluation-datasets/claude-sonnet/20251125-120000/dataset.jsonl",
+  "dataset_s3_uri": "s3://bucket/evaluation-datasets/my-agent/20251125-120000/dataset.jsonl",
   "question_count": 3,
   "sampling_stats": {
     "total_records": 10,
@@ -38,7 +38,7 @@ Input:
 {
     "prompt": "<retrieved_memories>...\n\nUser: Hello, are you operational?",
     "response": "¡Hola! Yes, I'm fully operational...",
-    "agent_name": "claude-sonnet",
+    "agent_name": "my-agent",
     "model_id": "us.anthropic.claude-sonnet-4-5",
     # ... 13 other fields
 }
@@ -47,10 +47,10 @@ Input:
 Output:
 ```json
 {
-  "prompt": "<retrieved_memories>...\n\nUser: Hello, are you operational?",
+  "prompt": "Hello, are you operational?",
   "modelResponses": [{
     "response": "¡Hola! Yes, I'm fully operational...",
-    "modelIdentifier": "claude-sonnet"
+    "modelIdentifier": "my-agent"
   }]
 }
 ```

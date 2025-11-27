@@ -10,8 +10,23 @@ Input (from Step Functions):
   "start_date": "2025-11-24T00:00:00Z",   # ISO 8601 UTC
   "end_date": "2025-11-24T23:59:59Z",     # ISO 8601 UTC
   "limit": 100,
-  "metrics": ["Builtin.Correctness"]
+  "metrics": ["Builtin.Correctness"],
+  "strip_context": true,                   # Optional: Extract user question from full prompt (default: true)
+  "include_context_as_reference": false    # Optional: Put context in referenceResponse (default: false)
 }
+
+Context Handling:
+- strip_context=true (default): Extracts user question from prompts containing:
+  - <retrieved_memories>...</retrieved_memories> wrapper
+  - [Vision Analysis: ...] prefix
+  - [CSV File Data]...User Query: pattern
+- include_context_as_reference=true: Puts extracted context in referenceResponse field
+  (useful for Correctness/Completeness metrics that can use reference data)
+
+Environment Variables:
+- STAGING_BUCKET: S3 bucket name (required)
+- STRIP_CONTEXT: Default value for strip_context (default: "true")
+- INCLUDE_CONTEXT_AS_REFERENCE: Default value for include_context_as_reference (default: "false")
 
 Date formats accepted (all times in UTC):
 - Date only: "2025-11-24" (normalized to 00:00:00Z for start, 23:59:59Z for end)
@@ -37,8 +52,9 @@ import boto3
 import json
 import logging
 import os
-from datetime import datetime, timedelta
-from typing import Dict, Any, List
+import re
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any, List, Tuple
 from io import BytesIO
 
 import pyarrow.parquet as pq
@@ -79,6 +95,73 @@ def normalize_date(date_str: str, is_end_date: bool = False) -> str:
     return date_str  # Full format: YYYY-MM-DDTHH:MM:SSZ
 
 
+def extract_user_question(full_prompt: str) -> Tuple[str, str]:
+    """
+    Extract user question from context-augmented prompt.
+
+    Handles prompt structures with:
+    - <retrieved_memories>...</retrieved_memories> wrapper
+    - [Vision Analysis: ...] prefix
+    - [CSV File Data]...User Query: pattern
+    - [Document Error: ...] prefix
+
+    Args:
+        full_prompt: Full prompt with memory/vision/csv context
+
+    Returns:
+        (user_question, context) tuple
+        - user_question: The extracted user question
+        - context: The extracted context (empty string if none)
+    """
+    context_parts = []
+    content = full_prompt
+
+    # 1. Handle <retrieved_memories>...</retrieved_memories>\n\nUser: pattern
+    if '<retrieved_memories>' in content:
+        mem_match = re.search(
+            r'<retrieved_memories>(.*?)</retrieved_memories>',
+            content, re.DOTALL
+        )
+        if mem_match:
+            context_parts.append(f"[Retrieved Memories]\n{mem_match.group(1).strip()}")
+
+        # Extract content after "User: "
+        user_match = re.search(
+            r'</retrieved_memories>\s*\n+User:\s*(.+)',
+            content, re.DOTALL
+        )
+        if user_match:
+            content = user_match.group(1).strip()
+
+    # 2. Handle [Vision Analysis: ...] prefix
+    if content.startswith('[Vision Analysis:'):
+        # Find the closing bracket and newlines
+        vision_match = re.match(r'(\[Vision Analysis:.*?\])\s*\n+(.+)', content, re.DOTALL)
+        if vision_match:
+            context_parts.append(vision_match.group(1))
+            content = vision_match.group(2).strip()
+
+    # 3. Handle [CSV File Data]...User Query: pattern
+    if '[CSV File Data]' in content:
+        csv_match = re.search(
+            r'\[CSV File Data\](.*?)User Query:\s*(.+)',
+            content, re.DOTALL
+        )
+        if csv_match:
+            context_parts.append(f"[CSV File Data]{csv_match.group(1).strip()}")
+            content = csv_match.group(2).strip()
+
+    # 4. Handle [Document Error: ...] prefix (edge case)
+    if content.startswith('[Document Error:'):
+        error_match = re.match(r'(\[Document Error:.*?\])\s*\n+(.+)', content, re.DOTALL)
+        if error_match:
+            context_parts.append(error_match.group(1))
+            content = error_match.group(2).strip()
+
+    context = '\n\n'.join(context_parts) if context_parts else ''
+    return content, context
+
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Main Lambda handler for filtering and gathering evaluation data.
@@ -100,6 +183,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     limit = config['limit']
 
     logger.info(f"Normalized dates: start={start_date}, end={end_date}")
+
+    # Get context handling configuration (from event or environment variables)
+    # strip_context: Extract user question from full prompt (default: True)
+    # include_context_as_reference: Put context in referenceResponse field (default: False)
+    strip_context = config.get(
+        'strip_context',
+        os.environ.get('STRIP_CONTEXT', 'true').lower() == 'true'
+    )
+    include_context_as_reference = config.get(
+        'include_context_as_reference',
+        os.environ.get('INCLUDE_CONTEXT_AS_REFERENCE', 'false').lower() == 'true'
+    )
+    logger.info(f"Context handling: strip_context={strip_context}, "
+                f"include_context_as_reference={include_context_as_reference}")
 
     # Get S3 bucket from environment
     bucket_name = os.environ.get('STAGING_BUCKET')
@@ -124,10 +221,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info(f"Sampled {sampled_count} records (limit: {limit})")
 
     # Step 3: Transform to Bedrock evaluation format
-    evaluation_dataset = transform_to_bedrock_format(sampled_records, agent_name)
+    evaluation_dataset = transform_to_bedrock_format(
+        sampled_records,
+        agent_name,
+        strip_context=strip_context,
+        include_context_as_reference=include_context_as_reference
+    )
 
     # Step 4: Write JSONL to S3
-    timestamp = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
     dataset_key = f"evaluation-datasets/{agent_name}/{timestamp}/dataset.jsonl"
     dataset_s3_uri = write_jsonl_to_s3(
         bucket_name=bucket_name,
@@ -140,7 +242,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'total_records': total_records,
         'filtered_records': total_records,  # No filtering yet (MVP)
         'sampled_records': sampled_count,
-        'timestamp': timestamp
+        'timestamp': timestamp,
+        'context_handling': {
+            'strip_context': strip_context,
+            'include_context_as_reference': include_context_as_reference
+        }
     }
 
     stats_key = f"evaluation-datasets/{agent_name}/{timestamp}/sampling_stats.json"
@@ -275,7 +381,9 @@ def apply_sampling(records: List[Dict[str, Any]], limit: int) -> List[Dict[str, 
 
 def transform_to_bedrock_format(
     records: List[Dict[str, Any]],
-    agent_name: str
+    agent_name: str,
+    strip_context: bool = True,
+    include_context_as_reference: bool = False
 ) -> List[Dict[str, Any]]:
     """
     Transform staging records to Bedrock evaluation JSONL format.
@@ -287,12 +395,16 @@ def transform_to_bedrock_format(
         "response": "Based on your profile...",
         "modelIdentifier": "finance-personal-assistant"
       }],
+      "referenceResponse": "..." (optional),
       "category": "budgeting" (optional)
     }
 
     Args:
         records: Staging records (from Parquet)
         agent_name: Agent identifier
+        strip_context: If True, extract user question from full prompt (default: True)
+        include_context_as_reference: If True and strip_context=True,
+                                      put extracted context in referenceResponse (default: False)
 
     Returns:
         List of records in Bedrock format
@@ -300,16 +412,27 @@ def transform_to_bedrock_format(
     evaluation_records = []
 
     for record in records:
-        # Extract prompt and response
-        prompt = record.get('prompt', '')
+        # Extract prompt and response from record
+        full_prompt = record.get('prompt', '')
         response = record.get('response', '')
 
         # Skip records with missing data
-        if not prompt or not response:
+        if not full_prompt or not response:
             logger.warning(f"Skipping record with missing prompt/response: {record.get('request_id')}")
             continue
 
-        # Transform to Bedrock format
+        # Determine prompt and context based on configuration
+        if strip_context:
+            user_question, context = extract_user_question(full_prompt)
+            # Fallback: if extraction returned empty, use full prompt
+            prompt = user_question if user_question.strip() else full_prompt
+            if prompt != full_prompt:
+                logger.debug(f"Extracted user question: '{prompt[:100]}...' from full prompt")
+        else:
+            prompt = full_prompt
+            context = ''
+
+        # Build Bedrock evaluation record
         eval_record = {
             'prompt': prompt,
             'modelResponses': [{
@@ -317,6 +440,10 @@ def transform_to_bedrock_format(
                 'modelIdentifier': agent_name
             }]
         }
+
+        # Optionally add context as referenceResponse
+        if strip_context and include_context_as_reference and context:
+            eval_record['referenceResponse'] = context
 
         # Add optional category if available
         if 'category' in record and record['category']:
