@@ -25,9 +25,7 @@ class Response(BaseModel):
 
 
 def get_llm(
-    model: Model,
-    output: Type[BaseModel] = Response,
-    use_bedrock_converse: bool = True
+    model: Model, output: Type[BaseModel] = Response, use_bedrock_converse: bool = True
 ):
     """
     Get structured LLM for any Bedrock model.
