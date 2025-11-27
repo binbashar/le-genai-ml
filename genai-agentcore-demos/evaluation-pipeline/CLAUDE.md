@@ -10,11 +10,14 @@ Automated evaluation pipeline for AWS Bedrock AgentCore agents using LLM-as-a-ju
 # Deploy infrastructure
 cd cdk
 export AWS_PROFILE=binbash
-uv run cdk deploy --all -c deploy_filter_lambda=true -c deploy_evaluation_job=true -c deploy_orchestration=true --require-approval never
+uv run cdk deploy EvaluationPipeline --require-approval never
+
+# After deployment, configure Bedrock logging (one-time):
+# Run the command from ManualConfigCommand output
 
 # Run evaluation via CLI
 aws stepfunctions start-execution \
-  --state-machine-arn $(aws cloudformation describe-stacks --stack-name EvaluationPipelineOrchestration --query 'Stacks[0].Outputs[?OutputKey==`StateMachineArn`].OutputValue' --output text) \
+  --state-machine-arn $(aws cloudformation describe-stacks --stack-name EvaluationPipeline --query 'Stacks[0].Outputs[?OutputKey==`StateMachineArn`].OutputValue' --output text) \
   --input '{"agent_name":"finance_personal_assistant","start_date":"2025-11-25","end_date":"2025-11-25","limit":10,"metrics":["Builtin.Correctness"]}'
 
 # Or use Web UI
@@ -42,6 +45,8 @@ Agent names are extracted from the IAM execution role ARN in Bedrock logs:
 identity.arn: "arn:aws:sts::ACCOUNT:assumed-role/BedrockAgentCore-{agent_name}-execution-role/..."
 ```
 Falls back to model family (e.g., `claude-sonnet`) for non-AgentCore invocations.
+
+**Important:** Agents must use named IAM roles following this pattern. See [README.md Prerequisites](README.md#prerequisites) for setup instructions and reference implementations.
 
 ### S3 Structure
 ```

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { StartExecutionCommand } from "@aws-sdk/client-sfn";
+import { StartExecutionCommand, ListExecutionsCommand, DescribeExecutionCommand } from "@aws-sdk/client-sfn";
 import { getSFNClient, getStateMachineArn } from "@/lib/aws";
 import { experimentInputSchema } from "@/lib/schemas";
 import { z } from "zod";
@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
       end_date: validated.end_date,
       limit: validated.limit,
       metrics: validated.metrics,
+      strip_context: validated.strip_context,
+      include_context_as_reference: validated.include_context_as_reference,
     };
 
     // Generate unique execution name
@@ -97,6 +99,73 @@ export async function POST(request: NextRequest) {
       {
         error: "InternalError",
         message: "Failed to start experiment",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  try {
+    const client = getSFNClient();
+    const command = new ListExecutionsCommand({
+      stateMachineArn: getStateMachineArn(),
+      maxResults: 20, // Limit to 20 most recent
+    });
+
+    const response = await client.send(command);
+
+    const executions = await Promise.all(
+      (response.executions || []).map(async (execution) => {
+        let isNoData = false;
+
+        // If succeeded, fetch details to check for NO_DATA_FOUND
+        if (execution.status === "SUCCEEDED" && execution.executionArn) {
+          try {
+            const detailCommand = new DescribeExecutionCommand({
+              executionArn: execution.executionArn,
+            });
+            const detailResponse = await client.send(detailCommand);
+
+            if (detailResponse.output) {
+              const output = JSON.parse(detailResponse.output);
+              // Check if output indicates NO_DATA_FOUND
+              // Structure could be { final_results: { status: "NO_DATA_FOUND" } } or direct
+              const results = output.final_results || output;
+              if (results && results.status === "NO_DATA_FOUND") {
+                isNoData = true;
+              }
+            }
+          } catch (e) {
+            console.warn(`Failed to fetch details for execution ${execution.executionArn}`, e);
+          }
+        }
+
+        return {
+          executionArn: execution.executionArn!,
+          name: execution.name!,
+          status: execution.status!,
+          startDate: execution.startDate?.toISOString()!,
+          stopDate: execution.stopDate?.toISOString(),
+          isNoData,
+        };
+      })
+    );
+
+    return NextResponse.json({ executions });
+  } catch (error) {
+    console.error("Failed to list executions:", error);
+
+    // Handle StateMachineDoesNotExist
+    if (error instanceof Error && error.name === "StateMachineDoesNotExist") {
+      console.warn("State machine not found, returning empty list.");
+      return NextResponse.json({ executions: [] });
+    }
+
+    return NextResponse.json(
+      {
+        error: "InternalError",
+        message: "Failed to list executions",
       },
       { status: 500 }
     );

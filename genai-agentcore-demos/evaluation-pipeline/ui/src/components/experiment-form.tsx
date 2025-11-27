@@ -42,6 +42,8 @@ export function ExperimentForm({
       endDate: today,
       maxLimit: DEFAULT_MAX_LIMIT,
       metrics: [],
+      stripContext: true,
+      includeContextAsReference: false,
     },
   });
 
@@ -159,6 +161,49 @@ export function ExperimentForm({
             {errors.maxLimit && (
               <p className="text-sm text-red-600">{errors.maxLimit.message}</p>
             )}
+          </div>
+
+          {/* Context Handling */}
+          <div className="space-y-3 pt-2 border-t border-gray-100">
+            <h3 className="text-sm font-medium text-gray-900">Context Handling</h3>
+
+            <div className="flex items-start gap-3">
+              <div className="flex h-5 items-center">
+                <input
+                  id="stripContext"
+                  type="checkbox"
+                  {...register("stripContext")}
+                  disabled={isSubmitting}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </div>
+              <div className="text-sm">
+                <label htmlFor="stripContext" className="font-medium text-gray-700 flex items-center gap-2 group cursor-pointer">
+                  Focus on User Question
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold cursor-help group-hover:bg-gray-200 transition-colors" title="Removes system tokens, memory, and reasoning to evaluate only the user's core question.">?</span>
+                </label>
+                <p className="text-gray-500">Remove system tokens and memory context</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="flex h-5 items-center">
+                <input
+                  id="includeContextAsReference"
+                  type="checkbox"
+                  {...register("includeContextAsReference")}
+                  disabled={isSubmitting}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </div>
+              <div className="text-sm">
+                <label htmlFor="includeContextAsReference" className="font-medium text-gray-700 flex items-center gap-2 group cursor-pointer">
+                  Include Context in Reference
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold cursor-help group-hover:bg-gray-200 transition-colors" title="Moves the removed context to the reference field for 'Correctness' evaluation.">?</span>
+                </label>
+                <p className="text-gray-500">Use removed context as reference for evaluation</p>
+              </div>
+            </div>
           </div>
 
           {/* Metrics Selector */}

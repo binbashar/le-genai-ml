@@ -10,7 +10,7 @@ Input (from Step Functions):
   "job_name": "eval-...",
   "status": "Completed",
   "output_s3_uri": "s3://bucket/evaluation-results/agent/timestamp/",
-  "agent_name": "finance-personal-assistant",
+  "agent_name": "my-agent",
   "metrics": ["Builtin.Correctness"],
   ...
 }

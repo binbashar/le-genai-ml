@@ -8,6 +8,8 @@ import { useExperimentStatus } from "@/hooks/use-experiment-status";
 import type { ExperimentFormSchema } from "@/lib/schemas";
 import type { Agent } from "@/types";
 
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+
 interface ActiveExperiment {
     executionArn: string;
     name: string;
@@ -16,9 +18,10 @@ interface ActiveExperiment {
 interface ExperimentContainerProps {
     initialAgents: Agent[];
     agentsWarning?: string;
+    onBack?: () => void;
 }
 
-export function ExperimentContainer({ initialAgents, agentsWarning }: ExperimentContainerProps) {
+export function ExperimentContainer({ initialAgents, agentsWarning, onBack }: ExperimentContainerProps) {
     const [activeExperiment, setActiveExperiment] =
         useState<ActiveExperiment | null>(null);
 
@@ -128,6 +131,16 @@ export function ExperimentContainer({ initialAgents, agentsWarning }: Experiment
     // Show form
     return (
         <div className="max-w-2xl mx-auto">
+            {onBack && (
+                <button
+                    onClick={onBack}
+                    className="mb-6 inline-flex items-center gap-x-1 text-sm font-semibold text-gray-900 hover:text-gray-600"
+                >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                    Back to List
+                </button>
+            )}
+
             {agentsWarning && (
                 <div className="mb-4 p-3 rounded-md bg-yellow-50 border border-yellow-200">
                     <p className="text-sm text-yellow-700">{agentsWarning}</p>

@@ -50,7 +50,7 @@ Add basic error handling and UI feedback. Keep it simple but ensure the demo won
 
 ---
 
-## [ ] TASK-5: Validation
+## [X] TASK-5: Validation
 **Goal**: Verify and document
 **Time**: ~25 minutes
 **Context**: See requirements REQ-020, REQ-021

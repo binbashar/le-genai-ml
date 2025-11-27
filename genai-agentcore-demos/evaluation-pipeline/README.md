@@ -15,23 +15,40 @@ Agent → Bedrock → CloudWatch → Firehose → Transform Lambda → Parquet �
 
 ### Prerequisites
 
+**Environment:**
 ```bash
 export AWS_PROFILE=binbash
 export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 export CDK_DEFAULT_REGION=us-west-2
 ```
 
+**Agent IAM Role Naming** (required for agent identification):
+
+Agents must use IAM execution roles following this pattern:
+```
+BedrockAgentCore-{agent_name}-execution-role
+```
+
+The pipeline extracts `agent_name` from the IAM role ARN in Bedrock logs. Without this naming convention, traces fall back to model family (e.g., `nova-lite`) and won't be queryable by agent.
+
+**Reference implementations:**
+- `chat-agent/cdk/app.py` - Minimal CDK stack
+- `finance-personal-assistant/production/cdk/app.py` - Full production setup
+
+Both use the `AgentExecutionRole` construct from `libs/cdk/` which:
+1. Creates the named IAM role with required permissions
+2. Publishes ARN to SSM: `/agentcore/{agent_name}/execution-role-arn`
+
 ### Deploy
 
 ```bash
 cd cdk
 
-# Deploy all stacks
-uv run cdk deploy --all \
-  -c deploy_filter_lambda=true \
-  -c deploy_evaluation_job=true \
-  -c deploy_orchestration=true \
-  --require-approval never
+# Deploy unified stack (all components)
+uv run cdk deploy EvaluationPipeline --require-approval never
+
+# After deployment, configure Bedrock logging (one-time):
+# Run the command from ManualConfigCommand output
 ```
 
 ## Running Evaluations
@@ -52,7 +69,7 @@ Three ways to run evaluations:
 
 ```bash
 STATE_MACHINE_ARN=$(aws cloudformation describe-stacks \
-  --stack-name EvaluationPipelineOrchestration \
+  --stack-name EvaluationPipeline \
   --query 'Stacks[0].Outputs[?OutputKey==`StateMachineArn`].OutputValue' \
   --output text)
 
@@ -177,6 +194,20 @@ evaluation-pipeline/
 | [PRD.md](PRD.md) | Requirements & architecture |
 | [SCHEMAS.md](SCHEMAS.md) | Data format reference |
 | [ui/README.md](ui/README.md) | Web UI setup & troubleshooting |
+
+## Troubleshooting
+
+**"No traces found" error:**
+- Agent likely uses auto-created IAM role without the required naming pattern
+- Verify: `grep execution_role .bedrock_agentcore.yaml` should show `BedrockAgentCore-{agent_name}-execution-role`
+- Fix: Deploy CDK stack with `AgentExecutionRole`, re-configure, and redeploy agent (see [Prerequisites](#prerequisites))
+
+**Check S3 partitions:**
+```bash
+aws s3 ls s3://eval-pipeline-{account}-{region}/staging/
+# Should show: agent_name=your_agent_name/...
+# Not: agent_name=nova-lite/... (fallback = IAM role not matching pattern)
+```
 
 ## Cost
 

@@ -27,3 +27,13 @@ dependencies = [
 
 [tool.setuptools]
 packages = ["shared"]
+
+[tool.uv.workspace]
+members = [
+    "evaluation-pipeline/cdk",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.6",
+]

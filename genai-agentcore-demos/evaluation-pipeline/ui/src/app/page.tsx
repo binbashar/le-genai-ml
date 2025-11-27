@@ -1,4 +1,4 @@
-import { ExperimentContainer } from "@/components/experiment-container";
+import { EvaluationsDashboard } from "@/components/evaluations-dashboard";
 import { discoverAgents } from "@/lib/ssm";
 import type { Agent } from "@/types";
 
@@ -19,9 +19,11 @@ export default async function Home() {
   }
 
   return (
-    <ExperimentContainer
-      initialAgents={agents}
-      agentsWarning={warning}
-    />
+    <div className="max-w-4xl mx-auto">
+      <EvaluationsDashboard
+        initialAgents={agents}
+        agentsWarning={warning}
+      />
+    </div>
   );
 }

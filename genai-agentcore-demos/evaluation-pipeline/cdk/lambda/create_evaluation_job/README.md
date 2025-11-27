@@ -150,8 +150,8 @@ print(json.dumps(result, indent=2))
 ## Cost Considerations
 
 **MVP Testing (max 10 samples):**
-- Nova Pro judge: ~$0.001 per sample
-- Total: ~$0.01 per evaluation run
+- Nova Pro judge: ~$0.0001 per sample
+- Total: ~$0.001 per evaluation run
 
 **Production (100+ samples):**
 - Increase `MAX_EVALUATION_SAMPLES`

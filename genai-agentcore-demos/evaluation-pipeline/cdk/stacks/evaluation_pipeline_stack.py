@@ -1,7 +1,6 @@
 """
-Evaluation Pipeline Stack - Unified Infrastructure
+Evaluation Pipeline Stack
 
-Combines all evaluation pipeline components into a single stack:
 - Data Collection: CloudWatch → Firehose → S3 with Lambda transformation
 - Filter Lambda: Parquet → JSONL for Bedrock evaluation
 - Evaluation Job: Create Bedrock evaluation jobs
@@ -48,13 +47,7 @@ from constructs import Construct
 
 class EvaluationPipelineStack(Stack):
     """
-    Unified CDK stack for the complete evaluation pipeline.
-
-    Consolidates:
-    - DataCollectionStack: CloudWatch, S3, Firehose, Transform Lambda
-    - FilterLambdaStack: Filter Lambda (Parquet → JSONL)
-    - EvaluationJobStack: Create Evaluation Job Lambda
-    - OrchestrationStack: Step Functions, Poll/Process Lambdas
+    CDK stack for the evaluation pipeline.
     """
 
     def __init__(

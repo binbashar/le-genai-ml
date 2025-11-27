@@ -78,9 +78,6 @@ Current implementation uses **basic regex patterns**:
 - `_agent_name`: For Athena partition pruning
 - `_date`: Date partition (YYYY-MM-DD)
 
-## Local Testing
-
-Not yet implemented. See Phase 2 test plan in `../../../PLAN.md`.
 
 ## Deployment
 
