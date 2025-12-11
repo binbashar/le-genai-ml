@@ -35,6 +35,7 @@ from aws_cdk import (
     RemovalPolicy,
     Stack,
 )
+from aws_cdk import aws_bedrock as bedrock
 from aws_cdk import aws_ecr_assets as ecr_assets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_kinesisfirehose as firehose
@@ -55,6 +56,7 @@ class EvaluationPipelineStack(Stack):
         scope: Construct,
         construct_id: str,
         deploy_orchestration: bool = True,
+        deploy_guardrails: bool = True,
         **kwargs,
     ) -> None:
         """
@@ -64,11 +66,13 @@ class EvaluationPipelineStack(Stack):
             scope: CDK scope
             construct_id: Stack ID
             deploy_orchestration: Whether to deploy Step Functions (default: True)
+            deploy_guardrails: Whether to deploy Bedrock Guardrails for PII filtering (default: True)
             **kwargs: Additional stack arguments
         """
         super().__init__(scope, construct_id, **kwargs)
 
         self.deploy_orchestration = deploy_orchestration
+        self.deploy_guardrails = deploy_guardrails
 
         # =====================================================================
         # 1. Base Infrastructure (S3, CloudWatch, IAM)
@@ -77,7 +81,14 @@ class EvaluationPipelineStack(Stack):
         self._create_base_infrastructure()
 
         # =====================================================================
-        # 2. Transform Lambda (Firehose → Parquet)
+        # 2. PII Guardrails (Bedrock Guardrails for PII filtering)
+        # =====================================================================
+
+        if self.deploy_guardrails:
+            self._create_pii_guardrail()
+
+        # =====================================================================
+        # 3. Transform Lambda (Firehose → Parquet)
         # =====================================================================
 
         self._create_transform_lambda()
@@ -206,6 +217,94 @@ class EvaluationPipelineStack(Stack):
         )
 
     # =========================================================================
+    # PII Guardrails
+    # =========================================================================
+
+    def _create_pii_guardrail(self) -> None:
+        """Create Bedrock Guardrail for PII filtering with ANONYMIZE action."""
+        # Define all PII entity types with ANONYMIZE action (30+ types)
+        pii_entities = [
+            # General PII
+            "NAME",
+            "EMAIL",
+            "PHONE",
+            "ADDRESS",
+            "AGE",
+            "USERNAME",
+            "PASSWORD",
+            "DRIVER_ID",
+            "LICENSE_PLATE",
+            "VEHICLE_IDENTIFICATION_NUMBER",
+            # Finance PII
+            "CREDIT_DEBIT_CARD_NUMBER",
+            "CREDIT_DEBIT_CARD_CVV",
+            "CREDIT_DEBIT_CARD_EXPIRY",
+            "PIN",
+            "INTERNATIONAL_BANK_ACCOUNT_NUMBER",
+            "SWIFT_CODE",
+            # USA-specific PII
+            "US_SOCIAL_SECURITY_NUMBER",
+            "US_BANK_ACCOUNT_NUMBER",
+            "US_BANK_ROUTING_NUMBER",
+            "US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER",
+            "US_PASSPORT_NUMBER",
+            # Canada-specific PII
+            "CA_HEALTH_NUMBER",
+            "CA_SOCIAL_INSURANCE_NUMBER",
+            # UK-specific PII
+            "UK_NATIONAL_HEALTH_SERVICE_NUMBER",
+            "UK_NATIONAL_INSURANCE_NUMBER",
+            "UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER",
+            # IT/Technical PII
+            "IP_ADDRESS",
+            "MAC_ADDRESS",
+            "URL",
+            "AWS_ACCESS_KEY",
+            "AWS_SECRET_KEY",
+        ]
+
+        # Create PII entity configurations with ANONYMIZE action
+        pii_entities_config = [
+            bedrock.CfnGuardrail.PiiEntityConfigProperty(
+                type=pii_type,
+                action="ANONYMIZE",  # Mask with {PII_TYPE} tokens
+            )
+            for pii_type in pii_entities
+        ]
+
+        # Create the guardrail
+        self.pii_guardrail = bedrock.CfnGuardrail(
+            self,
+            "PIIFilterGuardrail",
+            name="evaluation-pipeline-pii-filter",
+            description=(
+                "PII filtering guardrail for evaluation pipeline. "
+                "Detects and anonymizes 30+ PII types using ML-based detection. "
+                "Applied to Bedrock agent logs before S3 storage."
+            ),
+            blocked_input_messaging=(
+                "Content blocked: Sensitive information detected in input."
+            ),
+            blocked_outputs_messaging=(
+                "Content blocked: Sensitive information detected in output."
+            ),
+            sensitive_information_policy_config=bedrock.CfnGuardrail.SensitiveInformationPolicyConfigProperty(
+                pii_entities_config=pii_entities_config,
+            ),
+        )
+
+        # Create a published version for production stability
+        self.pii_guardrail_version = bedrock.CfnGuardrailVersion(
+            self,
+            "PIIFilterGuardrailVersion",
+            guardrail_identifier=self.pii_guardrail.attr_guardrail_id,
+            description="Production version for evaluation pipeline PII filtering",
+        )
+
+        # Ensure version is created after guardrail
+        self.pii_guardrail_version.add_dependency(self.pii_guardrail)
+
+    # =========================================================================
     # Transform Lambda
     # =========================================================================
 
@@ -225,6 +324,20 @@ class EvaluationPipelineStack(Stack):
                 ),
             ],
         )
+
+        # Build environment variables (conditional guardrails config)
+        environment = {
+            "LOG_LEVEL": "INFO",
+            "PYTHONUNBUFFERED": "1",
+            "BUCKET_NAME": self.bucket.bucket_name,
+            "GUARDRAILS_ENABLED": "true" if self.deploy_guardrails else "false",
+            "PII_REGEX_ENABLED": "false",
+        }
+
+        # Add guardrail config if enabled
+        if self.deploy_guardrails:
+            environment["GUARDRAIL_ID"] = self.pii_guardrail.attr_guardrail_id
+            environment["GUARDRAIL_VERSION"] = self.pii_guardrail_version.attr_version
 
         self.transform_lambda = lambda_.Function(
             self,
@@ -248,15 +361,22 @@ class EvaluationPipelineStack(Stack):
             timeout=Duration.minutes(3),
             memory_size=512,
             role=lambda_role,
-            environment={
-                "LOG_LEVEL": "INFO",
-                "PYTHONUNBUFFERED": "1",
-                "BUCKET_NAME": self.bucket.bucket_name,
-            },
+            environment=environment,
             retry_attempts=2,
         )
 
         self.bucket.grant_write(self.transform_lambda)
+
+        # Add Bedrock Guardrails IAM permission if enabled
+        if self.deploy_guardrails:
+            lambda_role.add_to_policy(
+                iam.PolicyStatement(
+                    sid="BedrockApplyGuardrail",
+                    effect=iam.Effect.ALLOW,
+                    actions=["bedrock:ApplyGuardrail"],
+                    resources=[self.pii_guardrail.attr_guardrail_arn],
+                )
+            )
 
         logs.LogGroup(
             self,
@@ -1017,6 +1137,29 @@ class EvaluationPipelineStack(Stack):
             value=self.evaluation_job_role.role_arn,
             description="ARN of the IAM role for Bedrock evaluation jobs",
         )
+
+        # Guardrails outputs (if enabled)
+        if self.deploy_guardrails:
+            CfnOutput(
+                self,
+                "GuardrailId",
+                value=self.pii_guardrail.attr_guardrail_id,
+                description="Bedrock Guardrail ID for PII filtering",
+            )
+
+            CfnOutput(
+                self,
+                "GuardrailArn",
+                value=self.pii_guardrail.attr_guardrail_arn,
+                description="Bedrock Guardrail ARN for PII filtering",
+            )
+
+            CfnOutput(
+                self,
+                "GuardrailVersion",
+                value=self.pii_guardrail_version.attr_version,
+                description="Bedrock Guardrail Version for PII filtering",
+            )
 
         if self.deploy_orchestration:
             CfnOutput(

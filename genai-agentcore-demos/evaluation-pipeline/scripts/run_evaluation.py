@@ -19,7 +19,7 @@ import boto3
 sys.path.insert(0, str(Path(__file__).parent.parent / "config"))
 from config_schema_mvp import EvaluationConfig, validate_config_file
 
-STACK_NAME = "EvaluationPipelineOrchestration"
+STACK_NAME = "EvaluationPipeline"
 
 
 def get_state_machine_arn(region: str = None) -> str:

@@ -33,11 +33,17 @@ deploy_orchestration = app.node.try_get_context("deploy_orchestration")
 if deploy_orchestration is None:
     deploy_orchestration = True  # Default: deploy everything
 
+# Optional: disable guardrails for regex-only PII filtering
+deploy_guardrails = app.node.try_get_context("deploy_guardrails")
+if deploy_guardrails is None:
+    deploy_guardrails = True  # Default: deploy Bedrock Guardrails for ML-based PII filtering
+
 # Deploy unified evaluation pipeline stack
 EvaluationPipelineStack(
     app,
     "EvaluationPipeline",
     deploy_orchestration=deploy_orchestration,
+    deploy_guardrails=deploy_guardrails,
     env=env,
     description="Evaluation Pipeline - Unified infrastructure for agent evaluation",
 )

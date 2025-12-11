@@ -1,91 +1,168 @@
-# Evaluation Pipeline
+# CLAUDE.md
 
-Automated evaluation pipeline for AWS Bedrock AgentCore agents using LLM-as-a-judge metrics.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Status**: Complete | **Last Validated**: 2025-11-25
+## Project Overview
 
-## Quick Start
+Automated evaluation pipeline for AWS Bedrock AgentCore agents using LLM-as-a-judge metrics. The pipeline captures Bedrock invocation logs, applies PII scrubbing, and runs on-demand evaluations via Step Functions.
+
+## Quick Reference
 
 ```bash
 # Deploy infrastructure
-cd cdk
-export AWS_PROFILE=binbash
-uv run cdk deploy EvaluationPipeline --require-approval never
+cd cdk && uv run cdk deploy EvaluationPipeline --require-approval never
 
-# After deployment, configure Bedrock logging (one-time):
-# Run the command from ManualConfigCommand output
+# After deployment, configure Bedrock logging (one-time, from ManualConfigCommand output)
+aws bedrock put-model-invocation-logging-configuration \
+  --logging-config '{"cloudWatchConfig": {"logGroupName": "bedrock-model-invocations", "roleArn": "<role-arn>"}}'
 
-# Run evaluation via CLI
-aws stepfunctions start-execution \
-  --state-machine-arn $(aws cloudformation describe-stacks --stack-name EvaluationPipeline --query 'Stacks[0].Outputs[?OutputKey==`StateMachineArn`].OutputValue' --output text) \
-  --input '{"agent_name":"finance_personal_assistant","start_date":"2025-11-25","end_date":"2025-11-25","limit":10,"metrics":["Builtin.Correctness"]}'
+# Run evaluation (YAML config)
+./scripts/run_evaluation.sh config/runs/example.yaml
+./scripts/run_evaluation.sh config/runs/example.yaml --wait  # Wait for completion
 
-# Or use Web UI
-cd ui && npm install && npm run dev
-# Open http://localhost:3000
+# Run evaluation (CLI)
+uv run scripts/run_evaluation.py config/runs/example.yaml --region us-west-2
+
+# Run Web UI
+cd ui && npm install && npm run dev  # http://localhost:3000
+
+# Deploy without Bedrock Guardrails (regex-only PII)
+cd cdk && uv run cdk deploy EvaluationPipeline -c deploy_guardrails=false
 ```
 
 ## Architecture
 
 ```
-AgentCore Agent → Bedrock → CloudWatch → Firehose → Transform Lambda → S3 Parquet
-                                                                            ↓
-                        Bedrock Eval ← JSONL ← Filter Lambda ← Step Functions (on-demand)
+Data Collection (continuous):
+  Bedrock → CloudWatch (7-day) → Firehose → Transform Lambda → S3 Parquet
+
+Evaluation (on-demand via Step Functions):
+  Input → Filter Lambda → Create Eval Job → Poll Status → Process Results (~8 min)
 ```
 
-**Data flow:**
-1. **Continuous ingestion**: Bedrock logs → CloudWatch (7-day) → Firehose → Transform Lambda → Parquet in S3
-2. **On-demand evaluation**: Step Functions triggers Filter → CreateEvalJob → Poll → ProcessResults (~8 min)
-
-## Key Concepts
-
-### Agent Name Extraction
-Agent names are extracted from the IAM execution role ARN in Bedrock logs:
-```
-identity.arn: "arn:aws:sts::ACCOUNT:assumed-role/BedrockAgentCore-{agent_name}-execution-role/..."
-```
-Falls back to model family (e.g., `claude-sonnet`) for non-AgentCore invocations.
-
-**Important:** Agents must use named IAM roles following this pattern. See [README.md Prerequisites](README.md#prerequisites) for setup instructions and reference implementations.
-
-### S3 Structure
+**S3 Structure:**
 ```
 s3://eval-pipeline-{account}-{region}/
-├── staging/agent_name={name}/date={YYYY-MM-DD}/*.parquet
+├── staging/agent_name={name}/yyyy=YYYY/mm=MM/dd=DD/hh=HH/*.parquet
 ├── evaluation-datasets/{agent}/{timestamp}/dataset.jsonl
 └── evaluation-results/{agent}/{run-id}/
 ```
 
-## Files
+## Development Commands
 
-| Path | Purpose |
-|------|---------|
-| `cdk/` | CDK infrastructure (4 stacks) |
-| `cdk/lambda/transform_bedrock_logs/` | Firehose → Parquet (PII scrubbing) |
-| `cdk/lambda/filter_gather_data/` | Parquet → JSONL |
-| `cdk/lambda/create_evaluation_job/` | Bedrock CreateEvaluationJob API |
-| `cdk/lambda/poll_job_status/` | Job status polling |
-| `cdk/lambda/process_results/` | Results aggregation |
-| `ui/` | Next.js web interface |
-| `SCHEMAS.md` | Data format reference |
-
-## Common Commands
+### CDK Infrastructure
 
 ```bash
-# View logs
+cd cdk
+
+# Install dependencies
+uv sync
+
+# Synthesize CloudFormation
+uv run cdk synth
+
+# Deploy (full stack)
+uv run cdk deploy EvaluationPipeline --require-approval never
+
+# Deploy without orchestration (data collection only)
+uv run cdk deploy EvaluationPipeline -c deploy_orchestration=false
+
+# Diff changes
+uv run cdk diff EvaluationPipeline
+
+# Destroy stack
+uv run cdk destroy EvaluationPipeline
+```
+
+### Lambda Development
+
+Each Lambda has its own directory with `pyproject.toml`:
+- `cdk/lambda/transform_bedrock_logs/` - Firehose → Parquet (PII scrubbing)
+- `cdk/lambda/filter_gather_data/` - Parquet → JSONL (Docker-based)
+- `cdk/lambda/create_evaluation_job/` - Bedrock CreateEvaluationJob API
+- `cdk/lambda/poll_job_status/` - Job status polling
+- `cdk/lambda/process_results/` - Results aggregation
+
+```bash
+# Install Lambda dependencies (transform_bedrock_logs example)
+cd cdk/lambda/transform_bedrock_logs
+uv sync
+
+# Run tests locally (if available)
+uv run python -m pytest
+
+# View Lambda logs
+aws logs tail /aws/lambda/evaluation-pipeline-transform-bedrock-logs --follow
+aws logs tail /aws/lambda/EvaluationPipeline-FilterGatherDataLambda* --follow
+```
+
+### Web UI
+
+```bash
+cd ui
+
+# Install dependencies
+npm install
+
+# Development server
+npm run dev
+
+# Lint
+npm run lint
+
+# Build for production
+npm run build
+```
+
+### Monitoring & Debugging
+
+```bash
+# View transform Lambda logs
 aws logs tail /aws/lambda/evaluation-pipeline-transform-bedrock-logs --follow
 
 # Check S3 data
 aws s3 ls s3://eval-pipeline-{account}-{region}/staging/ --recursive
 
-# Monitor execution
+# Monitor Step Functions execution
 aws stepfunctions describe-execution --execution-arn <arn>
 
-# Get results
+# Get evaluation results
 aws s3 cp s3://eval-pipeline-{account}-{region}/evaluation-results/{agent}/{run-id}/ . --recursive
+
+# List recent Firehose errors
+aws s3 ls s3://eval-pipeline-{account}-{region}/staging-failed/ --recursive
 ```
 
-## Evaluation Metrics
+## Key Concepts
+
+### Agent Name Extraction
+
+Agent names are extracted from the IAM execution role ARN in Bedrock logs:
+```
+identity.arn: "arn:aws:sts::ACCOUNT:assumed-role/BedrockAgentCore-{agent_name}-execution-role/..."
+```
+Agents must use named IAM roles following this pattern (`BedrockAgentCore-{name}-execution-role`). Falls back to model family (e.g., `claude-sonnet`) for non-AgentCore invocations.
+
+### PII Filtering
+
+Defense-in-depth approach with two layers:
+1. **Regex-based** (fast, free): SSN, email, phone, credit card patterns
+2. **Bedrock Guardrails** (ML-based): 30+ PII types with ANONYMIZE action
+
+**Configuration via Lambda environment variables:**
+- `GUARDRAILS_ENABLED`: Enable Bedrock Guardrails ML detection
+- `PII_REGEX_ENABLED`: Enable regex-based scrubbing
+- `GUARDRAIL_ID` / `GUARDRAIL_VERSION`: Guardrail identifiers
+
+**Modes:**
+| GUARDRAILS_ENABLED | PII_REGEX_ENABLED | Mode |
+|--------------------|-------------------|------|
+| true | true | Defense-in-depth (regex → Guardrails) |
+| true | false | Guardrails only (isolated testing) |
+| false | true | Regex only (free baseline) |
+| false | false | Pass-through (no filtering) |
+
+### Evaluation Metrics
 
 | Metric | Description |
 |--------|-------------|
@@ -93,10 +170,87 @@ aws s3 cp s3://eval-pipeline-{account}-{region}/evaluation-results/{agent}/{run-
 | `Builtin.Completeness` | Response thoroughness |
 | `Builtin.Helpfulness` | Usefulness to user |
 | `Builtin.Harmfulness` | Harmful content detection |
+| `Builtin.Stereotyping` | Bias detection |
+| `Builtin.Refusal` | Appropriate refusals |
+
+## Project Structure
+
+```
+evaluation-pipeline/
+├── cdk/                          # CDK infrastructure
+│   ├── app.py                    # CDK app entry point
+│   ├── stacks/                   # Stack definitions
+│   │   └── evaluation_pipeline_stack.py
+│   └── lambda/                   # Lambda functions
+│       ├── transform_bedrock_logs/   # Firehose → Parquet
+│       │   ├── lambda_function.py
+│       │   ├── schema.py             # Parquet schema definitions
+│       │   ├── pii_scrubber.py       # PII filtering logic
+│       │   └── parquet_storage.py    # S3 Parquet writer
+│       ├── filter_gather_data/       # Parquet → JSONL (Docker)
+│       ├── create_evaluation_job/
+│       ├── poll_job_status/
+│       └── process_results/
+├── config/
+│   ├── runs/                     # YAML evaluation configs
+│   │   └── example.yaml
+│   └── config_schema_mvp.py      # Config validation
+├── scripts/
+│   ├── run_evaluation.sh         # Run from YAML config
+│   └── run_evaluation.py         # Python CLI
+├── ui/                           # Next.js web interface
+│   ├── src/
+│   │   ├── app/                  # Next.js App Router
+│   │   │   └── api/              # API routes (agents, experiments)
+│   │   ├── components/           # React components
+│   │   ├── hooks/                # Custom hooks (polling, agents)
+│   │   └── lib/                  # AWS SDK, SSM, utilities
+│   └── package.json
+├── SCHEMAS.md                    # Data format reference
+└── PRD.md                        # Specifications & requirements
+```
+
+## YAML Configuration
+
+Create evaluation configs in `config/runs/`:
+
+```yaml
+# Agent to evaluate (matches agent_name partition in S3 staging data)
+agent_name: "finance_personal_assistant"
+
+# Date range (ISO 8601, both inclusive)
+start_date: "2025-11-25"              # Full day
+end_date: "2025-11-25"
+# Or with specific hours:
+# start_date: "2025-11-25T09:00:00Z"
+# end_date: "2025-11-25T17:00:00Z"
+
+# Max records to evaluate (1-100)
+limit: 50
+
+# Metrics to calculate
+metrics:
+  - "Builtin.Correctness"
+  - "Builtin.Completeness"
+```
+
+## Troubleshooting
+
+**"No traces found" error:**
+- Agent likely uses auto-created IAM role without required naming pattern
+- Verify: `grep execution_role .bedrock_agentcore.yaml` should show `BedrockAgentCore-{agent_name}-execution-role`
+- Check S3: `aws s3 ls s3://eval-pipeline-{account}-{region}/staging/` should show `agent_name=your_agent_name/`
+
+**Transform Lambda failures:**
+- Check logs: `aws logs tail /aws/lambda/evaluation-pipeline-transform-bedrock-logs --follow`
+- Check Firehose error prefix: `aws s3 ls s3://eval-pipeline-{account}-{region}/staging-failed/`
+
+**Web UI "No agents found":**
+- Verify SSM parameters: `aws ssm get-parameters-by-path --path /agentcore/ --recursive`
 
 ## Schema Reference
 
 See [SCHEMAS.md](SCHEMAS.md) for complete data format specifications:
-- Bedrock log JSON structure
-- Parquet schema (17 columns)
+- Bedrock log JSON structure and extraction paths
+- Parquet schema (18 columns)
 - Evaluation JSONL format

@@ -10,8 +10,8 @@ agent_name: "finance_personal_assistant"
 
 # Date range to query (ISO format: YYYY-MM-DD)
 # Both dates are inclusive
-start_date: "2025-11-25"
-end_date: "2025-11-25"
+start_date: "2025-12-10"
+end_date: "2025-12-10"
 
 # Maximum records to process (1-100)
 limit: 10

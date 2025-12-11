@@ -14,21 +14,28 @@ Processing Steps:
 1. Decode base64 Firehose record
 2. Parse CloudWatch Logs format
 3. Extract Bedrock invocation log
-4. Apply PII scrubbing
+4. Apply PII scrubbing (defense-in-depth: regex + Bedrock Guardrails)
 5. Transform to flat Parquet schema
 6. Write Parquet directly to S3 with partitioning
 7. Return "Dropped" to Firehose (records already written to S3)
+
+PII Filtering Modes (controlled by environment variables):
+- GUARDRAILS_ENABLED=true + PII_REGEX_ENABLED=true: Defense-in-depth (regex + Guardrails)
+- GUARDRAILS_ENABLED=true + PII_REGEX_ENABLED=false: Guardrails only (isolated testing)
+- GUARDRAILS_ENABLED=false + PII_REGEX_ENABLED=true: Regex only (free baseline)
+- GUARDRAILS_ENABLED=false + PII_REGEX_ENABLED=false: Pass-through (no filtering)
 """
 
 import base64
 import gzip
 import json
 import logging
-from typing import Dict, Any, List
+import os
+from typing import Any, Dict, List
 
-from pii_scrubber import scrub_record
-from schema import extract_structured_record
 from parquet_storage import ParquetStorageManager, get_bucket_name_from_env
+from pii_scrubber import scrub_record, scrub_record_guardrails_only, scrub_record_with_guardrails
+from schema import extract_structured_record
 
 # Configure logging
 logger = logging.getLogger()
@@ -36,6 +43,12 @@ logger.setLevel(logging.INFO)
 
 # Initialize S3/Parquet storage manager
 storage_manager = None
+
+# PII filtering configuration (from environment variables)
+GUARDRAILS_ENABLED = os.environ.get("GUARDRAILS_ENABLED", "false").lower() == "true"
+PII_REGEX_ENABLED = os.environ.get("PII_REGEX_ENABLED", "true").lower() == "true"
+GUARDRAIL_ID = os.environ.get("GUARDRAIL_ID", "")
+GUARDRAIL_VERSION = os.environ.get("GUARDRAIL_VERSION", "")
 
 
 def lambda_handler(
@@ -76,6 +89,7 @@ def lambda_handler(
             }
     """
     logger.info(f"Processing {len(event['records'])} records from Firehose")
+    logger.info(f"PII filtering: Guardrails={'enabled' if GUARDRAILS_ENABLED else 'disabled'}, Regex={'enabled' if PII_REGEX_ENABLED else 'disabled'}")
 
     # Initialize storage manager (lazy initialization)
     global storage_manager
@@ -115,8 +129,27 @@ def lambda_handler(
                 )
                 continue
 
-            # Apply PII scrubbing
-            scrubbed_log = scrub_record(bedrock_log)
+            # Apply PII scrubbing based on configuration
+            if GUARDRAILS_ENABLED and PII_REGEX_ENABLED and GUARDRAIL_ID and GUARDRAIL_VERSION:
+                # Defense-in-depth: regex + Guardrails
+                scrubbed_log = scrub_record_with_guardrails(
+                    bedrock_log,
+                    guardrail_id=GUARDRAIL_ID,
+                    guardrail_version=GUARDRAIL_VERSION,
+                )
+            elif GUARDRAILS_ENABLED and GUARDRAIL_ID and GUARDRAIL_VERSION:
+                # Guardrails only (isolated testing)
+                scrubbed_log = scrub_record_guardrails_only(
+                    bedrock_log,
+                    guardrail_id=GUARDRAIL_ID,
+                    guardrail_version=GUARDRAIL_VERSION,
+                )
+            elif PII_REGEX_ENABLED:
+                # Regex only (free baseline)
+                scrubbed_log = scrub_record(bedrock_log)
+            else:
+                # Pass-through (no PII filtering)
+                scrubbed_log = bedrock_log
 
             # Transform to structured schema
             structured_record = extract_structured_record(scrubbed_log)
