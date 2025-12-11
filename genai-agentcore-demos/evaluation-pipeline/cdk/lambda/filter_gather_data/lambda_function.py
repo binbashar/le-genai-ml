@@ -167,6 +167,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Main Lambda handler for filtering and gathering evaluation data.
 
+    Supports two modes:
+    1. Standard mode: Reads from Parquet staging data (MODEL evaluation)
+    2. Bypass mode: Passes through pre-uploaded dataset (RAG evaluation BYOI)
+
     Args:
         event: Configuration from Step Functions
         context: Lambda context
@@ -176,7 +180,26 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     logger.info(f"Received event: {json.dumps(event)}")
 
-    # Extract configuration
+    # Check for bypass mode (RAG evaluation with pre-uploaded dataset)
+    if event.get("skip_filter_step") and event.get("dataset_s3_uri"):
+        logger.info("Bypass mode: Using pre-uploaded dataset for RAG evaluation")
+        return {
+            "dataset_s3_uri": event["dataset_s3_uri"],
+            "question_count": event.get("limit", 10),
+            "sampling_stats": {
+                "total_records": event.get("limit", 10),
+                "filtered_records": event.get("limit", 10),
+                "sampled_records": event.get("limit", 10),
+                "bypass_mode": True,
+                "evaluation_type": event.get("evaluation_type", "RAG_RETRIEVE_AND_GENERATE"),
+            },
+            # Pass through evaluation_type for CreateEvaluationJob Lambda
+            "evaluation_type": event.get("evaluation_type", "RAG_RETRIEVE_AND_GENERATE"),
+            "agent_name": event.get("agent_name", "unknown"),
+            "metrics": event.get("metrics", []),
+        }
+
+    # Standard mode: Read from Parquet staging data
     config = event
     agent_name = config["agent_name"]
     start_date = normalize_date(config["start_date"], is_end_date=False)

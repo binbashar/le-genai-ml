@@ -16,12 +16,12 @@ cd cdk && uv run cdk deploy EvaluationPipeline --require-approval never
 aws bedrock put-model-invocation-logging-configuration \
   --logging-config '{"cloudWatchConfig": {"logGroupName": "bedrock-model-invocations", "roleArn": "<role-arn>"}}'
 
-# Run evaluation (YAML config)
-./scripts/run_evaluation.sh config/runs/example.yaml
-./scripts/run_evaluation.sh config/runs/example.yaml --wait  # Wait for completion
+# Run Model evaluation (from CloudWatch logs)
+./scripts/run_evaluation.sh config/runs/example.yaml --wait
 
-# Run evaluation (CLI)
-uv run scripts/run_evaluation.py config/runs/example.yaml --region us-west-2
+# Run RAG evaluation (from JSONL dataset)
+./scripts/run_evaluation.sh config/runs/rag_example.yaml --wait                # Retrieve + Generate
+./scripts/run_evaluation.sh config/runs/rag_retrieve_only_example.yaml --wait  # Retrieve only
 
 # Run Web UI
 cd ui && npm install && npm run dev  # http://localhost:3000
@@ -162,8 +162,17 @@ Defense-in-depth approach with two layers:
 | false | true | Regex only (free baseline) |
 | false | false | Pass-through (no filtering) |
 
+### Evaluation Types
+
+| Type | Description | Data Source |
+|------|-------------|-------------|
+| `MODEL` | Evaluate LLM response quality | CloudWatch logs (Parquet) |
+| `RAG_RETRIEVE_AND_GENERATE` | Evaluate retrieval + generation | JSONL dataset |
+| `RAG_RETRIEVE_ONLY` | Evaluate retrieval quality only | JSONL dataset |
+
 ### Evaluation Metrics
 
+**Model & RAG (Retrieve+Generate):**
 | Metric | Description |
 |--------|-------------|
 | `Builtin.Correctness` | Factual accuracy |
@@ -172,6 +181,21 @@ Defense-in-depth approach with two layers:
 | `Builtin.Harmfulness` | Harmful content detection |
 | `Builtin.Stereotyping` | Bias detection |
 | `Builtin.Refusal` | Appropriate refusals |
+
+**RAG-Specific (Retrieve+Generate):**
+| Metric | Description |
+|--------|-------------|
+| `Builtin.Faithfulness` | Is response grounded in chunks? |
+| `Builtin.CitationPrecision` | Are citations correct? |
+| `Builtin.CitationCoverage` | Is response supported by citations? |
+
+**RAG-Specific (Retrieve Only):**
+| Metric | Description |
+|--------|-------------|
+| `Builtin.ContextRelevance` | Are chunks relevant to query? |
+| `Builtin.ContextCoverage` | Do chunks cover required info? |
+
+See [docs/rag_evaluation.md](docs/rag_evaluation.md) for detailed RAG evaluation guide.
 
 ## Project Structure
 
@@ -193,7 +217,12 @@ evaluation-pipeline/
 │       └── process_results/
 ├── config/
 │   ├── runs/                     # YAML evaluation configs
-│   │   └── example.yaml
+│   │   ├── example.yaml          # Model evaluation example
+│   │   ├── rag_example.yaml      # RAG retrieve+generate example
+│   │   └── rag_retrieve_only_example.yaml  # RAG retrieve-only example
+│   ├── datasets/                 # Sample JSONL datasets for RAG
+│   │   ├── rag_sample.jsonl
+│   │   └── rag_retrieve_only_sample.jsonl
 │   └── config_schema_mvp.py      # Config validation
 ├── scripts/
 │   ├── run_evaluation.sh         # Run from YAML config
@@ -214,22 +243,34 @@ evaluation-pipeline/
 
 Create evaluation configs in `config/runs/`:
 
+### Model Evaluation (from CloudWatch logs)
+
 ```yaml
-# Agent to evaluate (matches agent_name partition in S3 staging data)
 agent_name: "finance_personal_assistant"
+evaluation_type: "MODEL"  # Default, can be omitted
 
 # Date range (ISO 8601, both inclusive)
-start_date: "2025-11-25"              # Full day
+start_date: "2025-11-25"
 end_date: "2025-11-25"
-# Or with specific hours:
-# start_date: "2025-11-25T09:00:00Z"
-# end_date: "2025-11-25T17:00:00Z"
 
-# Max records to evaluate (1-100)
 limit: 50
-
-# Metrics to calculate
 metrics:
+  - "Builtin.Correctness"
+  - "Builtin.Completeness"
+```
+
+### RAG Evaluation (from JSONL dataset)
+
+```yaml
+agent_name: "finance_personal_assistant"
+evaluation_type: "RAG_RETRIEVE_AND_GENERATE"  # or "RAG_RETRIEVE_ONLY"
+
+# Local JSONL file (auto-uploaded to S3)
+dataset_path: "config/datasets/rag_sample.jsonl"
+
+limit: 10
+metrics:
+  - "Builtin.Faithfulness"
   - "Builtin.Correctness"
   - "Builtin.Completeness"
 ```

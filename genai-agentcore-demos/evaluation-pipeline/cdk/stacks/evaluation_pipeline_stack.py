@@ -648,7 +648,10 @@ class EvaluationPipelineStack(Stack):
             iam.PolicyStatement(
                 sid="BedrockCreateEvaluationJob",
                 effect=iam.Effect.ALLOW,
-                actions=["bedrock:CreateEvaluationJob"],
+                actions=[
+                    "bedrock:CreateEvaluationJob",
+                    "bedrock:TagResource",  # Required for jobTags parameter
+                ],
                 resources=["*"],
             )
         )
@@ -873,6 +876,7 @@ class EvaluationPipelineStack(Stack):
                         "question_count.$": "$.filter_result.question_count",
                         "agent_name.$": "$.agent_name",
                         "metrics.$": "$.metrics",
+                        "evaluation_type.$": "$.evaluation_type",
                     },
                     "Next": "CreateEvaluationJob",
                 },
