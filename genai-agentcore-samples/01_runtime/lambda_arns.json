@@ -1,0 +1,4 @@
+{
+  "weather-tool": "arn:aws:lambda:us-west-2:905418344519:function:weather-tool",
+  "length-tool": "arn:aws:lambda:us-west-2:905418344519:function:length-tool"
+}

@@ -1,0 +1,3 @@
+# No external dependencies required for these simple Lambda functions
+# They use only Python standard library
+

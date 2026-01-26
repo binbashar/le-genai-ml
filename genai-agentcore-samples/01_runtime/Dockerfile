@@ -42,4 +42,4 @@ COPY . .
 
 # Use the full module path
 
-CMD ["opentelemetry-instrument", "python", "-m", "translator_agent"]
+CMD ["opentelemetry-instrument", "python", "-m", "translator_agent_with_tools_gateway"]

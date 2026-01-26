@@ -11,4 +11,9 @@ dependencies = [
     "langchain-aws>=0.2.33",
     "langgraph>=0.6.8",
     "pip>=25.2",
+    "boto3>=1.35.0",
+    "pyyaml>=6.0",
+    "strands-agents>=1.20.0",
+    "strands-agents-tools>=0.2.18",
+    "mcp-proxy-for-aws>=1.1.2",
 ]

@@ -1,0 +1,6 @@
+{
+  "gatewayArn": "arn:aws:bedrock-agentcore:us-west-2:905418344519:gateway/translator-agent-gateway-mt0lrnrwuh",
+  "gatewayName": "translator-agent-gateway",
+  "region": "us-west-2",
+  "roleArn": "arn:aws:iam::905418344519:role/AgentCoreGatewayRole"
+}

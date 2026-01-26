@@ -1,0 +1,7 @@
+{
+  "gatewayArn": "arn:aws:bedrock-agentcore:us-west-2:905418344519:gateway/translator-agent-gateway-mt0lrnrwuh",
+  "targets": {
+    "get-current-weather": "arn:aws:bedrock-agentcore:us-west-2:905418344519:gateway/translator-agent-gateway-mt0lrnrwuh/target/get-current-weather",
+    "calculate-length": "arn:aws:bedrock-agentcore:us-west-2:905418344519:gateway/translator-agent-gateway-mt0lrnrwuh/target/calculate-length"
+  }
+}

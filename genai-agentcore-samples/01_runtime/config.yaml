@@ -1,0 +1,6 @@
+system_message: "You are a translator. Translate the user's message to English. Return ONLY the English translation, nothing else."
+model_id: "us.amazon.nova-micro-v1:0"
+temperature: 0.1
+region: "us-west-2"
+# Gateway ARN - set this after running the Gateway setup scripts
+# gateway_arn: "arn:aws:bedrock-agentcore:us-west-2:ACCOUNT_ID:gateway/GATEWAY_ID"
