@@ -38,6 +38,7 @@ from starlette.websockets import WebSocketDisconnect
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 from backends import create_backend
+from backends.nova_sonic import BARGE_IN
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +183,11 @@ async def _user_to_backend(websocket, backend) -> None:
 async def _backend_to_user(websocket, backend) -> None:
     """Read audio chunks from the backend and forward them to the client."""
     async for audio_chunk in backend.receive_audio():
+        if audio_chunk is BARGE_IN:
+            # Forward barge-in signal to bridge worker as a control message
+            logger.info("Forwarding barge-in signal to bridge")
+            await websocket.send_text(json.dumps({"type": "barge_in"}))
+            continue
         await websocket.send_bytes(audio_chunk)
     logger.debug("Backend audio stream exhausted; backend→user loop done")
 
@@ -197,4 +203,8 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # Keep noisy libraries quieter
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("smithy_aws_event_stream").setLevel(logging.WARNING)
     app.run(log_level="info")

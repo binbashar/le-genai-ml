@@ -113,7 +113,7 @@ livekit-server:
 
 # Serve frontend on port 3000
 frontend:
-    cd web && python -m http.server 3000
+    python web/server.py
 
 # Generate LiveKit token for the frontend
 token identity="user1":
@@ -186,18 +186,17 @@ start:
         exit 1
     fi
 
-    # 6. Generate token
-    echo "Generating token..."
-    TOKEN=$(lk token create --api-key {{lk_api_key}} --api-secret {{lk_api_secret}} \
-        --join --room {{room}} --identity user1 --valid-for 24h | grep "Access token:" | cut -d' ' -f3)
-
-    # 7. Open browser and serve frontend
+    # 6. Open browser and serve frontend
     echo ""
     echo "AgentCore Voice Agent is running!"
     echo "  LiveKit server:  ws://localhost:7880"
     echo "  Voice agent:     ws://localhost:8080/ws"
     echo "  Bridge worker:   connected"
+    echo "  Backend:         $VOICE_BACKEND"
     echo "  Frontend:        http://localhost:3000"
+    echo ""
+    echo "  Pick a voice from the dropdown and click Connect."
+    echo "  Disconnect and reconnect to switch voices anytime."
     echo ""
     echo "  Logs: /tmp/livekit-server.log"
     echo "        /tmp/voice-agent.log"
@@ -206,10 +205,12 @@ start:
     echo "  Press Ctrl+C to stop, or run: just stop"
     echo ""
 
-    (sleep 2 && open "http://localhost:3000?token=$TOKEN") &
+    export LIVEKIT_API_KEY={{lk_api_key}}
+    export LIVEKIT_API_SECRET={{lk_api_secret}}
+    (sleep 2 && open "http://localhost:3000") &
 
     # Serve frontend in foreground (Ctrl+C to stop)
-    cd web && python -m http.server 3000
+    python web/server.py
 
 # Stop all processes
 stop:
@@ -218,7 +219,7 @@ stop:
     pkill -f "livekit-server" 2>/dev/null || true
     pkill -f "voice_agent.py" 2>/dev/null || true
     pkill -f "agent.py" 2>/dev/null || true
-    pkill -f "http.server 3000" 2>/dev/null || true
+    pkill -f "server.py" 2>/dev/null || true
     echo "All processes stopped"
 
 # === Level 2: Hybrid (local LiveKit + AWS AgentCore) ===
@@ -298,9 +299,36 @@ start-hybrid arn:
     (sleep 2 && open "http://localhost:3000?token=$TOKEN") &
 
     # Serve frontend in foreground
-    cd web && python -m http.server 3000
+    python web/server.py
 
 # === Utilities ===
+
+# List available Nova 2 Sonic voices
+voices:
+    #!/usr/bin/env bash
+    echo "Available Nova 2 Sonic voices:"
+    echo ""
+    printf "  %-12s %-24s %s\n" "VOICE_ID" "LANGUAGE" "GENDER"
+    printf "  %-12s %-24s %s\n" "--------" "--------" "------"
+    printf "  %-12s %-24s %s\n" "tiffany"  "English US (polyglot)"  "F"
+    printf "  %-12s %-24s %s\n" "matthew"  "English US (polyglot)"  "M"
+    printf "  %-12s %-24s %s\n" "amy"      "English UK"             "F"
+    printf "  %-12s %-24s %s\n" "olivia"   "English AU"             "F"
+    printf "  %-12s %-24s %s\n" "lupe"     "Spanish US"             "F"
+    printf "  %-12s %-24s %s\n" "carlos"   "Spanish US"             "M"
+    printf "  %-12s %-24s %s\n" "ambre"    "French"                 "F"
+    printf "  %-12s %-24s %s\n" "florian"  "French"                 "M"
+    printf "  %-12s %-24s %s\n" "beatrice" "Italian"                "F"
+    printf "  %-12s %-24s %s\n" "lorenzo"  "Italian"                "M"
+    printf "  %-12s %-24s %s\n" "tina"     "German"                 "F"
+    printf "  %-12s %-24s %s\n" "lennart"  "German"                 "M"
+    printf "  %-12s %-24s %s\n" "carolina" "Portuguese BR"          "F"
+    printf "  %-12s %-24s %s\n" "leo"      "Portuguese BR"          "M"
+    printf "  %-12s %-24s %s\n" "kiara"    "English/Hindi IN"       "F"
+    printf "  %-12s %-24s %s\n" "arjun"    "English/Hindi IN"       "M"
+    echo ""
+    echo "Usage: VOICE_ID=lupe VOICE_BACKEND=nova_sonic just start"
+    echo "Polyglot voices (tiffany, matthew) can speak all languages."
 
 # Clean up generated files and virtual environments
 clean:

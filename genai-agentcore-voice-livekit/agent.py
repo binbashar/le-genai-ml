@@ -33,6 +33,7 @@ import asyncio
 import json
 import logging
 import os
+import urllib.request
 
 import websockets
 from livekit import agents, rtc
@@ -47,7 +48,8 @@ AGENTCORE_WS_URL: str | None = os.environ.get("AGENTCORE_WS_URL")
 AGENTCORE_RUNTIME_ARN: str | None = os.environ.get("AGENTCORE_RUNTIME_ARN")
 VOICE_ID: str = os.environ.get("VOICE_ID", "tiffany")
 VOICE_BACKEND: str = os.environ.get("VOICE_BACKEND", "nova_sonic")
-SAMPLE_RATE: int = int(os.environ.get("SAMPLE_RATE", "24000"))
+INPUT_SAMPLE_RATE: int = int(os.environ.get("INPUT_SAMPLE_RATE", "16000"))  # user mic → Nova Sonic
+OUTPUT_SAMPLE_RATE: int = int(os.environ.get("OUTPUT_SAMPLE_RATE", "24000"))  # Nova Sonic → speakers
 NUM_CHANNELS: int = 1  # mono throughout
 
 
@@ -94,14 +96,22 @@ async def _connect_agentcore_ws():
     raise RuntimeError("Either AGENTCORE_WS_URL or AGENTCORE_RUNTIME_ARN must be set")
 
 
-async def _handshake(ws) -> None:
+async def _handshake(
+    ws, voice_id: str | None = None, room_config: dict | None = None
+) -> None:
     """Perform the session_start / session_ready handshake."""
+    rc = room_config or {}
     session_start = {
         "type": "session_start",
         "config": {
             "backend": VOICE_BACKEND,
-            "voice_id": VOICE_ID,
-            "sample_rate": SAMPLE_RATE,
+            "voice_id": voice_id or VOICE_ID,
+            "input_sample_rate": INPUT_SAMPLE_RATE,
+            "output_sample_rate": OUTPUT_SAMPLE_RATE,
+            "temperature": rc.get("temperature", 0.7),
+            "top_p": rc.get("topP", 0.9),
+            "endpointing_sensitivity": rc.get("endpointingSensitivity", "MEDIUM"),
+            "system_prompt": rc.get("system_prompt", ""),
         },
     }
     await ws.send(json.dumps(session_start))
@@ -150,37 +160,65 @@ async def _agentcore_to_room(
 ) -> None:
     """Receive agent audio from AgentCore and push it into the LiveKit room.
 
-    Each binary WebSocket message is raw PCM int16 mono audio at
-    ``SAMPLE_RATE``.  We wrap it in an ``rtc.AudioFrame`` and capture it
-    through the ``AudioSource``.
+    Uses an internal queue so that barge-in signals (text messages) are
+    processed immediately rather than waiting behind buffered audio frames.
+    When barge-in is detected, the internal queue is drained and the
+    AudioSource buffer is cleared so playback stops instantly.
     """
-    logger.info("agentcore->room loop started")
-    try:
-        async for message in ws:
-            if isinstance(message, str):
-                # Control message (e.g. server-side events) -- ignore.
-                logger.debug("Ignoring text message from AgentCore: %s", message[:120])
-                continue
+    audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+    barge_in = asyncio.Event()
 
-            pcm_bytes = message
-            if not pcm_bytes:
-                continue
+    async def _reader():
+        """Read from WebSocket, dispatch audio to queue, handle control."""
+        try:
+            async for message in ws:
+                if isinstance(message, str):
+                    try:
+                        control = json.loads(message)
+                    except json.JSONDecodeError:
+                        continue
+                    if control.get("type") == "barge_in":
+                        logger.info("Barge-in signal received — clearing audio")
+                        barge_in.set()
+                        # Drain pending audio from internal queue
+                        while not audio_queue.empty():
+                            try:
+                                audio_queue.get_nowait()
+                            except asyncio.QueueEmpty:
+                                break
+                        audio_source.clear_queue()
+                        barge_in.clear()
+                    continue
+                if message:
+                    await audio_queue.put(message)
+        except websockets.ConnectionClosed:
+            logger.info("AgentCore WS closed while receiving agent audio")
+        finally:
+            await audio_queue.put(None)
 
-            # Compute samples_per_channel from byte length.
-            # int16 = 2 bytes per sample; mono = 1 channel.
+    async def _writer():
+        """Push audio from internal queue to LiveKit AudioSource."""
+        while True:
+            pcm_bytes = await audio_queue.get()
+            if pcm_bytes is None:
+                break
+            if barge_in.is_set():
+                continue  # skip frames during barge-in clearing
             num_samples = len(pcm_bytes) // (NUM_CHANNELS * 2)
             if num_samples == 0:
                 continue
-
             frame = rtc.AudioFrame(
                 data=pcm_bytes,
-                sample_rate=SAMPLE_RATE,
+                sample_rate=OUTPUT_SAMPLE_RATE,
                 num_channels=NUM_CHANNELS,
                 samples_per_channel=num_samples,
             )
             await audio_source.capture_frame(frame)
-    except websockets.ConnectionClosed:
-        logger.info("AgentCore WS closed while receiving agent audio")
+
+    logger.info("agentcore->room loop started")
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(_reader(), name="ws-reader")
+        tg.create_task(_writer(), name="audio-writer")
     logger.info("agentcore->room loop finished")
 
 
@@ -197,10 +235,28 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     await ctx.connect(auto_subscribe=agents.AutoSubscribe.AUDIO_ONLY)
     logger.info("Connected to LiveKit room: %s", ctx.room.name)
 
-    # 2. Create an AudioSource and publish a local audio track so other
-    #    participants hear the agent's voice.
+    # 2. Fetch session config from the frontend server (voice, temperature, etc.)
+    #    Falls back to env var defaults if unavailable.
+    room_config: dict = {}
+    try:
+        frontend_port = os.environ.get("FRONTEND_PORT", "3000")
+        url = f"http://localhost:{frontend_port}/api/room-config/{ctx.room.name}"
+        with urllib.request.urlopen(url, timeout=2) as resp:
+            room_config = json.loads(resp.read().decode())
+            logger.info("Room config from frontend: %s", room_config)
+    except Exception:
+        # Fallback: try to extract voice from room name (voice-{id}-{random})
+        parts = ctx.room.name.split("-")
+        if len(parts) >= 3 and parts[0] == "voice":
+            room_config["voice_id"] = parts[1]
+        logger.info("Using fallback config for room: %s", ctx.room.name)
+
+    voice_id = room_config.get("voice_id", VOICE_ID)
+
+    # 3. Create an AudioSource and publish a local audio track so other
+    #    participants hear the agent's voice (24kHz from Nova Sonic).
     audio_source = rtc.AudioSource(
-        sample_rate=SAMPLE_RATE,
+        sample_rate=OUTPUT_SAMPLE_RATE,
         num_channels=NUM_CHANNELS,
     )
     track = rtc.LocalAudioTrack.create_audio_track("agent-voice", audio_source)
@@ -209,7 +265,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     await ctx.room.local_participant.publish_track(track, options)
     logger.info("Published local audio track (agent-voice)")
 
-    # 3. Wait for a remote participant to join and subscribe to their audio.
+    # 4. Wait for a remote participant to join and subscribe to their audio.
     participant = await ctx.wait_for_participant()
     logger.info(
         "Remote participant joined: %s (%s)",
@@ -218,18 +274,18 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     )
 
     # Create an AudioStream from the participant's microphone, resampled to
-    # our target sample rate so frames match what AgentCore expects.
+    # 16kHz to match what Nova Sonic expects for input audio.
     audio_stream = rtc.AudioStream.from_participant(
         participant=participant,
         track_source=rtc.TrackSource.SOURCE_MICROPHONE,
-        sample_rate=SAMPLE_RATE,
+        sample_rate=INPUT_SAMPLE_RATE,
         num_channels=NUM_CHANNELS,
     )
 
-    # 4. Open WebSocket to AgentCore and perform handshake.
+    # 5. Open WebSocket to AgentCore and perform handshake.
     ws = await _connect_agentcore_ws()
     try:
-        await _handshake(ws)
+        await _handshake(ws, voice_id=voice_id, room_config=room_config)
 
         # 5. Run bidirectional forwarding until either side disconnects.
         async with asyncio.TaskGroup() as tg:

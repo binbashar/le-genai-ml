@@ -32,7 +32,7 @@
             margin-bottom: 5px;
             color: #aaa;
         }
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             padding: 10px;
             border: 1px solid #333;
@@ -40,6 +40,14 @@
             background: #16213e;
             color: #fff;
             font-size: 14px;
+        }
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300d4ff' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
         }
         textarea {
             height: 80px;
@@ -115,6 +123,18 @@
             margin: 6px 0 0 0;
             font-size: 14px;
         }
+        .voice-badge {
+            text-align: center;
+            margin: -10px 0 10px 0;
+            font-size: 13px;
+            color: #888;
+        }
+        .voice-badge span {
+            background: #16213e;
+            padding: 4px 12px;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
         .help {
             background: #16213e;
             padding: 15px;
@@ -148,14 +168,85 @@
         </div>
 
         <div class="form-group">
-            <label>Access Token (generate with <code>lk token create</code>)</label>
-            <textarea id="token" placeholder="Paste your LiveKit token here..."></textarea>
+            <label>Voice</label>
+            <select id="voiceSelect">
+                <optgroup label="English">
+                    <option value="tiffany">tiffany — English US, polyglot (F)</option>
+                    <option value="matthew">matthew — English US, polyglot (M)</option>
+                    <option value="amy">amy — English UK (F)</option>
+                    <option value="olivia">olivia — English AU (F)</option>
+                </optgroup>
+                <optgroup label="Spanish">
+                    <option value="lupe">lupe — Spanish US (F)</option>
+                    <option value="carlos">carlos — Spanish US (M)</option>
+                </optgroup>
+                <optgroup label="French">
+                    <option value="ambre">ambre — French (F)</option>
+                    <option value="florian">florian — French (M)</option>
+                </optgroup>
+                <optgroup label="Italian">
+                    <option value="beatrice">beatrice — Italian (F)</option>
+                    <option value="lorenzo">lorenzo — Italian (M)</option>
+                </optgroup>
+                <optgroup label="German">
+                    <option value="tina">tina — German (F)</option>
+                    <option value="lennart">lennart — German (M)</option>
+                </optgroup>
+                <optgroup label="Portuguese">
+                    <option value="carolina">carolina — Portuguese BR (F)</option>
+                    <option value="leo">leo — Portuguese BR (M)</option>
+                </optgroup>
+                <optgroup label="Hindi">
+                    <option value="kiara">kiara — English/Hindi IN (F)</option>
+                    <option value="arjun">arjun — English/Hindi IN (M)</option>
+                </optgroup>
+            </select>
         </div>
+
+        <details id="advancedSettings" style="margin-bottom:10px;">
+            <summary style="color:#666; cursor:pointer; font-size:13px;">Settings</summary>
+            <div style="background:#16213e; padding:12px; border-radius:5px; margin-top:8px;">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Turn Detection <span id="epLabel" style="color:#00d4ff;">(MEDIUM — 1.75s pause)</span></label>
+                    <select id="endpointingSensitivity">
+                        <option value="HIGH">HIGH — Fast response (1.5s pause)</option>
+                        <option value="MEDIUM" selected>MEDIUM — Balanced (1.75s pause)</option>
+                        <option value="LOW">LOW — Patient (2.0s pause)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Temperature <span id="tempLabel" style="color:#00d4ff;">0.7</span></label>
+                    <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.7"
+                        style="background:transparent;" oninput="document.getElementById('tempLabel').textContent=this.value">
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Top P <span id="topPLabel" style="color:#00d4ff;">0.9</span></label>
+                    <input type="range" id="topP" min="0" max="1" step="0.1" value="0.9"
+                        style="background:transparent;" oninput="document.getElementById('topPLabel').textContent=this.value">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>System Prompt <span style="color:#555;">(auto-set by voice language if empty)</span></label>
+                    <textarea id="systemPrompt" placeholder="Leave empty for language-appropriate default..." style="height:50px; font-family:inherit; font-size:13px;"></textarea>
+                </div>
+            </div>
+        </details>
+
+        <details style="margin-bottom:10px;">
+            <summary style="color:#666; cursor:pointer; font-size:13px;">Manual token</summary>
+            <div class="form-group" style="margin-top:8px;">
+                <label>Access Token (leave empty for auto-generated)</label>
+                <textarea id="token" placeholder="Optional — a fresh token is generated automatically each time you connect"></textarea>
+            </div>
+        </details>
 
         <button id="connectBtn" onclick="connect()">Connect</button>
         <button id="disconnectBtn" onclick="disconnect()">Disconnect</button>
 
         <div id="status" class="status disconnected">Disconnected</div>
+
+        <div id="voiceBadge" class="voice-badge" style="display:none;">
+            <span id="voiceLabel"></span>
+        </div>
 
         <div id="audioIndicator" class="audio-indicator">
             <div class="pulse"></div>
@@ -169,14 +260,36 @@
 
         <div class="help">
             <strong>Quick Start:</strong>
-            <pre>just start</pre>
-            <p>Or manually generate a token:</p>
-            <pre>lk token create \
-  --api-key devkey --api-secret secret \
-  --join --room voice-room --identity user1 \
-  --valid-for 24h</pre>
-            <p>Copy the token and paste it above.</p>
-            <p><strong>Note:</strong> Use Chrome for best audio quality.</p>
+            <pre>VOICE_BACKEND=nova_sonic just start</pre>
+            <p>Change voice and language:</p>
+            <pre>VOICE_ID=lupe VOICE_BACKEND=nova_sonic just start    # Spanish
+VOICE_ID=ambre VOICE_BACKEND=nova_sonic just start   # French
+VOICE_ID=carlos VOICE_BACKEND=nova_sonic just start   # Spanish (masc)</pre>
+            <p><strong>Available voices:</strong></p>
+            <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:8px;">
+                <tr style="color:#00d4ff; text-align:left;">
+                    <th style="padding:4px 6px;">Voice</th>
+                    <th style="padding:4px 6px;">Language</th>
+                    <th style="padding:4px 6px;">Gender</th>
+                </tr>
+                <tr><td style="padding:2px 6px;">tiffany</td><td style="padding:2px 6px;">English US (polyglot)</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">matthew</td><td style="padding:2px 6px;">English US (polyglot)</td><td style="padding:2px 6px;">M</td></tr>
+                <tr><td style="padding:2px 6px;">amy</td><td style="padding:2px 6px;">English UK</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">olivia</td><td style="padding:2px 6px;">English AU</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">lupe</td><td style="padding:2px 6px;">Spanish US</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">carlos</td><td style="padding:2px 6px;">Spanish US</td><td style="padding:2px 6px;">M</td></tr>
+                <tr><td style="padding:2px 6px;">ambre</td><td style="padding:2px 6px;">French</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">florian</td><td style="padding:2px 6px;">French</td><td style="padding:2px 6px;">M</td></tr>
+                <tr><td style="padding:2px 6px;">beatrice</td><td style="padding:2px 6px;">Italian</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">lorenzo</td><td style="padding:2px 6px;">Italian</td><td style="padding:2px 6px;">M</td></tr>
+                <tr><td style="padding:2px 6px;">tina</td><td style="padding:2px 6px;">German</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">lennart</td><td style="padding:2px 6px;">German</td><td style="padding:2px 6px;">M</td></tr>
+                <tr><td style="padding:2px 6px;">carolina</td><td style="padding:2px 6px;">Portuguese BR</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">leo</td><td style="padding:2px 6px;">Portuguese BR</td><td style="padding:2px 6px;">M</td></tr>
+                <tr><td style="padding:2px 6px;">kiara</td><td style="padding:2px 6px;">English/Hindi IN</td><td style="padding:2px 6px;">F</td></tr>
+                <tr><td style="padding:2px 6px;">arjun</td><td style="padding:2px 6px;">English/Hindi IN</td><td style="padding:2px 6px;">M</td></tr>
+            </table>
+            <p style="margin-top:8px;"><em>Polyglot voices (tiffany, matthew) can speak all languages.</em></p>
         </div>
     </div>
 
@@ -185,23 +298,62 @@
         let room = null;
         let agentAudioElements = new Set();
 
+        // Voice catalog for badge display
+        const VOICES = {
+            tiffany:  "English US (polyglot) - F",
+            matthew:  "English US (polyglot) - M",
+            amy:      "English UK - F",
+            olivia:   "English AU - F",
+            lupe:     "Spanish - F",
+            carlos:   "Spanish - M",
+            ambre:    "French - F",
+            florian:  "French - M",
+            beatrice: "Italian - F",
+            lorenzo:  "Italian - M",
+            tina:     "German - F",
+            lennart:  "German - M",
+            carolina: "Portuguese BR - F",
+            leo:      "Portuguese BR - M",
+            kiara:    "English/Hindi IN - F",
+            arjun:    "English/Hindi IN - M",
+        };
+
         async function connect() {
             const serverUrl = document.getElementById('serverUrl').value.trim();
-            const token = document.getElementById('token').value.trim();
-
-            if (!token) {
-                setStatus('error', 'Please enter a token');
-                return;
-            }
+            let token = document.getElementById('token').value.trim();
 
             setStatus('connecting', 'Connecting...');
             document.getElementById('connectBtn').disabled = true;
+            document.getElementById('voiceSelect').disabled = true;
+            document.querySelectorAll('#advancedSettings input, #advancedSettings select, #advancedSettings textarea').forEach(el => el.disabled = true);
 
             try {
+                // Fetch a fresh token with a random room name so the bridge
+                // worker always receives a new job dispatch from LiveKit.
+                // The voice is encoded in the room name for the bridge to read.
+                const selectedVoice = document.getElementById('voiceSelect').value;
+                if (!token) {
+                    const params = new URLSearchParams({
+                        voice: selectedVoice,
+                        temperature: document.getElementById('temperature').value,
+                        topP: document.getElementById('topP').value,
+                        endpointingSensitivity: document.getElementById('endpointingSensitivity').value,
+                        systemPrompt: document.getElementById('systemPrompt').value,
+                    });
+                    const resp = await fetch(`/api/token?${params}`);
+                    if (!resp.ok) throw new Error('Failed to get token from /api/token');
+                    const data = await resp.json();
+                    token = data.token;
+                    console.log('Got fresh token for room:', data.room);
+                }
+
                 room = new Room();
 
                 // Handle room events
                 room.on(RoomEvent.Connected, () => {
+                    const label = VOICES[selectedVoice] || selectedVoice;
+                    document.getElementById('voiceLabel').textContent = `Voice: ${selectedVoice} (${label})`;
+                    document.getElementById('voiceBadge').style.display = 'block';
                     setStatus('connected', 'Connected to AgentCore Voice Agent');
                     document.getElementById('audioIndicator').classList.add('active');
                     document.getElementById('disconnectBtn').style.display = 'block';
@@ -243,7 +395,6 @@
                     }
                 });
 
-                // Connect to the room
                 await room.connect(serverUrl, token);
 
                 // Enable microphone
@@ -267,9 +418,12 @@
             room = null;
             setStatus('disconnected', 'Disconnected');
             document.getElementById('connectBtn').disabled = false;
+            document.getElementById('voiceSelect').disabled = false;
+            document.querySelectorAll('#advancedSettings input, #advancedSettings select, #advancedSettings textarea').forEach(el => el.disabled = false);
             document.getElementById('disconnectBtn').style.display = 'none';
             document.getElementById('audioIndicator').classList.remove('active');
             document.getElementById('agentIndicator').classList.remove('active');
+            document.getElementById('voiceBadge').style.display = 'none';
 
             // Remove any attached audio elements
             agentAudioElements.forEach(el => el.remove());
@@ -296,9 +450,19 @@
             statusEl.textContent = message;
         }
 
-        // Auto-connect if token is in URL
+        // Auto-connect if token is in URL; show voice badge if voice param present
         window.addEventListener('load', () => {
             const urlParams = new URLSearchParams(window.location.search);
+
+            // Pre-select voice from URL param
+            const voiceId = urlParams.get('voice');
+            if (voiceId) {
+                const select = document.getElementById('voiceSelect');
+                if (select.querySelector(`option[value="${voiceId}"]`)) {
+                    select.value = voiceId;
+                }
+            }
+
             const tokenFromUrl = urlParams.get('token');
             if (tokenFromUrl) {
                 document.getElementById('token').value = tokenFromUrl;

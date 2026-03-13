@@ -4,21 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Bidirectional voice agent combining **LiveKit** (WebRTC media gateway) with **AWS Bedrock AgentCore Runtime** (managed voice backend). LiveKit handles browser-to-server WebRTC transport, a lightweight Bridge Worker translates between LiveKit audio frames and AgentCore's WebSocket protocol, and AgentCore hosts a voice agent with pluggable backends (Nova Sonic 2 by default).
+Bidirectional voice agent combining **LiveKit** (WebRTC media gateway) with **AWS Bedrock AgentCore Runtime** (managed voice backend). LiveKit handles browser-to-server WebRTC transport, a lightweight Bridge Worker translates between LiveKit audio frames and AgentCore's WebSocket protocol, and AgentCore hosts a voice agent with pluggable backends (Nova 2 Sonic by default).
 
 ## Architecture
 
 ```
 ┌───────────┐   WebRTC    ┌──────────────┐   Room    ┌──────────────┐  WebSocket   ┌─────────────────┐  Bedrock API  ┌──────────────┐
-│  Browser   │◄══════════►│ LiveKit      │◄════════►│ Bridge       │◄════════════►│ AgentCore Voice │◄════════════►│ Nova Sonic 2 │
+│  Browser   │◄══════════►│ LiveKit      │◄════════►│ Bridge       │◄════════════►│ AgentCore Voice │◄════════════►│ Nova 2 Sonic │
 │  (Web UI)  │   audio    │ Server       │  frames  │ Worker       │  audio/ctrl  │ Agent           │  bidi stream │ (Bedrock)    │
 └───────────┘             └──────────────┘           └──────────────┘              └─────────────────┘              └──────────────┘
    port 3000               port 7880                  agent.py                      agentcore/                       us-east-1
-   web/index.html          livekit-server --dev        (LiveKit SDK)                voice_agent.py                   amazon.nova-sonic-v1:0
+   web/index.html          livekit-server --dev        (LiveKit SDK)                voice_agent.py                   amazon.nova-2-sonic-v1:0
                                                                                     port 8080 /ws
 ```
 
-**Audio flows bidirectionally:** user speaks into browser microphone, WebRTC carries audio to LiveKit, Bridge Worker forwards raw PCM over WebSocket to AgentCore, Nova Sonic 2 processes and responds, audio flows back the same path.
+**Audio flows bidirectionally:** user speaks into browser microphone, WebRTC carries audio to LiveKit, Bridge Worker forwards raw PCM over WebSocket to AgentCore, Nova 2 Sonic processes and responds, audio flows back the same path.
 
 ## Build & Run Commands
 
@@ -67,11 +67,12 @@ just frontend       # Static file server on port 3000
 |------|----------------|
 | `agentcore/voice_agent.py` | AgentCore WebSocket voice agent. `@app.websocket` handler that accepts sessions, delegates to a VoiceBackend, and bridges bidirectional audio. Runs on port 8080 at `/ws`. |
 | `agentcore/backends/base.py` | `VoiceBackend` abstract base class: `start_session()`, `send_audio()`, `receive_audio()`, `close()`. |
-| `agentcore/backends/nova_sonic.py` | `NovaSonicBackend` — fully functional bidirectional streaming with Amazon Nova Sonic 2 via the Smithy Bedrock SDK. Input: 16 kHz PCM. Output: 24 kHz PCM. Handles barge-in. |
+| `agentcore/backends/nova_sonic.py` | `NovaSonicBackend` — fully functional bidirectional streaming with Amazon Nova 2 Sonic via the Smithy Bedrock SDK. Input: 16 kHz PCM. Output: 24 kHz PCM. Handles barge-in. |
 | `agentcore/backends/cascade.py` | `CascadeBackend` — documented stub showing where to plug STT/LLM/TTS services. Not functional. |
 | `agentcore/backends/__init__.py` | Backend factory: `create_backend(config)` maps `"nova_sonic"` / `"cascade"` to their implementations. |
 | `agent.py` | LiveKit Bridge Worker. Joins a LiveKit room, subscribes to user audio, forwards PCM to AgentCore over WebSocket, publishes agent audio back to the room. Supports both direct WS (`AGENTCORE_WS_URL`) and SigV4 ARN-based (`AGENTCORE_RUNTIME_ARN`) connections. |
-| `web/index.html` | Browser frontend. LiveKit Client SDK for WebRTC connection, microphone capture, agent audio playback. Auto-connects if `?token=` is in URL. |
+| `web/index.html` | Browser frontend. LiveKit Client SDK for WebRTC connection, microphone capture, agent audio playback. Voice dropdown with 16 voices, settings panel (temperature, topP, turn detection). Auto-generates tokens. |
+| `web/server.py` | Frontend token server. Generates LiveKit tokens with fresh room names, stores session config (voice, temperature, topP) for bridge to fetch via `/api/room-config/{room}`. |
 | `justfile` | Task runner with recipes for all three deployment levels. |
 | `docker-compose.yml` | LiveKit Server + Bridge Worker containers. Bridge connects to AgentCore Runtime ARN. |
 | `docker-compose.override.yml` | Dev override: bridge connects to `ws://host.docker.internal:8080/ws` (local voice agent). |
@@ -85,7 +86,8 @@ just frontend       # Static file server on port 3000
 1. Bridge sends `{"type": "session_start", "config": {"backend": "nova_sonic", "voice_id": "tiffany", "sample_rate": 24000}}`
 2. AgentCore responds `{"type": "session_ready"}`
 3. Bidirectional binary PCM frames flow (int16 mono)
-4. Bridge sends `{"type": "session_end"}` to close
+4. AgentCore sends `{"type": "barge_in"}` (text frame) when Nova Sonic detects user interruption — bridge clears audio buffer
+5. Bridge sends `{"type": "session_end"}` to close
 
 ## Environment Variables
 
@@ -98,6 +100,9 @@ just frontend       # Static file server on port 3000
 | `AGENTCORE_RUNTIME_ARN` | Bridge | (none) | AgentCore Runtime ARN for AWS (mutually exclusive with WS_URL) |
 | `VOICE_BACKEND` | Bridge | `nova_sonic` | Backend to request (`nova_sonic` or `cascade`) |
 | `VOICE_ID` | Bridge/Agent | `tiffany` | Nova Sonic voice ID |
+| `FRONTEND_PORT` | Frontend/Bridge | `3000` | Port for the frontend token server |
+| `INPUT_SAMPLE_RATE` | Bridge | `16000` | User mic → Nova Sonic (must be 16kHz) |
+| `OUTPUT_SAMPLE_RATE` | Bridge | `24000` | Nova Sonic → speakers |
 | `AWS_REGION` | Agent | `us-east-1` | AWS region for Bedrock API calls |
 | `AWS_PROFILE` | justfile | `default` | AWS profile for SSO/credentials |
 
@@ -147,3 +152,6 @@ tail -f /tmp/livekit-server.log # LiveKit server
 - **Process management**: Never use `pkill -f "agent.py"` — it matches hundreds of unrelated processes. Use explicit PIDs or `pkill -x` for exact matches. The `just stop` recipe uses `pkill -f` patterns that may need refinement.
 - **Two separate .venv**: Root `.venv/` (bridge worker deps) and `agentcore/.venv/` (voice agent deps). Run `just install` to sync both.
 - **Default backend**: Level 1 local defaults to `echo` backend (no AWS). Set `VOICE_BACKEND=nova_sonic` for real AI voice.
+- **Sample rate mismatch**: Bridge MUST use 16kHz for user audio input and 24kHz for agent audio output. Mismatched rates cause garbled transcription and broken barge-in.
+- **Ghost LiveKit workers**: After killing agent processes, orphaned `multiprocessing.spawn` children stay registered as workers. Kill them with `pkill -f "multiprocessing"` or restart LiveKit server.
+- **Barge-in latency**: Barge-in signal travels Nova Sonic → nova_sonic.py → voice_agent.py → WebSocket → bridge. Signal propagation is ~3ms, but Nova Sonic's own VAD detection adds perceptible delay. The bridge uses reader/writer task separation to avoid queueing delays.

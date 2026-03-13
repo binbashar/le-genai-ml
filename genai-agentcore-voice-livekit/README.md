@@ -1,265 +1,190 @@
-# AgentCore Voice Agent + LiveKit
+# AgentCore Voice + LiveKit
 
-Bidirectional voice agent architecture combining **LiveKit** (self-hosted WebRTC media gateway) with **AWS Bedrock AgentCore Runtime** (managed voice backend) and **Amazon Nova Sonic 2** (speech-to-speech foundation model).
-
-## Architecture
+Bidirectional voice agent that combines [LiveKit](https://livekit.io/) (WebRTC) with [AWS Bedrock AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/) and [Amazon Nova 2 Sonic](https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-getting-started.html) for real-time speech-to-speech conversations.
 
 ```
-┌─────────┐     WebRTC      ┌─────────────┐    Room     ┌──────────────┐    WebSocket    ┌───────────────────┐    Bedrock API    ┌──────────────┐
-│ Browser  │◄──────────────►│ LiveKit      │◄──────────►│ Bridge       │◄──────────────►│ AgentCore Voice   │◄───────────────►│ Nova Sonic 2 │
-│ (WebRTC) │                │ Server       │            │ Worker       │                │ Agent             │                  │ (Bedrock)    │
-└─────────┘                 └─────────────┘             └──────────────┘                └───────────────────┘                  └──────────────┘
-  web/index.html             livekit-server               agent.py                       agentcore/                             amazon.nova-
-  port 3000                  port 7880                    (LiveKit SDK)                   voice_agent.py                         sonic-v1:0
-                                                                                          port 8080 /ws
+Browser  ◄──WebRTC──►  LiveKit Server  ◄──Room──►  Bridge Worker  ◄──WebSocket──►  AgentCore  ◄──Bedrock──►  Nova 2 Sonic
+ :3000                    :7880                      agent.py                       :8080/ws                   us-east-1
 ```
 
-**How it works:**
-
-1. User opens the browser frontend and connects to a LiveKit room via WebRTC
-2. LiveKit Server dispatches a job to the Bridge Worker when a participant joins
-3. Bridge Worker opens a WebSocket connection to the AgentCore voice agent
-4. User speaks -- audio flows: Browser -> LiveKit -> Bridge Worker -> AgentCore -> Nova Sonic 2
-5. Nova Sonic 2 responds -- audio flows back the same path to the browser speaker
-6. Full-duplex: the user can interrupt (barge-in) at any time
-
-Each component is isolated by responsibility. The frontend knows nothing about AI models. The Bridge Worker knows nothing about what model runs behind AgentCore. The AgentCore voice agent knows nothing about LiveKit or WebRTC.
+The user speaks into the browser, audio flows through LiveKit to the Bridge Worker, which forwards it over WebSocket to an AgentCore voice agent. Nova 2 Sonic processes the audio and responds — full-duplex with barge-in support.
 
 ## Quick Start
 
 ### Prerequisites
 
-| Tool | Install | Purpose |
-|------|---------|---------|
-| [just](https://github.com/casey/just) | `brew install just` | Task runner |
-| [uv](https://docs.astral.sh/uv/) | `brew install uv` | Python package manager |
-| Python 3.13 | via uv | Runtime |
-| [LiveKit CLI + Server](https://docs.livekit.io/home/cli/cli-setup/) | `just install-livekit` | WebRTC infrastructure |
-| AWS CLI | `brew install awscli` | AWS credentials |
-| AWS credentials | `aws configure` or SSO | Bedrock API access (Nova Sonic 2) |
+- [just](https://github.com/casey/just) — `brew install just`
+- [uv](https://docs.astral.sh/uv/) — `brew install uv`
+- [LiveKit Server + CLI](https://docs.livekit.io/home/cli/cli-setup/) — `just install-livekit`
 
-### Level 1: All Local
-
-Everything runs on your machine. Validates code correctness and end-to-end audio flow.
+### Run locally (echo mode — no AWS needed)
 
 ```bash
-# 1. Install dependencies
-just install
-
-# 2. Start everything (LiveKit + voice agent + bridge + frontend)
-just start
+just install    # Install Python dependencies
+just start      # Start all components + open browser
 ```
 
-This will:
-- Start LiveKit Server in dev mode (port 7880)
-- Start the AgentCore voice agent locally (port 8080)
-- Start the Bridge Worker connecting to both
-- Generate a LiveKit token and open the browser at http://localhost:3000
-- Your microphone will be enabled -- speak and the agent responds
+This starts LiveKit, the voice agent (echo backend), the bridge worker, and opens Chrome with the mic enabled. You'll hear your own voice echoed back, confirming the full pipeline works.
 
-To stop all processes:
+### Run with Nova 2 Sonic (requires AWS credentials)
+
+```bash
+VOICE_BACKEND=nova_sonic just start
+```
+
+The voice agent connects to Amazon Nova 2 Sonic via Bedrock. Speak naturally and get AI voice responses in real time.
+
+> **Note:** Requires valid AWS credentials with `bedrock:InvokeModel` permissions in `us-east-1`. Run `just whoami` to verify.
+
+### Stop
 
 ```bash
 just stop
 ```
 
-### Level 2: Hybrid (Local LiveKit + AWS AgentCore)
+## How It Works
 
-The voice agent runs on AWS Bedrock AgentCore Runtime. LiveKit and the Bridge Worker remain local. This validates real SigV4 WebSocket auth, Nova Sonic on Bedrock, and production-like latency.
+Each component has a single responsibility:
+
+| Component | File | Role |
+|-----------|------|------|
+| **Frontend** | `web/index.html` | Captures mic audio via WebRTC, plays agent audio |
+| **LiveKit Server** | `livekit-server --dev` | WebRTC media gateway (SFU) |
+| **Bridge Worker** | `agent.py` | Translates LiveKit audio frames ↔ AgentCore WebSocket |
+| **Voice Agent** | `agentcore/voice_agent.py` | WebSocket server that delegates to a voice backend |
+| **Voice Backend** | `agentcore/backends/` | Pluggable audio processing (Nova Sonic, echo, etc.) |
+
+The frontend knows nothing about AI models. The bridge knows nothing about which model runs behind AgentCore. Each layer can be swapped independently.
+
+## Deployment Levels
+
+| Level | What's local | What's on AWS | Command |
+|-------|-------------|---------------|---------|
+| **1 — All local** | Everything | Bedrock API only | `just start` |
+| **2 — Hybrid** | LiveKit + Bridge + Frontend | AgentCore Runtime + Bedrock | `just start-hybrid ARN` |
+| **3 — Docker** | Containers on EC2 | AgentCore Runtime + Bedrock | `docker compose up -d` |
+
+### Level 2: Hybrid
+
+Deploy the voice agent to AgentCore Runtime, keep LiveKit local:
 
 ```bash
-# 1. Deploy voice agent to AgentCore Runtime
 just deploy-agentcore
-
-# 2. Copy the ARN from the deploy output, then:
-just start-hybrid arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/voice-agent-xyz
+# Copy the ARN from the output, then:
+just start-hybrid arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/...
 ```
 
-The Bridge Worker detects `AGENTCORE_RUNTIME_ARN` and uses the AgentCore SDK to open a SigV4-signed WSS connection instead of a direct WebSocket.
-
-### Level 3: Docker Compose (EC2 / CI)
-
-All infrastructure in containers. AgentCore voice agent runs on AWS. Suitable for single-EC2 deployment or CI validation.
+### Level 3: Docker Compose
 
 ```bash
-# Set the AgentCore Runtime ARN
-export AGENTCORE_RUNTIME_ARN=arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/...
-
-# Start LiveKit Server + Bridge Worker
+export AGENTCORE_RUNTIME_ARN=arn:aws:bedrock-agentcore:us-east-1:...
 docker compose up -d
 ```
 
-The `docker-compose.yml` runs LiveKit Server and the Bridge Worker. The Bridge Worker connects to the AgentCore Runtime ARN via environment variable.
+## Voice Backends
 
-For local development with a local voice agent, Docker Compose automatically applies the override file:
+The voice agent uses a strategy pattern — swap backends without changing anything else.
 
-```bash
-# Starts with docker-compose.override.yml (bridge -> ws://host.docker.internal:8080/ws)
-docker compose up -d
+| Backend | Status | Description |
+|---------|--------|-------------|
+| `echo` | Working | Echoes user audio back. No AWS needed. Default for local dev. |
+| `nova_sonic` | Working | Bidirectional streaming with Nova 2 Sonic. 16 kHz in, 24 kHz out. Barge-in support. |
+| `cascade` | Stub | Extension point for STT → LLM → TTS pipelines. |
 
-# Run voice agent on host
-cd agentcore && uv run python voice_agent.py
-```
+### Add a custom backend
 
-## Project Structure
-
-```
-genai-agentcore-voice-livekit/
-├── agent.py                          # Bridge Worker (LiveKit <-> AgentCore)
-├── web/
-│   └── index.html                    # Frontend (LiveKit Client SDK, vanilla JS)
-├── justfile                          # Task runner (start, start-hybrid, deploy, etc.)
-├── pyproject.toml                    # Bridge Worker dependencies
-├── docker-compose.yml                # LiveKit Server + Bridge Worker
-├── docker-compose.override.yml       # Dev override (local voice agent)
-├── Dockerfile.bridge                 # Bridge Worker container
-├── .env.example                      # Documented environment variables
-│
-├── agentcore/                        # Voice agent for AgentCore Runtime
-│   ├── voice_agent.py                # @app.websocket entrypoint
-│   ├── backends/
-│   │   ├── base.py                   # VoiceBackend abstract base class
-│   │   ├── nova_sonic.py             # Nova Sonic 2 bidirectional (functional)
-│   │   ├── cascade.py                # STT->LLM->TTS pipeline (stub)
-│   │   └── __init__.py               # Backend factory
-│   ├── Dockerfile                    # AgentCore container
-│   └── pyproject.toml                # Agent dependencies
-│
-├── k8s/                              # Kubernetes manifests (reference)
-│   ├── bridge-deployment.yaml        # Bridge Worker Deployment + ConfigMap + Secret
-│   └── livekit-values.yaml           # Helm values for LiveKit Server on EKS
-│
-├── CLAUDE.md                         # Claude Code guidance
-└── README.md                         # This file
-```
-
-## Backend Extensibility
-
-The voice agent uses a **strategy pattern** to decouple the WebSocket protocol from the voice processing backend. The Bridge Worker sends a `backend` field in the `session_start` message, and the factory instantiates the correct implementation.
-
-### VoiceBackend interface
+1. Create `agentcore/backends/my_backend.py` implementing `VoiceBackend`:
 
 ```python
-class VoiceBackend(ABC):
+from backends.base import VoiceBackend
+
+class MyBackend(VoiceBackend):
     async def start_session(self, config: dict) -> None: ...
     async def send_audio(self, audio_bytes: bytes) -> None: ...
     async def receive_audio(self) -> AsyncIterator[bytes]: ...
     async def close(self) -> None: ...
 ```
 
-### Built-in backends
-
-| Backend | Status | Description |
-|---------|--------|-------------|
-| `nova_sonic` | Functional | Bidirectional streaming with Amazon Nova Sonic 2 via the Smithy Bedrock SDK. Input: 16 kHz PCM. Output: 24 kHz PCM. Native barge-in support. |
-| `cascade` | Stub | Documented extension point for traditional STT -> LLM -> TTS pipelines (Transcribe/Whisper + Claude/Nova + Polly/ElevenLabs). |
-
-### Adding a new backend
-
-1. Create `agentcore/backends/my_backend.py` implementing `VoiceBackend`
 2. Register in `agentcore/backends/__init__.py`:
-   ```python
-   from backends.my_backend import MyBackend
-   BACKENDS["my_backend"] = MyBackend
-   ```
-3. Clients select it by sending `{"backend": "my_backend"}` in the session config
 
-No changes needed in the Bridge Worker, voice agent, or frontend.
+```python
+BACKENDS["my_backend"] = MyBackend
+```
+
+3. Select it: `VOICE_BACKEND=my_backend just start`
+
+## Project Structure
+
+```
+├── agent.py                    # Bridge Worker (LiveKit ↔ AgentCore)
+├── web/index.html              # Browser frontend (vanilla JS + LiveKit SDK)
+├── justfile                    # Task runner recipes
+├── pyproject.toml              # Bridge Worker dependencies
+│
+├── agentcore/
+│   ├── voice_agent.py          # AgentCore WebSocket voice agent
+│   ├── pyproject.toml          # Voice agent dependencies
+│   ├── Dockerfile              # Voice agent container
+│   └── backends/
+│       ├── base.py             # VoiceBackend ABC
+│       ├── echo.py             # Echo backend (testing)
+│       ├── nova_sonic.py       # Nova 2 Sonic backend
+│       └── cascade.py          # STT→LLM→TTS stub
+│
+├── docker-compose.yml          # LiveKit + Bridge containers
+├── docker-compose.override.yml # Dev override (local voice agent)
+├── Dockerfile.bridge           # Bridge Worker container
+└── k8s/                        # Reference K8s manifests for EKS
+```
+
+> Two separate `pyproject.toml` files: root for bridge worker, `agentcore/` for voice agent. Run `just install` to sync both.
 
 ## Environment Variables
 
-| Variable | Component | Default | Description |
-|----------|-----------|---------|-------------|
-| `LIVEKIT_URL` | Bridge Worker | `ws://localhost:7880` | LiveKit server WebSocket URL |
-| `LIVEKIT_API_KEY` | Bridge Worker | `devkey` | LiveKit API key |
-| `LIVEKIT_API_SECRET` | Bridge Worker | `secret` | LiveKit API secret |
-| `AGENTCORE_WS_URL` | Bridge Worker | -- | Direct WebSocket URL for local dev (`ws://localhost:8080/ws`) |
-| `AGENTCORE_RUNTIME_ARN` | Bridge Worker | -- | AgentCore Runtime ARN for AWS (mutually exclusive with `AGENTCORE_WS_URL`) |
-| `VOICE_BACKEND` | Bridge Worker | `nova_sonic` | Backend to request: `nova_sonic` or `cascade` |
-| `VOICE_ID` | Bridge/Agent | `tiffany` | Nova Sonic voice identifier |
-| `AWS_REGION` | Voice Agent | `us-east-1` | AWS region for Bedrock API |
-| `AWS_PROFILE` | justfile | `default` | AWS profile for SSO / credential export |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VOICE_BACKEND` | `echo` | Backend: `echo`, `nova_sonic`, or `cascade` |
+| `VOICE_ID` | `tiffany` | Nova Sonic voice ID |
+| `AGENTCORE_WS_URL` | — | Direct WebSocket URL (local dev) |
+| `AGENTCORE_RUNTIME_ARN` | — | AgentCore Runtime ARN (AWS, mutually exclusive with above) |
+| `AWS_REGION` | `us-east-1` | AWS region for Bedrock |
+| `LIVEKIT_URL` | `ws://localhost:7880` | LiveKit server URL |
+| `LIVEKIT_API_KEY` | `devkey` | LiveKit API key |
+| `LIVEKIT_API_SECRET` | `secret` | LiveKit API secret |
 
-See `.env.example` for a complete template.
-
-## Kubernetes Deployment
-
-Reference manifests are provided in `k8s/` for deploying to Amazon EKS:
-
-- **`bridge-deployment.yaml`**: Deployment, ConfigMap, Secret, and ServiceAccount for the Bridge Worker. Uses IRSA for Bedrock/AgentCore IAM access.
-- **`livekit-values.yaml`**: Helm values for the [official LiveKit chart](https://github.com/livekit/livekit-helm) with ALB ingress and WebSocket support.
-
-```bash
-# Install LiveKit via Helm
-helm repo add livekit https://helm.livekit.io
-helm install livekit livekit/livekit-server -f k8s/livekit-values.yaml
-
-# Deploy Bridge Worker
-kubectl apply -f k8s/bridge-deployment.yaml
-```
-
-The AgentCore voice agent is deployed and managed by AWS (`just deploy-agentcore`). It does not run in your Kubernetes cluster.
-
-## Testing Levels
-
-| Level | Local components | AWS components | Validates | Command |
-|-------|-----------------|----------------|-----------|---------|
-| **1: All local** | LiveKit + Bridge + Voice Agent + Frontend | Bedrock API only | Code correctness, audio pipeline, WebSocket protocol | `just start` |
-| **2: Hybrid** | LiveKit + Bridge + Frontend | AgentCore Runtime + Bedrock | SigV4 auth, real latency, production agent lifecycle | `just start-hybrid ARN` |
-| **3: Docker/EC2** | -- | EC2 (Docker Compose) + AgentCore + Bedrock | Full architecture without EKS, container networking | `docker compose up -d` |
+See [`.env.example`](.env.example) for a copyable template.
 
 ## Troubleshooting
 
-### No audio from agent
+**No audio from the agent** — Check AWS credentials (`just whoami`) and voice agent logs (`tail -f /tmp/voice-agent.log`). The Smithy SDK hangs silently without valid credentials.
 
-- Check that your AWS credentials are valid: `just whoami`
-- Verify Nova Sonic access in your region (us-east-1 recommended)
-- Check voice agent logs: `tail -f /tmp/voice-agent.log`
-- Ensure the Bridge Worker connected: `tail -f /tmp/bridge-worker.log`
+**Bridge connects but no job dispatched** — LiveKit doesn't retry jobs for the same room. Use a fresh room name or restart LiveKit (`just stop && just start`).
 
-### "Either AGENTCORE_WS_URL or AGENTCORE_RUNTIME_ARN must be set"
+**Port 8080 already in use** — Kill the previous voice agent: `lsof -ti :8080 | xargs kill -9`
 
-The Bridge Worker requires exactly one connection method. For local dev, `just start` sets `AGENTCORE_WS_URL` automatically. For hybrid mode, pass the ARN to `just start-hybrid`.
+**Token expired** — Regenerate: `just token`
 
-### WebSocket handshake fails
+**Docker bridge can't reach local voice agent** — The override uses `host.docker.internal` (macOS/Windows). On Linux, use `--network=host`.
 
-- Verify the voice agent is running: `curl http://localhost:8080/ping`
-- Check that port 8080 is not in use by another process
-- The handshake expects `session_start` as the first message; custom WebSocket clients must follow the protocol
-
-### LiveKit token expired
-
-Generate a new token:
+## Useful Commands
 
 ```bash
-just token
-```
-
-Tokens are valid for 24 hours by default.
-
-### Browser microphone not working
-
-- Use Chrome for best WebRTC audio quality
-- Grant microphone permission when prompted
-- Check that `localhost:3000` is served over HTTP (not HTTPS) for local dev
-
-### Docker Compose: bridge can't reach local voice agent
-
-The override file uses `host.docker.internal` which works on macOS/Windows Docker Desktop. On Linux, add `--network=host` or configure the host IP manually.
-
-### AWS SSO credentials expired
-
-```bash
-just sso-login
-# Then re-run your command
+just --list          # Show all available recipes
+just check           # Verify prerequisites are installed
+just voice-agent     # Run voice agent standalone
+just bridge          # Run bridge worker standalone
+just livekit-server  # Run LiveKit standalone
+just frontend        # Serve frontend standalone
+just token           # Generate a LiveKit access token
+just whoami          # Check AWS identity
+just sso-login       # AWS SSO login
+just clean           # Remove .venv and caches
 ```
 
 ## Links
 
-- [AWS Bedrock AgentCore Documentation](https://docs.aws.amazon.com/bedrock-agentcore/)
-- [AgentCore WebSocket Bidirectional Streaming](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-get-started-websocket.html)
-- [Amazon Nova Sonic 2](https://docs.aws.amazon.com/nova/latest/userguide/speech.html)
+- [AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/)
+- [Amazon Nova 2 Sonic](https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-getting-started.html)
 - [LiveKit Self-Hosting](https://docs.livekit.io/home/self-hosting/local/)
-- [LiveKit Self-Hosting on Kubernetes](https://docs.livekit.io/transport/self-hosting/kubernetes/)
 - [LiveKit Agents Framework](https://docs.livekit.io/agents/)
-- [sample-nova-sonic-websocket-agentcore](https://github.com/aws-samples/sample-nova-sonic-websocket-agentcore)
+- [Reference: Nova Sonic WebSocket AgentCore Sample](https://github.com/aws-samples/sample-nova-sonic-websocket-agentcore)

@@ -1,4 +1,4 @@
-"""Nova Sonic 2 bidirectional voice backend.
+"""Nova 2 Sonic bidirectional voice backend.
 
 Uses the aws_sdk_bedrock_runtime Smithy-generated client (not boto3) because
 the standard boto3 bedrock-runtime client does not expose
@@ -43,15 +43,50 @@ from backends.base import VoiceBackend
 
 logger = logging.getLogger(__name__)
 
-MODEL_ID = "amazon.nova-sonic-v1:0"
+# Sentinel object to signal barge-in through the audio queue
+BARGE_IN = b"__BARGE_IN__"
+
+MODEL_ID = "amazon.nova-2-sonic-v1:0"
 
 # Default audio parameters
 INPUT_SAMPLE_RATE = 16000  # Hz — Nova Sonic expects 16 kHz PCM input
 OUTPUT_SAMPLE_RATE = 24000  # Hz — Nova Sonic emits 24 kHz PCM output
 
+# Available voices: {voice_id: (language, locale, gender)}
+# Tiffany and Matthew are polyglot — they speak all supported languages.
+VOICES = {
+    "tiffany": ("English (US)", "en-US", "feminine"),
+    "matthew": ("English (US)", "en-US", "masculine"),
+    "amy": ("English (UK)", "en-GB", "feminine"),
+    "olivia": ("English (AU)", "en-AU", "feminine"),
+    "kiara": ("English/Hindi (IN)", "en-IN", "feminine"),
+    "arjun": ("English/Hindi (IN)", "en-IN", "masculine"),
+    "lupe": ("Spanish (US)", "es-US", "feminine"),
+    "carlos": ("Spanish (US)", "es-US", "masculine"),
+    "ambre": ("French", "fr-FR", "feminine"),
+    "florian": ("French", "fr-FR", "masculine"),
+    "beatrice": ("Italian", "it-IT", "feminine"),
+    "lorenzo": ("Italian", "it-IT", "masculine"),
+    "tina": ("German", "de-DE", "feminine"),
+    "lennart": ("German", "de-DE", "masculine"),
+    "carolina": ("Portuguese (BR)", "pt-BR", "feminine"),
+    "leo": ("Portuguese (BR)", "pt-BR", "masculine"),
+}
+
+# System prompts per locale — used when no custom system_prompt is provided
+LOCALE_SYSTEM_PROMPTS = {
+    "en": "You are a friendly and helpful voice assistant. Give detailed, thorough responses. When asked to tell a story or explain something, be very detailed and elaborate.",
+    "es": "Eres un asistente de voz amigable y útil. Da respuestas detalladas y completas. Cuando te pidan contar una historia o explicar algo, sé muy detallado y elaborado.",
+    "fr": "Vous êtes un assistant vocal amical et serviable. Gardez vos réponses concises, généralement deux ou trois phrases.",
+    "it": "Sei un assistente vocale amichevole e disponibile. Mantieni le tue risposte concise, generalmente due o tre frasi.",
+    "de": "Du bist ein freundlicher und hilfreicher Sprachassistent. Halte deine Antworten kurz, in der Regel zwei oder drei Sätze.",
+    "pt": "Você é um assistente de voz amigável e prestativo. Mantenha suas respostas concisas, geralmente duas ou três frases.",
+    "hi": "आप एक मित्रवत और सहायक वॉइस असिस्टेंट हैं। अपने उत्तर संक्षिप्त रखें, आम तौर पर दो या तीन वाक्य।",
+}
+
 
 class NovaSonicBackend(VoiceBackend):
-    """Bidirectional voice backend using Amazon Nova Sonic 2.
+    """Bidirectional voice backend using Amazon Nova 2 Sonic.
 
     Lifecycle:
         backend = NovaSonicBackend(config)
@@ -64,14 +99,16 @@ class NovaSonicBackend(VoiceBackend):
 
     def __init__(self, config: dict) -> None:
         self.voice_id: str = config.get("voice_id", "tiffany")
-        self.system_prompt: str = config.get(
-            "system_prompt",
-            "You are a friendly and helpful voice assistant. "
-            "Keep your responses concise, generally two or three sentences.",
-        )
+        self.system_prompt: str = config.get("system_prompt") or self._default_prompt()
         self.input_sample_rate: int = config.get("input_sample_rate", INPUT_SAMPLE_RATE)
         self.output_sample_rate: int = config.get(
             "output_sample_rate", OUTPUT_SAMPLE_RATE
+        )
+        self.temperature: float = float(config.get("temperature", 0.7))
+        self.top_p: float = float(config.get("top_p", 0.9))
+        self.max_tokens: int = int(config.get("max_tokens", 1024))
+        self.endpointing_sensitivity: str = config.get(
+            "endpointing_sensitivity", "MEDIUM"
         )
         self.region: str = config.get(
             "region",
@@ -91,6 +128,7 @@ class NovaSonicBackend(VoiceBackend):
 
         # Queue that _read_output_loop populates; receive_audio drains it.
         # None sentinel signals end-of-stream.
+        # BARGE_IN sentinel signals interruption detected.
         self._audio_output_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
         self._read_task: asyncio.Task | None = None
@@ -215,6 +253,15 @@ class NovaSonicBackend(VoiceBackend):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _default_prompt(self) -> str:
+        """Pick a system prompt matching the voice's locale."""
+        voice_info = VOICES.get(self.voice_id)
+        if voice_info:
+            lang = voice_info[1].split("-")[0]  # "es-US" -> "es"
+        else:
+            lang = "en"
+        return LOCALE_SYSTEM_PROMPTS.get(lang, LOCALE_SYSTEM_PROMPTS["en"])
+
     def _build_client(self) -> BedrockRuntimeClient:
         """Create the Smithy Bedrock Runtime client.
 
@@ -283,6 +330,9 @@ class NovaSonicBackend(VoiceBackend):
     async def _dispatch_event(self, payload: dict) -> None:
         """Route a decoded Nova Sonic event to the appropriate handler."""
         event = payload.get("event", {})
+        # Log non-audio events at debug level
+        if "audioOutput" not in event:
+            logger.debug("EVENT: %s", json.dumps(payload, default=str)[:500])
 
         if "audioOutput" in event:
             content_b64: str = event["audioOutput"].get("content", "")
@@ -294,12 +344,14 @@ class NovaSonicBackend(VoiceBackend):
             text = event["textOutput"].get("content", "")
             # Barge-in detection
             if '{"interrupted":true}' in text or '"interrupted" : true' in text:
-                logger.debug("Barge-in detected — clearing audio queue")
+                logger.info("Barge-in detected — clearing audio queue and signaling bridge")
                 while not self._audio_output_queue.empty():
                     try:
                         self._audio_output_queue.get_nowait()
                     except asyncio.QueueEmpty:
                         break
+                # Signal barge-in to the caller (voice_agent -> bridge)
+                await self._audio_output_queue.put(BARGE_IN)
             else:
                 logger.debug("Nova Sonic text: %s", text)
 
@@ -323,10 +375,13 @@ class NovaSonicBackend(VoiceBackend):
                 "event": {
                     "sessionStart": {
                         "inferenceConfiguration": {
-                            "maxTokens": 1024,
-                            "topP": 0.9,
-                            "temperature": 0.7,
-                        }
+                            "maxTokens": self.max_tokens,
+                            "topP": self.top_p,
+                            "temperature": self.temperature,
+                        },
+                        "turnDetectionConfiguration": {
+                            "endpointingSensitivity": self.endpointing_sensitivity,
+                        },
                     }
                 }
             }
