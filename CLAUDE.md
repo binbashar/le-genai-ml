@@ -30,6 +30,11 @@ This is a monorepo (`le-genai-ml`) containing multiple GenAI and ML demonstratio
 - **`genai-product-spot-detector/`**: Product detection demo
 - **`genai-agent-webscrapper/`**: Web scraping agent
 - **`genai-speech2speech/`**: Speech-to-speech with Bedrock
+- **`genai-agentcore-voice-livekit/`**: Bidirectional voice agent (LiveKit WebRTC + AgentCore + Nova Sonic 2)
+  - `just install && just start` — Level 1: all local (echo backend, no AWS needed)
+  - `VOICE_BACKEND=nova_sonic just start` — Level 1 with Nova Sonic (needs AWS creds)
+  - `just deploy-agentcore && just start-hybrid ARN` — Level 2: hybrid
+  - Two pyproject.toml files: root (bridge worker) and agentcore/ (voice agent)
 
 Each directory is self-contained with its own `pyproject.toml`, dependencies, and deployment scripts.
 

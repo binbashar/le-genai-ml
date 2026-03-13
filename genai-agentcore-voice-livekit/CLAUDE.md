@@ -139,3 +139,11 @@ tail -f /tmp/voice-agent.log    # Voice agent
 tail -f /tmp/bridge-worker.log  # Bridge worker
 tail -f /tmp/livekit-server.log # LiveKit server
 ```
+
+## Gotchas
+
+- **Smithy SDK credentials**: `aws-sdk-bedrock-runtime` only reads env vars (`AWS_ACCESS_KEY_ID`), NOT profiles/SSO. The `NovaSonicBackend._build_client()` pre-resolves via boto3. If it hangs silently, check credentials.
+- **LiveKit job dispatch**: LiveKit does NOT re-dispatch jobs after a failed attempt. Use a fresh room name or restart LiveKit server when iterating.
+- **Process management**: Never use `pkill -f "agent.py"` — it matches hundreds of unrelated processes. Use explicit PIDs or `pkill -x` for exact matches. The `just stop` recipe uses `pkill -f` patterns that may need refinement.
+- **Two separate .venv**: Root `.venv/` (bridge worker deps) and `agentcore/.venv/` (voice agent deps). Run `just install` to sync both.
+- **Default backend**: Level 1 local defaults to `echo` backend (no AWS). Set `VOICE_BACKEND=nova_sonic` for real AI voice.
