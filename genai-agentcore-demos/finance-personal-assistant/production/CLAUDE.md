@@ -577,10 +577,7 @@ Precedence order (defined in `config.py`):
 - `AWS_PROFILE=binbash`
 - Verify: `AWS_PROFILE=binbash aws sts get-caller-identity`
 
-**Model access:**
-- Enable in Bedrock Console: https://console.aws.amazon.com/bedrock/home#/modelaccess
-- Required: Amazon Nova (all), Anthropic Claude 3.5/4.5
-- Access granted instantly
+**Model access:** No manual configuration needed (October 2025). All serverless models are automatically enabled. For legacy accounts only: enable in [Bedrock Console](https://console.aws.amazon.com/bedrock/home#/modelaccess).
 
 ## Typical Development Workflow
 
