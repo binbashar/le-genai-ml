@@ -1,0 +1,14 @@
+[project]
+name = "agentcore-voice-livekit-bridge"
+version = "0.1.0"
+description = "LiveKit Bridge Worker for AgentCore bidirectional voice agents"
+requires-python = ">=3.11"
+dependencies = [
+    "livekit-agents",
+    "livekit-plugins-aws",
+    "bedrock-agentcore",
+    "websockets",
+]
+
+[tool.uv]
+package = false
