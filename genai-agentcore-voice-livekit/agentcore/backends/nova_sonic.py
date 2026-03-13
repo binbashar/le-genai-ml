@@ -24,6 +24,8 @@ import json
 import logging
 import os
 import uuid
+
+import boto3
 from collections.abc import AsyncIterator
 
 from aws_sdk_bedrock_runtime.client import (
