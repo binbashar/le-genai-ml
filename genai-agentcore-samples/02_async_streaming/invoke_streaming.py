@@ -6,6 +6,7 @@ https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-invoke-age
 
 Uses the invoke_agent_runtime API with text/event-stream response processing.
 """
+
 import boto3
 import json
 import sys
@@ -139,12 +140,12 @@ if __name__ == "__main__":
         "Suggest improvements for our DynamoDB table that connects to Lambda and API Gateway",
         "Explain the differences between AWS Fargate and ECS on EC2 for Docker containers",
         "Can you help me set up a data pipeline using AWS Glue, Athena, and Redshift?",
-        "What's the best way to deploy a Next.js application on AWS using CloudFront and S3?"
+        "What's the best way to deploy a Next.js application on AWS using CloudFront and S3?",
     ]
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("AGENTCORE RUNTIME - INTERACTIVE STREAMING DEMO")
-    print("="*60)
+    print("=" * 60)
     print()
 
     # Get agent ARN from environment or prompt user
@@ -158,7 +159,9 @@ if __name__ == "__main__":
 
         if not agent_arn:
             print("\nExiting. To set ARN automatically, use:")
-            print("  export AGENT_RUNTIME_ARN='arn:aws:bedrock-agentcore:region:account:runtime/name'")
+            print(
+                "  export AGENT_RUNTIME_ARN='arn:aws:bedrock-agentcore:region:account:runtime/name'"
+            )
             sys.exit(0)
     else:
         print(f"Using Agent ARN: {agent_arn[:60]}...")

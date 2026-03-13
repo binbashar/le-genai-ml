@@ -45,7 +45,9 @@ def csv_to_text(csv_base64: str, max_size_mb: int = 5) -> Optional[str]:
         # Check file size
         size_mb = len(csv_bytes) / (1024 * 1024)
         if size_mb > max_size_mb:
-            logger.warning(f"CSV file too large: {size_mb:.2f}MB (max: {max_size_mb}MB)")
+            logger.warning(
+                f"CSV file too large: {size_mb:.2f}MB (max: {max_size_mb}MB)"
+            )
             return None
 
         # Try decoding with common encodings
@@ -68,7 +70,9 @@ def csv_to_text(csv_base64: str, max_size_mb: int = 5) -> Optional[str]:
 
         # Log size info
         lines = csv_text.count("\n") + 1
-        logger.info(f"Successfully processed CSV: {lines} lines, {len(csv_text)} characters")
+        logger.info(
+            f"Successfully processed CSV: {lines} lines, {len(csv_text)} characters"
+        )
 
         return csv_text
 

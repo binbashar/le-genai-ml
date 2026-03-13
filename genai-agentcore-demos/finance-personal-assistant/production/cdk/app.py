@@ -31,7 +31,8 @@ class FinancePersonalAssistantStack(Stack):
             self,
             "CognitoPool",
             pool_name="finance-personal-assistant",
-            demo_users_file=Path(__file__).parent.parent.parent.parent / ".demo_users.json",
+            demo_users_file=Path(__file__).parent.parent.parent.parent
+            / ".demo_users.json",
         )
 
         app_client = AgentAppClient(

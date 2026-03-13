@@ -2,6 +2,7 @@
 Local testing version of streaming_agent.py
 Demonstrates LangGraph parallel node execution with fan-out/fan-in pattern
 """
+
 from langgraph.graph import StateGraph, START, END
 from langchain_aws import ChatBedrock
 from langchain_core.messages import HumanMessage, SystemMessage

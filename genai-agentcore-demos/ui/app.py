@@ -393,7 +393,9 @@ with st.sidebar:
     agent_info_for_title = agents_config["agents"][agent_type]
 
     # Display agent title at top of sidebar
-    st.markdown(f"### {get_agent_display_name(agent_type, agent_info_for_title['name'])}")
+    st.markdown(
+        f"### {get_agent_display_name(agent_type, agent_info_for_title['name'])}"
+    )
     st.markdown("---")
 
     # ============================================================================

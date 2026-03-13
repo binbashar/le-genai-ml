@@ -207,11 +207,13 @@ def process_speech_to_speech(audio_data, bedrock_client, system_prompt=""):
             ],
             "system": [
                 {
-                    "text": system_prompt
-                    if system_prompt
-                    else """Eres un asistente de voz amigable y conversacional. 
+                    "text": (
+                        system_prompt
+                        if system_prompt
+                        else """Eres un asistente de voz amigable y conversacional. 
                     Responde de manera natural y empática. Mantén un tono cálido y cercano.
                     Tus respuestas deben ser claras y concisas."""
+                    )
                 }
             ],
             "inferenceConfig": {
@@ -289,13 +291,11 @@ def main():
     if "AWS_ACCESS_KEY_ID" not in os.environ:
         st.warning("⚠️ Configura tus credenciales AWS primero")
         with st.expander("Ver instrucciones"):
-            st.code(
-                """
+            st.code("""
 export AWS_ACCESS_KEY_ID=tu_access_key
 export AWS_SECRET_ACCESS_KEY=tu_secret_key
 export AWS_DEFAULT_REGION=us-east-1
-            """
-            )
+            """)
         return
 
     # Inicializar cliente
@@ -349,9 +349,11 @@ export AWS_DEFAULT_REGION=us-east-1
 
                 # Botón de grabación
                 if st.button(
-                    "🎤 Presiona para grabar"
-                    if not st.session_state.recording
-                    else "⏹️ Detener grabación",
+                    (
+                        "🎤 Presiona para grabar"
+                        if not st.session_state.recording
+                        else "⏹️ Detener grabación"
+                    ),
                     type="primary",
                     use_container_width=True,
                     key="record_button",
@@ -539,26 +541,22 @@ export AWS_DEFAULT_REGION=us-east-1
 
         st.markdown("---")
         st.markdown("### 🎯 Características")
-        st.markdown(
-            """
+        st.markdown("""
         - ✅ Grabación desde micrófono
         - ✅ Speech-to-Speech directo
         - ✅ Respuestas naturales
         - ✅ Múltiples personalidades
         - ✅ Historial de conversación
-        """
-        )
+        """)
 
         st.markdown("---")
         st.markdown("### 💡 Tips")
-        st.info(
-            """
+        st.info("""
         - Habla claramente
         - El micrófono debe estar habilitado
         - Prueba diferentes duraciones
         - Los audios cortos funcionan mejor
-        """
-        )
+        """)
 
 
 if __name__ == "__main__":

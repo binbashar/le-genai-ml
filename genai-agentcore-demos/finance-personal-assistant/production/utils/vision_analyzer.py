@@ -72,22 +72,24 @@ def analyze_image(image_base64: str) -> Dict[str, Any]:
         # Build Nova messages-v1 format
         request_body = {
             "schemaVersion": "messages-v1",
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {
-                        "image": {
-                            "format": "jpeg",
-                            "source": {"bytes": image_base64}
-                        }
-                    },
-                    {"text": VISION_ANALYSIS_PROMPT}
-                ]
-            }],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "image": {
+                                "format": "jpeg",
+                                "source": {"bytes": image_base64},
+                            }
+                        },
+                        {"text": VISION_ANALYSIS_PROMPT},
+                    ],
+                }
+            ],
             "inferenceConfig": {
                 "maxTokens": VISION_MAX_TOKENS,
-                "temperature": VISION_TEMPERATURE
-            }
+                "temperature": VISION_TEMPERATURE,
+            },
         }
 
         # Invoke Bedrock Runtime API
@@ -95,8 +97,7 @@ def analyze_image(image_base64: str) -> Dict[str, Any]:
         logger.info(f"Invoking vision model: {VISION_MODEL_ID}")
 
         response = client.invoke_model(
-            modelId=VISION_MODEL_ID,
-            body=json.dumps(request_body)
+            modelId=VISION_MODEL_ID, body=json.dumps(request_body)
         )
 
         # Parse response (Nova format)
@@ -114,7 +115,7 @@ def analyze_image(image_base64: str) -> Dict[str, Any]:
                 "status": "error",
                 "keywords": [],
                 "summary": "Failed to parse vision model response",
-                "data": {}
+                "data": {},
             }
 
         # Normalize response format
@@ -129,7 +130,7 @@ def analyze_image(image_base64: str) -> Dict[str, Any]:
             "status": "error",
             "keywords": [],
             "summary": f"Vision API error: {error_code}",
-            "data": {}
+            "data": {},
         }
 
     except Exception as e:
@@ -139,7 +140,7 @@ def analyze_image(image_base64: str) -> Dict[str, Any]:
             "status": "error",
             "keywords": [],
             "summary": f"Vision analysis failed: {str(e)}",
-            "data": {}
+            "data": {},
         }
 
 
@@ -180,7 +181,8 @@ def _extract_json(text: str) -> Dict[str, Any]:
 
     # Try finding JSON-like structure with regex as last resort
     import re
-    json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text)
+
+    json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text)
     if json_match:
         try:
             return json.loads(json_match.group())
@@ -207,8 +209,10 @@ def _normalize_response(parsed: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "status": "unknown",
             "keywords": [],
-            "summary": parsed.get("summary", "Image not recognized as a financial document"),
-            "data": {}
+            "summary": parsed.get(
+                "summary", "Image not recognized as a financial document"
+            ),
+            "data": {},
         }
     else:
         # Success case - financial document detected
@@ -223,5 +227,5 @@ def _normalize_response(parsed: Dict[str, Any]) -> Dict[str, Any]:
             "status": "success",
             "keywords": keywords,
             "summary": parsed.get("summary", f"{doc_type.title()} detected"),
-            "data": data
+            "data": data,
         }

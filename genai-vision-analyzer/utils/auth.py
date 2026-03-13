@@ -35,7 +35,9 @@ def check_password():
         with col2:
             st.markdown("### 🔐 Autenticación")
             st.markdown("---")
-            st.text_input("👤 Usuario", key="username", placeholder="Ingrese su usuario")
+            st.text_input(
+                "👤 Usuario", key="username", placeholder="Ingrese su usuario"
+            )
             st.text_input(
                 "🔑 Contraseña",
                 type="password",
@@ -57,7 +59,9 @@ def check_password():
             st.markdown("### 🔐 Autenticación")
             st.markdown("---")
             st.error("😕 Usuario o contraseña incorrectos")
-            st.text_input("👤 Usuario", key="username", placeholder="Ingrese su usuario")
+            st.text_input(
+                "👤 Usuario", key="username", placeholder="Ingrese su usuario"
+            )
             st.text_input(
                 "🔑 Contraseña",
                 type="password",
@@ -76,7 +80,9 @@ def check_password():
         # Password correct - show logout button in sidebar
         with st.sidebar:
             st.markdown("---")
-            if st.button("🚪 Cerrar Sesión", type="secondary", use_container_width=True):
+            if st.button(
+                "🚪 Cerrar Sesión", type="secondary", use_container_width=True
+            ):
                 del st.session_state["password_correct"]
                 st.rerun()
         return True

@@ -647,7 +647,9 @@ def main():
                             "📤 Tokens de Salida", f"{usage.get('output_tokens', 0):,}"
                         )
                     with col3:
-                        st.metric("📊 Total Tokens", f"{usage.get('total_tokens', 0):,}")
+                        st.metric(
+                            "📊 Total Tokens", f"{usage.get('total_tokens', 0):,}"
+                        )
 
                 # Results tabs
                 tab1, tab2 = st.tabs(["📄 Analysis Results", "💾 Export Data"])
@@ -685,9 +687,11 @@ def main():
                                 "missing": metrics["missing"],
                                 "wrong_position": metrics["wrong_position"],
                                 "recall": f"{metrics['recall']:.2%}",
-                                "precision": f"{metrics['precision']:.2%}"
-                                if metrics["precision"] > 0
-                                else "N/A",
+                                "precision": (
+                                    f"{metrics['precision']:.2%}"
+                                    if metrics["precision"] > 0
+                                    else "N/A"
+                                ),
                                 "compliance_rate": f"{metrics['compliance_rate']:.2%}",
                             },
                             "configuration": {
@@ -729,14 +733,18 @@ def main():
                                                 "Product": product.get(
                                                     "nombre", "Unknown"
                                                 ),
-                                                "Found": "✅"
-                                                if product.get("encontrado", False)
-                                                else "❌",
-                                                "Correct": "✅"
-                                                if product.get(
-                                                    "posicion_correcta", False
-                                                )
-                                                else "❌",
+                                                "Found": (
+                                                    "✅"
+                                                    if product.get("encontrado", False)
+                                                    else "❌"
+                                                ),
+                                                "Correct": (
+                                                    "✅"
+                                                    if product.get(
+                                                        "posicion_correcta", False
+                                                    )
+                                                    else "❌"
+                                                ),
                                                 "Expected": product.get(
                                                     "frentes_esperados", 0
                                                 ),
@@ -765,9 +773,9 @@ def main():
                         "temperature": temperature,
                         "max_tokens": max_tokens,
                         "prompt_mode": prompt_mode,
-                        "prompt_source": "config.yaml"
-                        if prompt_mode == "default"
-                        else "user_input",
+                        "prompt_source": (
+                            "config.yaml" if prompt_mode == "default" else "user_input"
+                        ),
                     }
                     st.json(debug_info)
 
@@ -781,15 +789,13 @@ def main():
                 ):
                     st.error("🔐 AWS Authentication Failed")
                     st.write("Please check in your .env file:")
-                    st.code(
-                        """
+                    st.code("""
 APP_USER=your_username
 APP_PASSWORD=your_password
 AWS_ACCESS_KEY_ID=your_key_here
 AWS_SECRET_ACCESS_KEY=your_secret_here
 AWS_DEFAULT_REGION=us-west-2
-                    """
-                    )
+                    """)
                 elif "ValidationException" in str(e):
                     st.error("❌ Model validation error")
                     st.write(
