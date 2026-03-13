@@ -115,6 +115,7 @@ def get_memory() -> Memory:
         _memory_instance = Memory(region_name=region, config=FINANCE_MEMORY_CONFIG)
     return _memory_instance
 
+
 # Add conversation management to maintain context
 conversation_manager = SummarizingConversationManager(
     summary_ratio=0.3,  # Summarize 30% of messages when context reduction is needed
@@ -201,10 +202,14 @@ async def invoke(payload, context):
             if converted_image:
                 # Set as image_base64 for vision processing
                 payload["image_base64"] = converted_image
-                logger.info("[DOCUMENT] PDF converted successfully, will process with vision")
+                logger.info(
+                    "[DOCUMENT] PDF converted successfully, will process with vision"
+                )
             else:
                 logger.warning("[DOCUMENT] PDF conversion failed")
-                user_message = "[Document Error: Could not process PDF file]\n\n" + user_message
+                user_message = (
+                    "[Document Error: Could not process PDF file]\n\n" + user_message
+                )
 
         # Handle CSV: Convert to text and inject into message
         elif filename.endswith(".csv"):
@@ -222,7 +227,9 @@ User Query: {user_message}"""
                 logger.info(f"[DOCUMENT] CSV processed: {len(csv_text)} characters")
             else:
                 logger.warning("[DOCUMENT] CSV processing failed")
-                user_message = "[Document Error: Could not process CSV file]\n\n" + user_message
+                user_message = (
+                    "[Document Error: Could not process CSV file]\n\n" + user_message
+                )
 
     # Check for image in payload (vision preprocessing)
     image_base64 = payload.get("image_base64")
@@ -256,7 +263,9 @@ User Query: {user_message}"""
         logger.info("=" * 70)
         logger.info("[GUARDRAIL PRE-CHECK] Validating user input before processing")
         logger.info(f"  • Guardrail ID: {guardrail_config.get('guardrail_id', 'N/A')}")
-        logger.info(f"  • Guardrail Version: {guardrail_config.get('guardrail_version', 'N/A')}")
+        logger.info(
+            f"  • Guardrail Version: {guardrail_config.get('guardrail_version', 'N/A')}"
+        )
 
         pre_check_result = apply_guardrail_text(
             text=user_message,
@@ -276,7 +285,9 @@ User Query: {user_message}"""
             logger.warning(f"  • Action: {pre_check_result.get('action', 'UNKNOWN')}")
             if pre_check_result.get("action_reason"):
                 logger.warning(f"  • Reason: {pre_check_result['action_reason']}")
-            logger.warning("  • Agent invocation SKIPPED (prevents conversation history contamination)")
+            logger.warning(
+                "  • Agent invocation SKIPPED (prevents conversation history contamination)"
+            )
             logger.warning("=" * 70)
 
             # Return intervention message and stop (no agent invocation)

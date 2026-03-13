@@ -642,7 +642,7 @@ pre-commit run --all-files
 
 ### Health Check Protocol
 
-All agents use the **shared health check module** (`shared/agentcore_health.py`) for consistency and reusability.
+All agents use the **shared health check module** (`libs/python/agentcore_health.py`) for consistency and reusability.
 
 **Creating health checks for new agents:**
 

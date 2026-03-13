@@ -207,11 +207,13 @@ def process_speech_to_speech(audio_data, bedrock_client, system_prompt=""):
             ],
             "system": [
                 {
-                    "text": system_prompt
-                    if system_prompt
-                    else """Eres un asistente de voz amigable y conversacional. 
+                    "text": (
+                        system_prompt
+                        if system_prompt
+                        else """Eres un asistente de voz amigable y conversacional. 
                     Responde de manera natural y empática. Mantén un tono cálido y cercano.
                     Tus respuestas deben ser claras y concisas."""
+                    )
                 }
             ],
             "inferenceConfig": {
@@ -349,9 +351,11 @@ export AWS_DEFAULT_REGION=us-east-1
 
                 # Botón de grabación
                 if st.button(
-                    "🎤 Presiona para grabar"
-                    if not st.session_state.recording
-                    else "⏹️ Detener grabación",
+                    (
+                        "🎤 Presiona para grabar"
+                        if not st.session_state.recording
+                        else "⏹️ Detener grabación"
+                    ),
                     type="primary",
                     use_container_width=True,
                     key="record_button",

@@ -15,8 +15,7 @@ import sys
 from config import get_region
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,7 @@ def reset_memory(dry_run: bool = False):
 
     # Initialize memory client
     from bedrock_agentcore.memory import MemoryClient
+
     client = MemoryClient(region_name=region)
 
     # Find existing memory
@@ -41,7 +41,8 @@ def reset_memory(dry_run: bool = False):
     try:
         memories = client.list_memories()
         finance_memories = [
-            m for m in memories
+            m
+            for m in memories
             if m.get("id", "").startswith("finance_personal_assistant_mem")
         ]
 
@@ -54,12 +55,18 @@ def reset_memory(dry_run: bool = False):
             logger.info(f"  • {mem.get('id')} (status: {mem.get('status')})")
 
         if dry_run:
-            logger.info("\n🔍 DRY RUN - Would delete these memories (but not actually deleting)")
+            logger.info(
+                "\n🔍 DRY RUN - Would delete these memories (but not actually deleting)"
+            )
             return
 
         # Confirm deletion
-        print("\n⚠️  WARNING: This will delete ALL stored memories (preferences, facts, summaries)")
-        print("   The agent will recreate the memory instance on next invocation with fresh data.")
+        print(
+            "\n⚠️  WARNING: This will delete ALL stored memories (preferences, facts, summaries)"
+        )
+        print(
+            "   The agent will recreate the memory instance on next invocation with fresh data."
+        )
         confirm = input("\nType 'yes' to confirm deletion: ")
 
         if confirm.lower() != "yes":
@@ -86,13 +93,11 @@ def reset_memory(dry_run: bool = False):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Reset AgentCore Memory data"
-    )
+    parser = argparse.ArgumentParser(description="Reset AgentCore Memory data")
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be deleted without actually deleting"
+        help="Show what would be deleted without actually deleting",
     )
 
     args = parser.parse_args()

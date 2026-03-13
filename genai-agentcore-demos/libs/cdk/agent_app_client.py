@@ -58,9 +58,7 @@ class AgentAppClient(Construct):
                     "Description": f"Unified configuration for {agent_name} (OAuth + ARN)",
                     "Overwrite": True,
                 },
-                physical_resource_id=cr.PhysicalResourceId.of(
-                    f"{agent_name}-config"
-                ),
+                physical_resource_id=cr.PhysicalResourceId.of(f"{agent_name}-config"),
             ),
             on_update=cr.AwsSdkCall(
                 service="SSM",

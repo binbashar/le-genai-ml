@@ -536,7 +536,9 @@ def invoke_with_token(
     if document_base64 and filename:
         payload["document_base64"] = document_base64
         payload["filename"] = filename
-        logger.info(f"Document included in payload: {filename} (size: {len(document_base64)} bytes)")
+        logger.info(
+            f"Document included in payload: {filename} (size: {len(document_base64)} bytes)"
+        )
 
     logger.info(f"Invoking agent via HTTP: {url}")
     logger.info(f"User ID: {user_id}, Session ID: {session_id}")

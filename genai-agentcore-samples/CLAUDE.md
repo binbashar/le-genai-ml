@@ -196,10 +196,7 @@ For deployment:
 
 For model access:
 - `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` permissions
-- **Enable Amazon Nova Micro in Bedrock Model Access:**
-  - Go to: https://us-west-2.console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess
-  - Click "Modify model access"
-  - Enable "Amazon Nova Micro"
-  - Access is granted instantly (no approval needed)
+- **No manual configuration needed** (October 2025): All serverless models are automatically enabled
+- For legacy accounts only: enable Amazon Nova Micro in [Bedrock Console](https://console.aws.amazon.com/bedrock/home#/modelaccess)
 
 Recommended: `BedrockAgentCoreFullAccess` managed policy for initial setup.
