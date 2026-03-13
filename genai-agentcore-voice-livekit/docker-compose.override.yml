@@ -1,0 +1,6 @@
+# Override for local development (bridge connects to local voice agent)
+services:
+  bridge-worker:
+    environment:
+      - AGENTCORE_WS_URL=ws://host.docker.internal:8080/ws
+      - AGENTCORE_RUNTIME_ARN=

@@ -1,0 +1,23 @@
+services:
+  livekit-server:
+    image: livekit/livekit-server:latest
+    command: --dev
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882"
+
+  bridge-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.bridge
+    environment:
+      - LIVEKIT_URL=ws://livekit-server:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+      - AGENTCORE_RUNTIME_ARN=${AGENTCORE_RUNTIME_ARN}
+      - VOICE_BACKEND=${VOICE_BACKEND:-nova_sonic}
+      - VOICE_ID=${VOICE_ID:-tiffany}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+    depends_on:
+      - livekit-server
