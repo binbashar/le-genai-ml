@@ -34,7 +34,11 @@ import os
 from typing import Any, Dict, List
 
 from parquet_storage import ParquetStorageManager, get_bucket_name_from_env
-from pii_scrubber import scrub_record, scrub_record_guardrails_only, scrub_record_with_guardrails
+from pii_scrubber import (
+    scrub_record,
+    scrub_record_guardrails_only,
+    scrub_record_with_guardrails,
+)
 from schema import extract_structured_record
 
 # Configure logging
@@ -89,7 +93,9 @@ def lambda_handler(
             }
     """
     logger.info(f"Processing {len(event['records'])} records from Firehose")
-    logger.info(f"PII filtering: Guardrails={'enabled' if GUARDRAILS_ENABLED else 'disabled'}, Regex={'enabled' if PII_REGEX_ENABLED else 'disabled'}")
+    logger.info(
+        f"PII filtering: Guardrails={'enabled' if GUARDRAILS_ENABLED else 'disabled'}, Regex={'enabled' if PII_REGEX_ENABLED else 'disabled'}"
+    )
 
     # Initialize storage manager (lazy initialization)
     global storage_manager
@@ -130,7 +136,12 @@ def lambda_handler(
                 continue
 
             # Apply PII scrubbing based on configuration
-            if GUARDRAILS_ENABLED and PII_REGEX_ENABLED and GUARDRAIL_ID and GUARDRAIL_VERSION:
+            if (
+                GUARDRAILS_ENABLED
+                and PII_REGEX_ENABLED
+                and GUARDRAIL_ID
+                and GUARDRAIL_VERSION
+            ):
                 # Defense-in-depth: regex + Guardrails
                 scrubbed_log = scrub_record_with_guardrails(
                     bedrock_log,

@@ -223,11 +223,13 @@ def generate_response_with_claude(transcript, bedrock_client, system_prompt=""):
                         ],
                         "system": [
                             {
-                                "text": system_prompt
-                                if system_prompt
-                                else """Eres un asistente de voz amigable en español. 
+                                "text": (
+                                    system_prompt
+                                    if system_prompt
+                                    else """Eres un asistente de voz amigable en español. 
                         Responde de manera natural, clara y concisa. Mantén un tono conversacional y cálido.
                         Tus respuestas deben ser apropiadas para ser leídas en voz alta."""
+                                )
                             }
                         ],
                         "inferenceConfig": {
@@ -242,11 +244,13 @@ def generate_response_with_claude(transcript, bedrock_client, system_prompt=""):
                         "anthropic_version": "bedrock-2023-05-31",
                         "max_tokens": 300,
                         "temperature": 0.7,
-                        "system": system_prompt
-                        if system_prompt
-                        else """Eres un asistente de voz amigable en español. 
+                        "system": (
+                            system_prompt
+                            if system_prompt
+                            else """Eres un asistente de voz amigable en español. 
                         Responde de manera natural, clara y concisa. Mantén un tono conversacional y cálido.
-                        Tus respuestas deben ser apropiadas para ser leídas en voz alta.""",
+                        Tus respuestas deben ser apropiadas para ser leídas en voz alta."""
+                        ),
                         "messages": [{"role": "user", "content": transcript}],
                     }
 

@@ -17,7 +17,6 @@ import re
 from typing import Dict, Any, Optional
 import pyarrow as pa
 
-
 # Parquet schema definition
 BEDROCK_LOG_SCHEMA = pa.schema(
     [

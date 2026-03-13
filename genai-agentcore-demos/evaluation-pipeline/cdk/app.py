@@ -20,7 +20,6 @@ import os
 import aws_cdk as cdk
 from stacks.evaluation_pipeline_stack import EvaluationPipelineStack
 
-
 app = cdk.App()
 
 # Get environment configuration
@@ -36,7 +35,9 @@ if deploy_orchestration is None:
 # Optional: disable guardrails for regex-only PII filtering
 deploy_guardrails = app.node.try_get_context("deploy_guardrails")
 if deploy_guardrails is None:
-    deploy_guardrails = True  # Default: deploy Bedrock Guardrails for ML-based PII filtering
+    deploy_guardrails = (
+        True  # Default: deploy Bedrock Guardrails for ML-based PII filtering
+    )
 
 # Deploy unified evaluation pipeline stack
 EvaluationPipelineStack(

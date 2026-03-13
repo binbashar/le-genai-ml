@@ -6,6 +6,7 @@ https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-invoke-age
 
 Uses the invoke_agent_runtime API with text/event-stream response processing.
 """
+
 import boto3
 import json
 import sys

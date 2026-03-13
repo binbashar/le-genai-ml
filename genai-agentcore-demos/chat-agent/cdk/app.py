@@ -8,6 +8,7 @@ The role name follows the pattern: BedrockAgentCore-{agent_name}-execution-role
 This enables the evaluation pipeline to identify which agent made each Bedrock
 model invocation by parsing the IAM role ARN from CloudWatch logs.
 """
+
 import os
 import sys
 from pathlib import Path

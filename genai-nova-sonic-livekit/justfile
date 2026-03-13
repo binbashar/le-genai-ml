@@ -1,0 +1,306 @@
+# Nova Sonic 2 POC - Task Runner
+# Usage: just <recipe> [args]
+# Run `just --list` to see all available recipes
+
+# Default AWS profile (override with: just --set profile myprofile <recipe>)
+profile := env_var_or_default("AWS_PROFILE", "default")
+
+# Default room name
+room := "poc-room"
+
+# Voice ID for Nova Sonic 2 (default: leo for pt-BR - requires patch-voices)
+voice := env_var_or_default("VOICE_ID", "leo")
+
+# LiveKit dev credentials (these are the default values hardcoded in `livekit-server --dev`, not real secrets)
+lk_api_key := "devkey"
+lk_api_secret := "secret"
+
+# Show available recipes
+default:
+    @just --list
+
+# === AWS SSO ===
+
+# Login to AWS SSO
+sso-login:
+    aws sso login --profile {{profile}}
+
+# Export AWS credentials to current shell (prints export commands)
+sso-export:
+    @echo "Run this command to export credentials:"
+    @echo ""
+    @echo 'eval $(just _sso-env)'
+
+# Internal: generate export commands
+_sso-env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Try the new export-credentials command first (AWS CLI v2.13+)
+    if aws configure export-credentials --profile {{profile}} --format env 2>/dev/null; then
+        exit 0
+    fi
+    # Fallback: extract from config
+    echo "export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id --profile {{profile}})"
+    echo "export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key --profile {{profile}})"
+    TOKEN=$(aws configure get aws_session_token --profile {{profile}} 2>/dev/null || echo "")
+    if [ -n "$TOKEN" ]; then
+        echo "export AWS_SESSION_TOKEN=$TOKEN"
+    fi
+    echo "export AWS_DEFAULT_REGION=$(aws configure get region --profile {{profile}} || echo 'us-east-1')"
+
+# Login and export in one step (interactive)
+sso-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Logging in to AWS SSO with profile: {{profile}}"
+    aws sso login --profile {{profile}}
+    echo ""
+    echo "To export credentials, run:"
+    echo '  eval $(just _sso-env)'
+
+# === LiveKit Server ===
+
+# Install LiveKit (macOS/Linux via Homebrew)
+install-livekit:
+    brew install livekit livekit-cli
+
+# Start LiveKit server in dev mode
+livekit-server:
+    livekit-server --dev
+
+# === Python Agent ===
+
+# Install Python dependencies
+install:
+    uv sync
+
+# Run the agent (requires AWS credentials in environment)
+agent:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export VOICE_ID={{voice}}
+    export LIVEKIT_URL=ws://localhost:7880
+    export LIVEKIT_API_KEY={{lk_api_key}}
+    export LIVEKIT_API_SECRET={{lk_api_secret}}
+    echo "Voice: $VOICE_ID"
+    uv run python agent.py dev
+
+# Run agent with SSO credentials (all-in-one)
+agent-sso:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Using AWS profile: {{profile}}"
+
+    # Check if already logged in
+    if ! aws sts get-caller-identity --profile {{profile}} &>/dev/null; then
+        echo "SSO session expired or not logged in. Logging in..."
+        aws sso login --profile {{profile}}
+    fi
+
+    # Export credentials
+    eval $(aws configure export-credentials --profile {{profile}} --format env 2>/dev/null || \
+        echo "export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id --profile {{profile}}); \
+              export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key --profile {{profile}}); \
+              export AWS_SESSION_TOKEN=$(aws configure get aws_session_token --profile {{profile}} 2>/dev/null || echo '')")
+
+    export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-$(aws configure get region --profile {{profile}} 2>/dev/null || echo 'us-east-1')}
+    export VOICE_ID={{voice}}
+    export LIVEKIT_URL=ws://localhost:7880
+    export LIVEKIT_API_KEY={{lk_api_key}}
+    export LIVEKIT_API_SECRET={{lk_api_secret}}
+
+    echo "Region: $AWS_DEFAULT_REGION"
+    echo "Voice: $VOICE_ID"
+    echo "Starting agent..."
+    uv run python agent.py dev
+
+# === Frontend ===
+
+# Generate LiveKit token for the frontend
+token identity="user1":
+    lk token create \
+        --api-key {{lk_api_key}} --api-secret {{lk_api_secret}} \
+        --join --room {{room}} --identity {{identity}} \
+        --valid-for 24h
+
+# Serve frontend on port 3000
+frontend:
+    cd web && python -m http.server 3000
+
+# === Full Stack ===
+
+# Start everything with one command (recommended)
+start:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "🚀 Starting Nova Sonic 2 POC..."
+
+    # 1. Verify prerequisites
+    just check || { echo "Missing prerequisites. Run 'just install-livekit' first."; exit 1; }
+
+    # 2. Check if LiveKit server is already running
+    if ! pgrep -x "livekit-server" > /dev/null; then
+        echo "📡 Starting LiveKit server..."
+        livekit-server --dev > /tmp/livekit-server.log 2>&1 &
+        sleep 2
+    else
+        echo "📡 LiveKit server already running"
+    fi
+
+    # 3. Setup AWS credentials (SSO)
+    echo "🔐 Setting up AWS credentials (profile: {{profile}})..."
+    if ! aws sts get-caller-identity --profile {{profile}} &>/dev/null; then
+        aws sso login --profile {{profile}}
+    fi
+
+    eval $(aws configure export-credentials --profile {{profile}} --format env 2>/dev/null || \
+        echo "export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id --profile {{profile}}); \
+              export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key --profile {{profile}}); \
+              export AWS_SESSION_TOKEN=$(aws configure get aws_session_token --profile {{profile}} 2>/dev/null || echo '')")
+
+    export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-$(aws configure get region --profile {{profile}} 2>/dev/null || echo 'us-east-1')}
+    export VOICE_ID={{voice}}
+    export LIVEKIT_URL=ws://localhost:7880
+    export LIVEKIT_API_KEY={{lk_api_key}}
+    export LIVEKIT_API_SECRET={{lk_api_secret}}
+
+    # 4. Start agent in background
+    echo "🤖 Starting agent (voice: $VOICE_ID)..."
+    uv run python agent.py dev > /tmp/nova-sonic-agent.log 2>&1 &
+    AGENT_PID=$!
+    sleep 3
+
+    # Check if agent started successfully
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+        echo "❌ Agent failed to start. Check /tmp/nova-sonic-agent.log"
+        cat /tmp/nova-sonic-agent.log
+        exit 1
+    fi
+
+    # 5. Generate token
+    echo "🎫 Generating token..."
+    TOKEN=$(lk token create --api-key {{lk_api_key}} --api-secret {{lk_api_secret}} \
+        --join --room {{room}} --identity user1 --valid-for 24h | grep "Access token:" | cut -d' ' -f3)
+
+    # 6. Start frontend and open browser
+    echo ""
+    echo "✅ Nova Sonic 2 POC is running!"
+    echo "   Browser will open in 2 seconds..."
+    echo "   Logs: /tmp/livekit-server.log, /tmp/nova-sonic-agent.log"
+    echo "   Press Ctrl+C to stop, or run: just stop"
+    echo ""
+
+    # Open browser after 2 seconds (in background, after server starts)
+    (sleep 2 && open "http://localhost:3000?token=$TOKEN") &
+
+    # Serve frontend (foreground - Ctrl+C to stop)
+    cd web && python -m http.server 3000
+
+# Stop all POC processes
+stop:
+    #!/usr/bin/env bash
+    echo "Stopping Nova Sonic 2 POC..."
+    pkill -f "livekit-server" 2>/dev/null || true
+    pkill -f "agent.py" 2>/dev/null || true
+    pkill -f "http.server 3000" 2>/dev/null || true
+    echo "✅ All processes stopped"
+
+# Print instructions to run the full stack manually (3 terminals)
+run:
+    @echo "Run these commands in separate terminals:"
+    @echo ""
+    @echo "Terminal 1 (LiveKit Server):"
+    @echo "  just livekit-server"
+    @echo ""
+    @echo "Terminal 2 (Python Agent):"
+    @echo "  just profile={{profile}} agent-sso"
+    @echo ""
+    @echo "Terminal 3 (Frontend):"
+    @echo "  just token"
+    @echo "  just frontend"
+    @echo ""
+    @echo "Then open http://localhost:3000 and paste the token."
+    @echo ""
+    @echo "Or use 'just start' for a one-command setup!"
+
+# === Utilities ===
+
+# Patch livekit-plugins-aws to use Nova 2 Sonic and add new voices (leo, carolina, etc.)
+patch-voices:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    BASE_PATH=$(find .venv -path "*/livekit/plugins/aws/experimental/realtime" -type d 2>/dev/null | head -1)
+
+    if [ -z "$BASE_PATH" ]; then
+        echo "Error: livekit-plugins-aws not found. Run 'just install' first."
+        exit 1
+    fi
+
+    EVENTS_FILE="$BASE_PATH/events.py"
+    MODEL_FILE="$BASE_PATH/realtime_model.py"
+
+    echo "Found plugin at: $BASE_PATH"
+
+    # 1. Patch model_id to Nova 2 Sonic
+    if grep -q 'amazon.nova-sonic-v1:0' "$MODEL_FILE"; then
+        echo "Patching model_id to Nova 2 Sonic..."
+        cp "$MODEL_FILE" "$MODEL_FILE.bak"
+        sed -i '' 's/amazon.nova-sonic-v1:0/amazon.nova-2-sonic-v1:0/g' "$MODEL_FILE"
+        echo "✓ Model ID updated to amazon.nova-2-sonic-v1:0"
+    else
+        echo "✓ Model ID already patched"
+    fi
+
+    # 2. Patch voices
+    if grep -q '"leo"' "$EVENTS_FILE"; then
+        echo "✓ Voices already patched"
+    else
+        echo "Patching voices..."
+        cp "$EVENTS_FILE" "$EVENTS_FILE.bak"
+        sed -i '' 's/"carlos",/"carlos",\
+    # Nova 2 Sonic new voices (pt-BR, Hindi, etc.)\
+    "leo",\
+    "carolina",\
+    "kiara",\
+    "arjun",\
+    "olivia",\
+    "tina",/' "$EVENTS_FILE"
+        echo "✓ Voices added: leo, carolina, kiara, arjun, olivia, tina"
+    fi
+
+    echo ""
+    echo "Patch complete! Nova 2 Sonic with pt-BR voices enabled."
+
+# Check AWS identity
+whoami:
+    aws sts get-caller-identity --profile {{profile}}
+
+# Check if all prerequisites are installed
+check:
+    #!/usr/bin/env bash
+    set -e
+    echo "Checking prerequisites..."
+
+    check_cmd() {
+        if command -v $1 &>/dev/null; then
+            echo "✓ $1"
+        else
+            echo "✗ $1 (missing)"
+            return 1
+        fi
+    }
+
+    check_cmd aws
+    check_cmd livekit-server
+    check_cmd lk
+    check_cmd uv
+    check_cmd python3
+
+    echo ""
+    echo "All checks passed!"
+
+# Clean up generated files
+clean:
+    rm -rf .venv __pycache__ *.egg-info

@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/

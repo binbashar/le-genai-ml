@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import yaml
 
-
 # Valid metrics for each evaluation type
 MODEL_METRICS = [
     "Builtin.Correctness",

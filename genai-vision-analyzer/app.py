@@ -685,9 +685,11 @@ def main():
                                 "missing": metrics["missing"],
                                 "wrong_position": metrics["wrong_position"],
                                 "recall": f"{metrics['recall']:.2%}",
-                                "precision": f"{metrics['precision']:.2%}"
-                                if metrics["precision"] > 0
-                                else "N/A",
+                                "precision": (
+                                    f"{metrics['precision']:.2%}"
+                                    if metrics["precision"] > 0
+                                    else "N/A"
+                                ),
                                 "compliance_rate": f"{metrics['compliance_rate']:.2%}",
                             },
                             "configuration": {
@@ -729,14 +731,18 @@ def main():
                                                 "Product": product.get(
                                                     "nombre", "Unknown"
                                                 ),
-                                                "Found": "✅"
-                                                if product.get("encontrado", False)
-                                                else "❌",
-                                                "Correct": "✅"
-                                                if product.get(
-                                                    "posicion_correcta", False
-                                                )
-                                                else "❌",
+                                                "Found": (
+                                                    "✅"
+                                                    if product.get("encontrado", False)
+                                                    else "❌"
+                                                ),
+                                                "Correct": (
+                                                    "✅"
+                                                    if product.get(
+                                                        "posicion_correcta", False
+                                                    )
+                                                    else "❌"
+                                                ),
                                                 "Expected": product.get(
                                                     "frentes_esperados", 0
                                                 ),
@@ -765,9 +771,9 @@ def main():
                         "temperature": temperature,
                         "max_tokens": max_tokens,
                         "prompt_mode": prompt_mode,
-                        "prompt_source": "config.yaml"
-                        if prompt_mode == "default"
-                        else "user_input",
+                        "prompt_source": (
+                            "config.yaml" if prompt_mode == "default" else "user_input"
+                        ),
                     }
                     st.json(debug_info)
 

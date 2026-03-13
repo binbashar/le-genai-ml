@@ -40,7 +40,9 @@ logger.setLevel(logging.INFO)
 bedrock_client = boto3.client("bedrock")
 
 
-def build_inference_config(evaluation_type: str, rag_source_identifier: str) -> Dict[str, Any]:
+def build_inference_config(
+    evaluation_type: str, rag_source_identifier: str
+) -> Dict[str, Any]:
     """
     Build inference configuration based on evaluation type.
 
@@ -140,7 +142,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Generate unique job name (lowercase, hyphens only)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     eval_type_suffix = "rag" if is_rag_evaluation else "model"
-    job_name = f"eval-{agent_name}-{eval_type_suffix}-{timestamp}".lower().replace("_", "-")[:63]
+    job_name = f"eval-{agent_name}-{eval_type_suffix}-{timestamp}".lower().replace(
+        "_", "-"
+    )[:63]
 
     # Limit dataset for testing (configurable via environment variable)
     max_samples = min(

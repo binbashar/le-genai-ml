@@ -191,10 +191,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "filtered_records": event.get("limit", 10),
                 "sampled_records": event.get("limit", 10),
                 "bypass_mode": True,
-                "evaluation_type": event.get("evaluation_type", "RAG_RETRIEVE_AND_GENERATE"),
+                "evaluation_type": event.get(
+                    "evaluation_type", "RAG_RETRIEVE_AND_GENERATE"
+                ),
             },
             # Pass through evaluation_type for CreateEvaluationJob Lambda
-            "evaluation_type": event.get("evaluation_type", "RAG_RETRIEVE_AND_GENERATE"),
+            "evaluation_type": event.get(
+                "evaluation_type", "RAG_RETRIEVE_AND_GENERATE"
+            ),
             "agent_name": event.get("agent_name", "unknown"),
             "metrics": event.get("metrics", []),
         }
