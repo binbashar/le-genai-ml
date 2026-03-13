@@ -21,7 +21,7 @@ AGENTCORE_RUNTIME_ARN
     must be provided.
 VOICE_ID
     Voice to request from the backend (default ``tiffany``).
-BACKEND_NAME
+VOICE_BACKEND
     Backend name to request (default ``nova_sonic``).
 SAMPLE_RATE
     Shared sample rate for both LiveKit and the backend (default ``24000``).
@@ -46,7 +46,7 @@ logger = logging.getLogger("bridge-worker")
 AGENTCORE_WS_URL: str | None = os.environ.get("AGENTCORE_WS_URL")
 AGENTCORE_RUNTIME_ARN: str | None = os.environ.get("AGENTCORE_RUNTIME_ARN")
 VOICE_ID: str = os.environ.get("VOICE_ID", "tiffany")
-BACKEND_NAME: str = os.environ.get("BACKEND_NAME", "nova_sonic")
+VOICE_BACKEND: str = os.environ.get("VOICE_BACKEND", "nova_sonic")
 SAMPLE_RATE: int = int(os.environ.get("SAMPLE_RATE", "24000"))
 NUM_CHANNELS: int = 1  # mono throughout
 
@@ -99,7 +99,7 @@ async def _handshake(ws) -> None:
     session_start = {
         "type": "session_start",
         "config": {
-            "backend": BACKEND_NAME,
+            "backend": VOICE_BACKEND,
             "voice_id": VOICE_ID,
             "sample_rate": SAMPLE_RATE,
         },

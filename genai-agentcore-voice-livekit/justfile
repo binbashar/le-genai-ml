@@ -97,7 +97,7 @@ bridge:
     #!/usr/bin/env bash
     set -euo pipefail
     export AGENTCORE_WS_URL=ws://localhost:8080/ws
-    export VOICE_BACKEND=nova_sonic
+    export VOICE_BACKEND=${VOICE_BACKEND:-echo}
     export VOICE_ID={{voice}}
     export LIVEKIT_URL=ws://localhost:7880
     export LIVEKIT_API_KEY={{lk_api_key}}
@@ -170,7 +170,7 @@ start:
     # 5. Start bridge worker in background
     echo "Starting bridge worker..."
     export AGENTCORE_WS_URL=ws://localhost:8080/ws
-    export VOICE_BACKEND=nova_sonic
+    export VOICE_BACKEND=${VOICE_BACKEND:-echo}
     export VOICE_ID={{voice}}
     export LIVEKIT_URL=ws://localhost:7880
     export LIVEKIT_API_KEY={{lk_api_key}}
@@ -264,7 +264,7 @@ start-hybrid arn:
     # 4. Start bridge worker with ARN (no local voice agent needed)
     echo "Starting bridge worker (ARN mode)..."
     export AGENTCORE_RUNTIME_ARN={{arn}}
-    export VOICE_BACKEND=nova_sonic
+    export VOICE_BACKEND=${VOICE_BACKEND:-echo}
     export VOICE_ID={{voice}}
     export LIVEKIT_URL=ws://localhost:7880
     export LIVEKIT_API_KEY={{lk_api_key}}

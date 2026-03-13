@@ -1,12 +1,14 @@
 """Voice backend factory."""
 
 from backends.base import VoiceBackend
-from backends.nova_sonic import NovaSonicBackend
 from backends.cascade import CascadeBackend
+from backends.echo import EchoBackend
+from backends.nova_sonic import NovaSonicBackend
 
 BACKENDS = {
     "nova_sonic": NovaSonicBackend,
     "cascade": CascadeBackend,
+    "echo": EchoBackend,
 }
 
 

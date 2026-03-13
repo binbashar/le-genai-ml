@@ -214,7 +214,25 @@ class NovaSonicBackend(VoiceBackend):
     # ------------------------------------------------------------------
 
     def _build_client(self) -> BedrockRuntimeClient:
-        """Create the Smithy Bedrock Runtime client."""
+        """Create the Smithy Bedrock Runtime client.
+
+        Uses boto3 to resolve credentials first, which supports SSO profiles,
+        instance roles, env vars, and all standard AWS credential sources.
+        The resolved credentials are then injected into the Smithy client
+        via environment variables (the only mechanism EnvironmentCredentialsResolver
+        supports).
+        """
+        # Resolve credentials via boto3 (supports profiles, SSO, etc.)
+        session = boto3.Session(region_name=self.region)
+        creds = session.get_credentials()
+        if creds:
+            resolved = creds.get_frozen_credentials()
+            os.environ["AWS_ACCESS_KEY_ID"] = resolved.access_key
+            os.environ["AWS_SECRET_ACCESS_KEY"] = resolved.secret_key
+            if resolved.token:
+                os.environ["AWS_SESSION_TOKEN"] = resolved.token
+            logger.debug("Resolved AWS credentials via boto3 session")
+
         cfg = Config(
             endpoint_uri=f"https://bedrock-runtime.{self.region}.amazonaws.com",
             region=self.region,
