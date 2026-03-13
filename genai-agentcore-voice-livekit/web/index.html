@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentCore Voice Agent</title>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: #16213e;
+            color: #fff;
+            font-size: 14px;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        #connectBtn {
+            background: #00d4ff;
+            color: #1a1a2e;
+        }
+        #connectBtn:hover { background: #00b8e6; }
+        #connectBtn:disabled { background: #555; cursor: not-allowed; }
+        #disconnectBtn {
+            background: #ff4757;
+            color: white;
+            display: none;
+        }
+        #disconnectBtn:hover { background: #ff3344; }
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .status.disconnected { background: #333; color: #888; }
+        .status.connecting { background: #f39c12; color: #fff; }
+        .status.connected { background: #27ae60; color: #fff; }
+        .status.error { background: #e74c3c; color: #fff; }
+        .audio-indicator {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .audio-indicator.active { display: block; }
+        .pulse {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #00d4ff;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .agent-indicator {
+            text-align: center;
+            padding: 10px;
+            display: none;
+            margin-top: -10px;
+        }
+        .agent-indicator.active { display: block; }
+        .agent-indicator .pulse {
+            background: #f39c12;
+            width: 14px;
+            height: 14px;
+        }
+        .agent-indicator p {
+            color: #f39c12;
+            margin: 6px 0 0 0;
+            font-size: 14px;
+        }
+        .help {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #888;
+        }
+        .help code {
+            background: #0f0f23;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #00d4ff;
+        }
+        .help pre {
+            background: #0f0f23;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            color: #00d4ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AgentCore Voice Agent</h1>
+
+        <div class="form-group">
+            <label>LiveKit Server URL</label>
+            <input type="text" id="serverUrl" value="ws://localhost:7880" placeholder="ws://localhost:7880">
+        </div>
+
+        <div class="form-group">
+            <label>Access Token (generate with <code>lk token create</code>)</label>
+            <textarea id="token" placeholder="Paste your LiveKit token here..."></textarea>
+        </div>
+
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()">Disconnect</button>
+
+        <div id="status" class="status disconnected">Disconnected</div>
+
+        <div id="audioIndicator" class="audio-indicator">
+            <div class="pulse"></div>
+            <p>Speak now - your voice agent is listening</p>
+        </div>
+
+        <div id="agentIndicator" class="agent-indicator">
+            <div class="pulse"></div>
+            <p>Agent responding...</p>
+        </div>
+
+        <div class="help">
+            <strong>Quick Start:</strong>
+            <pre>just start</pre>
+            <p>Or manually generate a token:</p>
+            <pre>lk token create \
+  --api-key devkey --api-secret secret \
+  --join --room voice-room --identity user1 \
+  --valid-for 24h</pre>
+            <p>Copy the token and paste it above.</p>
+            <p><strong>Note:</strong> Use Chrome for best audio quality.</p>
+        </div>
+    </div>
+
+    <script>
+        const { Room, RoomEvent, Track } = LivekitClient;
+        let room = null;
+        let agentAudioElements = new Set();
+
+        async function connect() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const token = document.getElementById('token').value.trim();
+
+            if (!token) {
+                setStatus('error', 'Please enter a token');
+                return;
+            }
+
+            setStatus('connecting', 'Connecting...');
+            document.getElementById('connectBtn').disabled = true;
+
+            try {
+                room = new Room();
+
+                // Handle room events
+                room.on(RoomEvent.Connected, () => {
+                    setStatus('connected', 'Connected to AgentCore Voice Agent');
+                    document.getElementById('audioIndicator').classList.add('active');
+                    document.getElementById('disconnectBtn').style.display = 'block';
+                });
+
+                room.on(RoomEvent.Disconnected, () => {
+                    handleDisconnect();
+                });
+
+                room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                    if (track.kind === Track.Kind.Audio) {
+                        // Attach remote audio track (agent's voice)
+                        const audioElement = track.attach();
+                        audioElement.autoplay = true;
+                        document.body.appendChild(audioElement);
+                        agentAudioElements.add(audioElement);
+
+                        // Show "Agent responding" when audio is playing
+                        audioElement.addEventListener('playing', () => {
+                            document.getElementById('agentIndicator').classList.add('active');
+                        });
+                        audioElement.addEventListener('pause', () => {
+                            updateAgentIndicator();
+                        });
+                        audioElement.addEventListener('ended', () => {
+                            updateAgentIndicator();
+                        });
+                    }
+                });
+
+                room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+                    if (track.kind === Track.Kind.Audio) {
+                        const detached = track.detach();
+                        detached.forEach(el => {
+                            agentAudioElements.delete(el);
+                            el.remove();
+                        });
+                        updateAgentIndicator();
+                    }
+                });
+
+                // Connect to the room
+                await room.connect(serverUrl, token);
+
+                // Enable microphone
+                await room.localParticipant.setMicrophoneEnabled(true);
+
+            } catch (error) {
+                console.error('Connection error:', error);
+                setStatus('error', `Error: ${error.message}`);
+                document.getElementById('connectBtn').disabled = false;
+            }
+        }
+
+        function disconnect() {
+            if (room) {
+                room.disconnect();
+            }
+            handleDisconnect();
+        }
+
+        function handleDisconnect() {
+            room = null;
+            setStatus('disconnected', 'Disconnected');
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').style.display = 'none';
+            document.getElementById('audioIndicator').classList.remove('active');
+            document.getElementById('agentIndicator').classList.remove('active');
+
+            // Remove any attached audio elements
+            agentAudioElements.forEach(el => el.remove());
+            agentAudioElements.clear();
+            document.querySelectorAll('audio').forEach(el => el.remove());
+        }
+
+        function updateAgentIndicator() {
+            // Check if any agent audio element is actively playing
+            let anyPlaying = false;
+            agentAudioElements.forEach(el => {
+                if (!el.paused && !el.ended) {
+                    anyPlaying = true;
+                }
+            });
+            if (!anyPlaying) {
+                document.getElementById('agentIndicator').classList.remove('active');
+            }
+        }
+
+        function setStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status ' + type;
+            statusEl.textContent = message;
+        }
+
+        // Auto-connect if token is in URL
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenFromUrl = urlParams.get('token');
+            if (tokenFromUrl) {
+                document.getElementById('token').value = tokenFromUrl;
+                // Small delay to ensure page is ready
+                setTimeout(() => connect(), 500);
+            }
+        });
+    </script>
+</body>
+</html>
