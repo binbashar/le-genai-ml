@@ -1,0 +1,33 @@
+# RAG Retrieve-Only Evaluation Example Configuration
+# =================================================
+# Evaluates retrieval quality only (no generation assessment).
+# Tests whether retrieved chunks are relevant to the query.
+#
+# Usage:
+#   ./scripts/run_evaluation.sh config/runs/rag_retrieve_only_example.yaml
+#   ./scripts/run_evaluation.sh config/runs/rag_retrieve_only_example.yaml --wait
+#
+# Dataset contains:
+#   1. High-relevance example: 401(k) question with perfectly relevant tax chunks
+#   2. Low-relevance example: Bill payment question with irrelevant chunks (diet, gardening, cars)
+
+# Agent identifier (used for S3 paths and job naming)
+agent_name: "finance_personal_assistant"
+
+# Evaluation type: RAG_RETRIEVE_ONLY evaluates retrieval quality
+# - Does NOT evaluate generated responses
+# - Focuses on: Are the retrieved chunks relevant to the query?
+evaluation_type: "RAG_RETRIEVE_ONLY"
+
+# Path to local JSONL file with retrieval data
+dataset_path: "config/datasets/rag_retrieve_only_sample.jsonl"
+
+# Maximum number of records to evaluate (1-100)
+limit: 10
+
+# Retrieval-specific metrics (only available for RAG_RETRIEVE_ONLY)
+#   - Builtin.ContextRelevance: Are retrieved chunks relevant to the query?
+#   - Builtin.ContextCoverage: Do chunks cover the information needed? (requires referenceContexts)
+metrics:
+  - "Builtin.ContextRelevance"
+  - "Builtin.ContextCoverage"

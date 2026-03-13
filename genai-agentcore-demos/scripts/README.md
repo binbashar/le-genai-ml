@@ -65,7 +65,6 @@ These scripts are **orchestrators** that work across multiple agents. For single
 
 - `finance-personal-assistant/production/health.sh` - Health check for finance assistant only
 - `finance-personal-assistant/production/reset_memory.py` - Reset memory for finance assistant only
-- `finance-personal-assistant/production/cleanup.py` - Complete cleanup for finance assistant
 
 Use the scripts in **this directory** when you need to:
 - Test all agents at once

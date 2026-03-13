@@ -1,26 +1,14 @@
-# AgentCore Streamlit Demo - Static Configuration
-#
-# This file contains STATIC configuration only (name, capabilities).
-# Runtime config (ARN, OAuth) is auto-discovered from SSM Parameter Store.
-#
-# SSM Parameters (auto-updated by agent CDK post-deploy):
-#   /agentcore/{agent_name}/runtime-config -> {"arn": "...", "oauth_config": {...}}
-#
-# No manual sync.py needed!
-
 aws:
   region: us-west-2
   timeout_seconds: 180
-
 agents:
   finance_personal_assistant:
-    name: Personal Finance Assistant
+    name: Finance Personal Assistant
     capabilities:
       vision: true
-      documents: true  # Enables PDF and CSV uploads
-    arn: arn:aws:bedrock-agentcore:us-west-2:XXXXXXXXXXXX:runtime/personal_finance_agent-GxXXXXXXXX
-    oauth_config:
-      discovery_url: https://cognito-idp.us-west-2.amazonaws.com/us-west-2_WkXXXXXXXX/.well-known/openid-configuration
-      client_id: 7mseb7tXXXXXXXXXXXXXXXX
-      allowed_clients:
-        - 7mseb7tXXXXXXXXXXXXXXXX
+      documents: true
+  chat_agent:
+    name: Chat Agent
+    capabilities:
+      vision: false
+      documents: false

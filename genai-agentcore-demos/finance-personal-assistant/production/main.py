@@ -185,6 +185,9 @@ async def invoke(payload, context):
     # Get user message from payload
     user_message = payload["prompt"]
 
+    # Log prompt for evaluation pipeline
+    logger.info(f"EVAL_PROMPT: {user_message}")
+
     # Check for document upload (PDF or CSV)
     document_base64 = payload.get("document_base64")
     filename = payload.get("filename", "").lower()
@@ -341,9 +344,24 @@ User Query: {user_message}"""
 
     logger.info(f"Agent invoked for session {session_id}, actor {actor_id}")
 
+    # Accumulate response for evaluation logging
+    full_response = ""
     async for event in orchestrator_agent.stream_async(user_message):
         if "data" in event:
-            yield event["data"]
+            data = event["data"]
+            yield data
+            # Accumulate all text content
+            if isinstance(data, dict):
+                if data.get("type") == "stream_token":
+                    full_response += data.get("token", "")
+                elif data.get("type") == "final":
+                    full_response += str(data.get("result", ""))
+            elif isinstance(data, str):
+                full_response += data
+
+    # Log response for evaluation pipeline
+    if full_response.strip():
+        logger.info(f"EVAL_RESPONSE: {full_response.strip()}")
 
 
 if __name__ == "__main__":

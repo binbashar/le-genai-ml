@@ -1,0 +1,50 @@
+# RAG Evaluation Example Configuration
+# =====================================
+# Evaluates RAG systems using Bring Your Own Inference (BYOI) approach.
+# The dataset contains pre-generated responses with retrieval context.
+#
+# Usage:
+#   ./scripts/run_evaluation.sh config/runs/rag_example.yaml
+#   ./scripts/run_evaluation.sh config/runs/rag_example.yaml --wait
+#
+# The script will:
+# 1. Upload the local JSONL dataset to S3
+# 2. Trigger the Step Functions evaluation pipeline
+# 3. Use RAG-specific metrics to evaluate retrieval + generation quality
+
+# Agent identifier (used for S3 paths and job naming)
+agent_name: "finance_personal_assistant"
+
+# Evaluation type: MODEL | RAG_RETRIEVE_AND_GENERATE | RAG_RETRIEVE_ONLY
+# - MODEL: Standard LLM response evaluation (requires date range)
+# - RAG_RETRIEVE_AND_GENERATE: Evaluate both retrieval and generation quality
+# - RAG_RETRIEVE_ONLY: Evaluate only retrieval quality (no generation)
+evaluation_type: "RAG_RETRIEVE_AND_GENERATE"
+
+# Path to local JSONL file with RAG evaluation data (required for RAG evaluation)
+# The script will upload this file to S3 automatically.
+# Format must follow AWS Bedrock RAG evaluation schema with conversationTurns wrapper.
+dataset_path: "config/datasets/rag_sample.jsonl"
+
+# Maximum number of records to evaluate (1-100)
+limit: 10
+
+# RAG evaluation metrics
+# Available for RAG_RETRIEVE_AND_GENERATE:
+#   - Builtin.Faithfulness: Is response grounded in retrieved chunks? (hallucination detection)
+#   - Builtin.CitationPrecision: Are citations correct?
+#   - Builtin.CitationCoverage: Is response supported by citations?
+#   - Builtin.Correctness: Factual accuracy (works with both Model and RAG)
+#   - Builtin.Completeness: Response thoroughness
+#   - Builtin.Helpfulness: Overall usefulness
+#
+# Available for RAG_RETRIEVE_ONLY (not applicable to this config):
+#   - Builtin.ContextRelevance: Are retrieved chunks relevant?
+#   - Builtin.ContextCoverage: Do chunks cover required information? (requires ground truth)
+metrics:
+  - "Builtin.Faithfulness"
+  - "Builtin.Correctness"
+  - "Builtin.Completeness"
+
+# Note: For RAG evaluation, start_date and end_date are not required
+# since we're using a pre-uploaded dataset instead of CloudWatch logs.

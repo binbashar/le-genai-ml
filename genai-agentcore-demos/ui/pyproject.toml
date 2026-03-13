@@ -12,6 +12,6 @@ dependencies = [
     "aiohttp",
     "python-dotenv",
     "PyJWT",
-    "Pillow>=10.0.0",  # Image processing for vision capability
+    "Pillow>=10.0.0", # Image processing for vision capability
 ]
 

@@ -1,0 +1,16 @@
+# MVP Test Configuration - Step Functions Connectivity Only
+# Goal: Test that Step Functions can read this config and echo it back
+
+# Which agent to evaluate (matches agent_name or model_id partition in S3)
+agent_name: "finance-personal-assistant"
+
+# Date range to query (ISO format: YYYY-MM-DD)
+start_date: "2025-11-24"
+end_date: "2025-11-24"
+
+# Maximum records to process
+limit: 10
+
+# Evaluation metrics (for future steps)
+metrics:
+  - "Builtin.Correctness"

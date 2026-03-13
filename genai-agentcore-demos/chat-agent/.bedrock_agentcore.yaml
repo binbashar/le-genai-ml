@@ -1,0 +1,53 @@
+default_agent: chat_agent
+agents:
+  chat_agent:
+    name: chat_agent
+    entrypoint: /Users/alex/Developer/le-genai-ml/genai-agentcore-demos/chat-agent/main.py
+    deployment_type: container
+    runtime_type: null
+    platform: linux/arm64
+    container_runtime: docker
+    source_path: /Users/alex/Developer/le-genai-ml/genai-agentcore-demos/chat-agent
+    aws:
+      execution_role: arn:aws:iam::905418344519:role/BedrockAgentCore-chat_agent-execution-role
+      execution_role_auto_create: true
+      account: '905418344519'
+      region: us-west-2
+      ecr_repository: 905418344519.dkr.ecr.us-west-2.amazonaws.com/bedrock-agentcore-chat_agent
+      ecr_auto_create: false
+      s3_path: null
+      s3_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+      lifecycle_configuration:
+        idle_runtime_session_timeout: null
+        max_lifetime: null
+    bedrock_agentcore:
+      agent_id: chat_agent-dIEdvlB5F5
+      agent_arn: arn:aws:bedrock-agentcore:us-west-2:905418344519:runtime/chat_agent-dIEdvlB5F5
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-chat_agent-builder
+      execution_role: arn:aws:iam::905418344519:role/AmazonBedrockAgentCoreSDKCodeBuild-us-west-2-2d4f42157e
+      source_bucket: bedrock-agentcore-codebuild-sources-905418344519-us-west-2
+    memory:
+      mode: STM_ONLY
+      memory_id: chat_agent_mem-AkpRE26k45
+      memory_arn: arn:aws:bedrock-agentcore:us-west-2:905418344519:memory/chat_agent_mem-AkpRE26k45
+      memory_name: chat_agent_mem
+      event_expiry_days: 30
+      first_invoke_memory_check_done: true
+      was_created_by_toolkit: true
+    identity:
+      credential_providers: []
+      workload: null
+    authorizer_configuration: null
+    request_header_configuration:
+      requestHeaderAllowlist:
+      - X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id
+    oauth_configuration: null

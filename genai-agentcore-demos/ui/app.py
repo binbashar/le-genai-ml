@@ -10,7 +10,6 @@ from pathlib import Path
 import boto3
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
 import yaml
 from libs.python.auth_utils import authenticate, invoke_with_token
 from utils import document_utils, vision_utils
@@ -65,94 +64,6 @@ HEALTH_CONFIG = {
     "live": {"color": "#3b82f6", "tooltip": "Connected to live environment"},
     "error": {"color": "#ef4444", "tooltip": "Connection error"},
 }
-
-
-# ============================================================================
-# TOKEN PERSISTENCE (Browser localStorage)
-# ============================================================================
-def store_token_in_browser(token: str, username: str, agent_type: str):
-    """Store JWT token and auth metadata in browser's localStorage"""
-    auth_data = {
-        "token": token,
-        "username": username,
-        "agent_type": agent_type,
-        "stored_at": time.time(),
-    }
-    components.html(
-        f"""
-        <script>
-            localStorage.setItem('agentcore_auth', JSON.stringify({json.dumps(auth_data)}));
-        </script>
-        """,
-        height=0,
-    )
-
-
-def get_token_from_browser():
-    """Retrieve auth data from browser's localStorage"""
-    # Use timestamp in HTML to ensure fresh reads
-    timestamp = int(time.time() * 1000)
-
-    result = components.html(
-        f"""
-        <script>
-            // Unique timestamp to force execution: {timestamp}
-            const authData = localStorage.getItem('agentcore_auth');
-            if (authData) {{
-                const parsed = JSON.parse(authData);
-                // Send back to Streamlit via parent.postMessage
-                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: parsed}}, '*');
-            }} else {{
-                window.parent.postMessage({{type: 'streamlit:setComponentValue', value: null}}, '*');
-            }}
-        </script>
-        """,
-        height=0,
-    )
-    return result
-
-
-def clear_token_from_browser():
-    """Clear stored token from browser's localStorage"""
-    components.html(
-        """
-        <script>
-            localStorage.removeItem('agentcore_auth');
-        </script>
-        """,
-        height=0,
-    )
-
-
-def validate_token(token: str) -> bool:
-    """Validate JWT token expiry without signature verification"""
-    try:
-        import base64
-
-        # Decode JWT payload (second part)
-        parts = token.split(".")
-        if len(parts) != 3:
-            return False
-
-        # Add padding if needed
-        payload = parts[1]
-        padding = 4 - len(payload) % 4
-        if padding != 4:
-            payload += "=" * padding
-
-        decoded = base64.urlsafe_b64decode(payload)
-        payload_data = json.loads(decoded)
-
-        # Check expiry
-        exp = payload_data.get("exp")
-        if not exp:
-            return False
-
-        # Add 5 minute buffer before actual expiry
-        return time.time() < (exp - 300)
-    except Exception as e:
-        logger.error(f"Token validation error: {e}")
-        return False
 
 
 # Load configuration files
@@ -383,12 +294,19 @@ with st.sidebar:
     all_agents = list(agents_config["agents"].keys())
     current_agent_in_session = st.session_state.get("agent_type")
 
+    logger.info(f"--- RERUN START ---")
+    logger.info(f"Session State Keys: {list(st.session_state.keys())}")
+    logger.info(f"current_agent_in_session: {current_agent_in_session}")
+    logger.info(f"agent_selector_value: {st.session_state.get('agent_selector_value')}")
+
     if current_agent_in_session:
         # User is logged in - show logged-in agent
         agent_type = current_agent_in_session
+        logger.info(f"User logged in. agent_type set to: {agent_type}")
     else:
         # Not logged in - show selected agent
         agent_type = st.session_state.get("agent_selector_value", all_agents[0])
+        logger.info(f"User NOT logged in. agent_type set to: {agent_type}")
 
     agent_info_for_title = agents_config["agents"][agent_type]
 
@@ -402,24 +320,26 @@ with st.sidebar:
     # SECTION 1: Connection Status
     # ============================================================================
     # AWS connectivity verification
-    try:
-        sts = boto3.client("sts", region_name=AWS_REGION)
-        identity = sts.get_caller_identity()
-        st.success("✅ AWS Connected")
-    except Exception:
-        st.error("❌ AWS Not Connected")
-        st.caption("Set AWS_PROFILE or configure credentials")
-        st.stop()
+    if not os.getenv("AGENTCORE_LOCAL_MODE"):
+        try:
+            sts = boto3.client("sts", region_name=AWS_REGION)
+            identity = sts.get_caller_identity()
+            st.success("✅ AWS Connected")
+        except Exception:
+            st.error("❌ AWS Not Connected")
+            st.caption("Set AWS_PROFILE or configure credentials")
+            st.stop()
+    else:
+        st.success("✅ Local Mode")
 
     # Get selected agent config (needed for health check)
     selected_agent = st.session_state.get("agent_selector_value", all_agents[0])
     selected_agent_info = agents_config["agents"][selected_agent]
-    agent_type = selected_agent
 
     # Run health check if needed (only for IAM agents or authenticated OAuth agents)
     current_agent_in_session = st.session_state.get("agent_type")
     is_oauth_agent = selected_agent_info.get("oauth_config") is not None
-    is_authenticated = current_agent_in_session == agent_type
+    is_authenticated = current_agent_in_session == selected_agent
 
     if ENABLE_HEALTH_BADGES and (not is_oauth_agent or is_authenticated):
         health_key = f"health_status_{agent_type}"
@@ -524,9 +444,6 @@ with st.sidebar:
             username = st.session_state.get("username")
             agent_type = st.session_state.get("agent_type")
 
-            # Clear browser storage
-            clear_token_from_browser()
-
             # Clear session files (if any)
             if username and agent_type:
                 clear_session_file(agent_type, username)
@@ -553,9 +470,23 @@ with st.sidebar:
                 display_name = get_agent_display_name(agent_key, agent_info["name"])
                 return f"{icon} {display_name}"
 
+            # Determine default selection index from session state
+            # Priority:
+            # 1. Current widget state (agent_selector) - handles immediate user interaction
+            # 2. Persisted value (agent_selector_value) - handles page reloads/navigation
+            # 3. Default (first agent)
+            current_selection = st.session_state.get("agent_selector")
+            persisted_selection = st.session_state.get("agent_selector_value")
+            default_agent = current_selection or persisted_selection or all_agents[0]
+            try:
+                default_index = all_agents.index(default_agent)
+            except ValueError:
+                default_index = 0
+
             selected_agent = st.radio(
                 "Select Agent",
                 all_agents,
+                index=default_index,
                 format_func=format_agent_name,
                 key="agent_selector",
             )
@@ -568,6 +499,12 @@ with st.sidebar:
         selected_agent_info = agents_config["agents"][selected_agent]
         agent_type = selected_agent
 
+        # Auto-login for agents that don't require OAuth (IAM only)
+        if not selected_agent_info.get("oauth_config"):
+            st.session_state["username"] = "guest"
+            st.session_state["agent_type"] = selected_agent
+            st.rerun()
+
     # Only show separator if we displayed content in this section
     if show_section_separator:
         st.markdown("---")
@@ -575,7 +512,7 @@ with st.sidebar:
     # ============================================================================
     # SECTION 3: Footer
     # ============================================================================
-    st.caption("🏦 AWS GenAI Loft 2025")
+    st.caption("🏦 Athia - DEUNA")
     st.caption("Built with ❤️ by binbash team.")
 
 # ============================================================================
@@ -592,18 +529,18 @@ if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
     st.markdown("")
 
     # Left-aligned login form (max width to match title)
-    with st.form("login_form", clear_on_submit=False):
+    with st.form(f"login_form_{agent_type}", clear_on_submit=False):
         st.markdown("Please enter your credentials to continue:")
         st.markdown("")
 
         username = st.text_input(
-            "Username", placeholder="broker_demo", key="username_input"
+            "Username", placeholder="broker_demo", key=f"username_input_{agent_type}"
         )
         password = st.text_input(
             "Password",
             type="password",
             placeholder="DemoPass123!",
-            key="password_input",
+            key=f"password_input_{agent_type}",
         )
 
         st.markdown("")
@@ -629,9 +566,6 @@ if agent_info.get("oauth_config") and current_agent_in_session != agent_type:
                         st.session_state["auth_token"] = access_token
                         st.session_state["username"] = username
                         st.session_state["agent_type"] = agent_type
-
-                        # Persist token to browser storage
-                        store_token_in_browser(access_token, username, agent_type)
 
                         st.success(f"✅ Welcome, {username}!")
                         time.sleep(0.5)  # Brief pause to show success
@@ -727,6 +661,9 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
     """
     start_time = time.time()
     prev_char = ""  # Track last character from previous token for header formatting
+    tokens_yielded = (
+        False  # Track if we've yielded any tokens to avoid duplication on final event
+    )
 
     for line in response_stream.iter_lines(chunk_size=10):
         # Check timeout
@@ -799,6 +736,7 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
                     if token:
                         prev_char = token[-1]
                         yield token
+                        tokens_yielded = True
 
                 elif isinstance(event, dict) and event.get("type") == "stream_token":
                     token = event.get("token", "")
@@ -815,14 +753,18 @@ def stream_agent_response(response_stream, tool_placeholder, timeout_seconds):
 
                         prev_char = token[-1]
                         yield token
+                        tokens_yielded = True
 
                 elif isinstance(event, dict) and event.get("type") == "final":
                     result = event.get("result", "")
                     logger.info(
                         f"FINAL EVENT: result length={len(result)}, contains #={('#' in result)}"
                     )
-                    if result:
+                    if result and not tokens_yielded:
+                        logger.info("Yielding final result as no tokens were streamed")
                         yield result
+                    elif result and tokens_yielded:
+                        logger.info("Skipping final result yield to avoid duplication")
 
             except json.JSONDecodeError as e:
                 logger.warning(f"JSON decode error: {e}")
@@ -1001,8 +943,7 @@ if prompt:
                             username = st.session_state.get("username")
                             agent_type_val = st.session_state.get("agent_type")
 
-                            # Clear browser storage and session
-                            clear_token_from_browser()
+                            # Clear session files and state
                             if username and agent_type_val:
                                 clear_session_file(agent_type_val, username)
                             st.session_state.clear()
