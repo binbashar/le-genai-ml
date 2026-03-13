@@ -27,12 +27,12 @@ just stop                     # Kill all processes
 
 ## Code Quality
 
-**Always run Black before committing or pushing:**
+**Always run Black 23.3.0 before committing or pushing:**
 ```bash
-uvx black genai-nova-sonic-livekit/
+uvx --python 3.12 black==23.3.0 genai-nova-sonic-livekit/
 ```
 
-The repo CI runs `black --check` on all Python files. Ensure your code passes before pushing.
+The repo CI runs `black==23.3.0 --check` on all Python files. Using a different Black version produces incompatible formatting. Ensure your code passes before pushing.
 
 ## Key Files
 
