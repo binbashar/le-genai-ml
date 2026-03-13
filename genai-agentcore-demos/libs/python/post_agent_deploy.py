@@ -78,9 +78,7 @@ def get_agent_arn(agent_dir: Path) -> str:
     return agent_arn
 
 
-def update_agent_config_in_ssm(
-    agent_name: str, agent_arn: str, region: str
-) -> None:
+def update_agent_config_in_ssm(agent_name: str, agent_arn: str, region: str) -> None:
     """
     Update unified agent configuration in SSM with agent ARN.
 

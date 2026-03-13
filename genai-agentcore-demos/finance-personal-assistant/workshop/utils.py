@@ -43,12 +43,32 @@ def create_guardrail() -> Tuple[str, str]:
             description="Workshop guardrail - blocks gambling-related content",
             contentPolicyConfig={
                 "filtersConfig": [
-                    {"type": "SEXUAL", "inputStrength": "HIGH", "outputStrength": "HIGH"},
-                    {"type": "VIOLENCE", "inputStrength": "HIGH", "outputStrength": "HIGH"},
+                    {
+                        "type": "SEXUAL",
+                        "inputStrength": "HIGH",
+                        "outputStrength": "HIGH",
+                    },
+                    {
+                        "type": "VIOLENCE",
+                        "inputStrength": "HIGH",
+                        "outputStrength": "HIGH",
+                    },
                     {"type": "HATE", "inputStrength": "HIGH", "outputStrength": "HIGH"},
-                    {"type": "INSULTS", "inputStrength": "HIGH", "outputStrength": "HIGH"},
-                    {"type": "MISCONDUCT", "inputStrength": "HIGH", "outputStrength": "HIGH"},
-                    {"type": "PROMPT_ATTACK", "inputStrength": "HIGH", "outputStrength": "NONE"}
+                    {
+                        "type": "INSULTS",
+                        "inputStrength": "HIGH",
+                        "outputStrength": "HIGH",
+                    },
+                    {
+                        "type": "MISCONDUCT",
+                        "inputStrength": "HIGH",
+                        "outputStrength": "HIGH",
+                    },
+                    {
+                        "type": "PROMPT_ATTACK",
+                        "inputStrength": "HIGH",
+                        "outputStrength": "NONE",
+                    },
                 ]
             },
             wordPolicyConfig={
@@ -77,10 +97,10 @@ def create_guardrail() -> Tuple[str, str]:
                     {"text": "casino stocks"},
                     {"text": "gambling investment"},
                 ],
-                "managedWordListsConfig": [{"type": "PROFANITY"}]
+                "managedWordListsConfig": [{"type": "PROFANITY"}],
             },
             blockedInputMessaging="I apologize, but I'm not able to provide advice or information about that topic. As a financial advisor, I can help with budgeting, investing, savings, and other responsible financial planning topics. How can I assist you with your financial goals?",
-            blockedOutputsMessaging="I apologize, but I cannot provide information related to that topic. For your safety and responsible financial management, please ask about other financial topics such as budgeting, investing, or savings strategies."
+            blockedOutputsMessaging="I apologize, but I cannot provide information related to that topic. For your safety and responsible financial management, please ask about other financial topics such as budgeting, investing, or savings strategies.",
         )
 
         guardrail_id = response["guardrailId"]
@@ -142,11 +162,11 @@ def setup_cognito_user_pool() -> Dict[str, str]:
                     "RequireUppercase": False,
                     "RequireLowercase": False,
                     "RequireNumbers": False,
-                    "RequireSymbols": False
+                    "RequireSymbols": False,
                 }
             },
             AutoVerifiedAttributes=["email"],
-            UsernameAttributes=["email"]
+            UsernameAttributes=["email"],
         )
 
         pool_id = pool_response["UserPool"]["Id"]
@@ -156,7 +176,7 @@ def setup_cognito_user_pool() -> Dict[str, str]:
         client_response = cognito.create_user_pool_client(
             UserPoolId=pool_id,
             ClientName="workshop-client",
-            ExplicitAuthFlows=["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+            ExplicitAuthFlows=["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
         )
 
         client_id = client_response["UserPoolClient"]["ClientId"]
@@ -171,15 +191,12 @@ def setup_cognito_user_pool() -> Dict[str, str]:
                 UserPoolId=pool_id,
                 Username=username,
                 TemporaryPassword=password,
-                MessageAction="SUPPRESS"
+                MessageAction="SUPPRESS",
             )
 
             # Set permanent password
             cognito.admin_set_user_password(
-                UserPoolId=pool_id,
-                Username=username,
-                Password=password,
-                Permanent=True
+                UserPoolId=pool_id, Username=username, Password=password, Permanent=True
             )
         except ClientError as e:
             if e.response["Error"]["Code"] != "UsernameExistsException":
@@ -189,7 +206,7 @@ def setup_cognito_user_pool() -> Dict[str, str]:
         auth_response = cognito.initiate_auth(
             AuthFlow="USER_PASSWORD_AUTH",
             ClientId=client_id,
-            AuthParameters={"USERNAME": username, "PASSWORD": password}
+            AuthParameters={"USERNAME": username, "PASSWORD": password},
         )
 
         bearer_token = auth_response["AuthenticationResult"]["AccessToken"]
@@ -205,7 +222,7 @@ def setup_cognito_user_pool() -> Dict[str, str]:
             "user_pool_id": pool_id,
             "client_id": client_id,
             "discovery_url": discovery_url,
-            "bearer_token": bearer_token
+            "bearer_token": bearer_token,
         }
 
     except Exception as e:
@@ -238,7 +255,11 @@ def delete_cognito_user_pool() -> None:
         raise
 
 
-def reauthenticate_user(client_id: str, username: str = "testuser@example.com", password: str = "TestPass123!") -> str:
+def reauthenticate_user(
+    client_id: str,
+    username: str = "testuser@example.com",
+    password: str = "TestPass123!",
+) -> str:
     """
     Get a fresh bearer token for API calls.
 
@@ -256,7 +277,7 @@ def reauthenticate_user(client_id: str, username: str = "testuser@example.com", 
         response = cognito.initiate_auth(
             AuthFlow="USER_PASSWORD_AUTH",
             ClientId=client_id,
-            AuthParameters={"USERNAME": username, "PASSWORD": password}
+            AuthParameters={"USERNAME": username, "PASSWORD": password},
         )
 
         return response["AuthenticationResult"]["AccessToken"]
