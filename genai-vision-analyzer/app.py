@@ -647,9 +647,7 @@ def main():
                             "📤 Tokens de Salida", f"{usage.get('output_tokens', 0):,}"
                         )
                     with col3:
-                        st.metric(
-                            "📊 Total Tokens", f"{usage.get('total_tokens', 0):,}"
-                        )
+                        st.metric("📊 Total Tokens", f"{usage.get('total_tokens', 0):,}")
 
                 # Results tabs
                 tab1, tab2 = st.tabs(["📄 Analysis Results", "💾 Export Data"])
@@ -789,13 +787,15 @@ def main():
                 ):
                     st.error("🔐 AWS Authentication Failed")
                     st.write("Please check in your .env file:")
-                    st.code("""
+                    st.code(
+                        """
 APP_USER=your_username
 APP_PASSWORD=your_password
 AWS_ACCESS_KEY_ID=your_key_here
 AWS_SECRET_ACCESS_KEY=your_secret_here
 AWS_DEFAULT_REGION=us-west-2
-                    """)
+                    """
+                    )
                 elif "ValidationException" in str(e):
                     st.error("❌ Model validation error")
                     st.write(

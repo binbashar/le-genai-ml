@@ -612,7 +612,8 @@ def main():
 
     # Información
     with st.expander("ℹ️ Cómo funciona este sistema"):
-        st.markdown("""
+        st.markdown(
+            """
         ### 🔄 Pipeline Speech-to-Speech:
         
         1. **🎵 Subida**: Tu audio se sube a S3 temporalmente
@@ -630,7 +631,8 @@ def main():
         - Los archivos temporales se eliminan automáticamente
         - Recomendado: archivos WAV de buena calidad
         - El procesamiento toma ~10-30 segundos
-        """)
+        """
+        )
 
 
 if __name__ == "__main__":

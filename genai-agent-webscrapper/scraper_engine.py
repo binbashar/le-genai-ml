@@ -259,11 +259,13 @@ class MultiSiteScraper:
             )
 
             # Agregar cookies y headers para parecer más humano
-            context.add_init_script("""
+            context.add_init_script(
+                """
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
                 });
-            """)
+            """
+            )
 
             page = context.new_page()
 
@@ -1180,9 +1182,9 @@ class MultiSiteScraper:
 
                 # Crear resumen
                 if table_info["filas"]:
-                    table_info["resumen"] = (
-                        f"Tabla con {len(table_info['headers'])} columnas y {len(table_info['filas'])} filas"
-                    )
+                    table_info[
+                        "resumen"
+                    ] = f"Tabla con {len(table_info['headers'])} columnas y {len(table_info['filas'])} filas"
 
                 tables_data.append(table_info)
 

@@ -123,9 +123,7 @@ def reset_memory(agent_name: str, dry_run: bool, force: bool) -> bool:
             logger.info(
                 f"🔒 Configured memory will be preserved: {configured_memory_id}"
             )
-            logger.info(
-                "💡 Next agent invocation will auto-create fresh runtime memory"
-            )
+            logger.info("💡 Next agent invocation will auto-create fresh runtime memory")
             return True
 
         # Confirmation

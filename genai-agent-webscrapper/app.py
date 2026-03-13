@@ -291,11 +291,13 @@ def main():
     if "AWS_ACCESS_KEY_ID" not in os.environ:
         st.warning("⚠️ Configura tus credenciales AWS primero")
         with st.expander("Ver instrucciones"):
-            st.code("""
+            st.code(
+                """
 export AWS_ACCESS_KEY_ID=tu_access_key
 export AWS_SECRET_ACCESS_KEY=tu_secret_key
 export AWS_DEFAULT_REGION=us-east-1
-            """)
+            """
+            )
         return
 
     # Inicializar cliente
@@ -541,22 +543,26 @@ export AWS_DEFAULT_REGION=us-east-1
 
         st.markdown("---")
         st.markdown("### 🎯 Características")
-        st.markdown("""
+        st.markdown(
+            """
         - ✅ Grabación desde micrófono
         - ✅ Speech-to-Speech directo
         - ✅ Respuestas naturales
         - ✅ Múltiples personalidades
         - ✅ Historial de conversación
-        """)
+        """
+        )
 
         st.markdown("---")
         st.markdown("### 💡 Tips")
-        st.info("""
+        st.info(
+            """
         - Habla claramente
         - El micrófono debe estar habilitado
         - Prueba diferentes duraciones
         - Los audios cortos funcionan mejor
-        """)
+        """
+        )
 
 
 if __name__ == "__main__":

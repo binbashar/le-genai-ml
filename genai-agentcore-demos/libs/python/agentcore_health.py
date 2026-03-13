@@ -78,7 +78,8 @@ class HealthCheckConstants:
 class BotoClientFactory(Protocol):
     """Protocol for boto3 client factory functions."""
 
-    def __call__(self, service: str, *, config: Any) -> Any: ...
+    def __call__(self, service: str, *, config: Any) -> Any:
+        ...
 
 
 @dataclass

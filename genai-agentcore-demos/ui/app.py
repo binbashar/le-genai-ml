@@ -493,9 +493,9 @@ with st.sidebar:
                     f"User mismatch: session={current_username}, storage={username}. Clearing session."
                 )
                 st.session_state.clear()
-                st.session_state["auth_restore_attempted"] = (
-                    True  # Prevent infinite loop
-                )
+                st.session_state[
+                    "auth_restore_attempted"
+                ] = True  # Prevent infinite loop
 
             # Validate token before restoring
             if token and username and agent_type_stored and validate_token(token):
