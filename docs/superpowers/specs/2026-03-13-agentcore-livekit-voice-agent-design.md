@@ -231,7 +231,7 @@ The client can then migrate the Docker Compose services to their EKS using the p
 ## Project Structure
 
 ```
-genai-nova-sonic-livekit/
+genai-agentcore-voice-livekit/
 ├── agent.py                          # Bridge Worker (LiveKit ↔ AgentCore)
 ├── web/
 │   └── index.html                    # Frontend (LiveKit Client SDK)
