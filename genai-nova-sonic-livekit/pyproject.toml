@@ -2,7 +2,7 @@
 name = "nova-sonic-poc"
 version = "0.1.0"
 description = "Minimal POC for Nova Sonic 2 with WebRTC (LiveKit)"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "livekit-agents",
     "livekit-plugins-aws",

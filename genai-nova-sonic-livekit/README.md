@@ -65,7 +65,7 @@ sequenceDiagram
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - AWS credentials with Bedrock access (SSO supported)
 - Homebrew (macOS/Linux)
 - [just](https://github.com/casey/just) command runner (`brew install just`)
