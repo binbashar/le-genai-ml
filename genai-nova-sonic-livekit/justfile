@@ -11,7 +11,7 @@ room := "poc-room"
 # Voice ID for Nova Sonic 2 (default: leo for pt-BR - requires patch-voices)
 voice := env_var_or_default("VOICE_ID", "leo")
 
-# LiveKit dev credentials
+# LiveKit dev credentials (these are the default values hardcoded in `livekit-server --dev`, not real secrets)
 lk_api_key := "devkey"
 lk_api_secret := "secret"
 
