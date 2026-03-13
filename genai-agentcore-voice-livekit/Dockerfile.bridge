@@ -1,0 +1,10 @@
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock* ./
+RUN uv pip install --system .
+
+COPY agent.py .
+
+ENTRYPOINT ["python", "agent.py", "start"]
