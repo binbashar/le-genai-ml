@@ -33,7 +33,6 @@ class EchoBackend(VoiceBackend):
 
     async def send_audio(self, audio_bytes: bytes) -> None:
         if self._active:
-            await asyncio.sleep(self.delay)
             await self._queue.put(audio_bytes)
 
     async def receive_audio(self) -> AsyncIterator[bytes]:
