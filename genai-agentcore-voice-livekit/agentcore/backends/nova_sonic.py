@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 MODEL_ID = "amazon.nova-sonic-v1:0"
 
 # Default audio parameters
-INPUT_SAMPLE_RATE = 16000   # Hz — Nova Sonic expects 16 kHz PCM input
+INPUT_SAMPLE_RATE = 16000  # Hz — Nova Sonic expects 16 kHz PCM input
 OUTPUT_SAMPLE_RATE = 24000  # Hz — Nova Sonic emits 24 kHz PCM output
 
 
@@ -73,7 +73,9 @@ class NovaSonicBackend(VoiceBackend):
         )
         self.region: str = config.get(
             "region",
-            os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1")),
+            os.environ.get(
+                "AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            ),
         )
 
         # Session identifiers (UUIDs assigned fresh per start_session call)
@@ -105,7 +107,9 @@ class NovaSonicBackend(VoiceBackend):
 
         self._bedrock_client = self._build_client()
 
-        logger.info("Opening bidirectional stream to Nova Sonic (region=%s)", self.region)
+        logger.info(
+            "Opening bidirectional stream to Nova Sonic (region=%s)", self.region
+        )
         self._stream = await asyncio.get_event_loop().run_in_executor(
             None,
             lambda: None,  # placeholder — actual call is async below
@@ -113,8 +117,10 @@ class NovaSonicBackend(VoiceBackend):
 
         # invoke_model_with_bidirectional_stream is a true async method on the
         # Smithy client, so we can await it directly.
-        self._stream = await self._bedrock_client.invoke_model_with_bidirectional_stream(
-            InvokeModelWithBidirectionalStreamOperationInput(model_id=MODEL_ID)
+        self._stream = (
+            await self._bedrock_client.invoke_model_with_bidirectional_stream(
+                InvokeModelWithBidirectionalStreamOperationInput(model_id=MODEL_ID)
+            )
         )
 
         self._is_active = True
@@ -392,9 +398,7 @@ class NovaSonicBackend(VoiceBackend):
         )
 
     def _build_prompt_end(self) -> str:
-        return json.dumps(
-            {"event": {"promptEnd": {"promptName": self._prompt_name}}}
-        )
+        return json.dumps({"event": {"promptEnd": {"promptName": self._prompt_name}}})
 
     def _build_session_end(self) -> str:
         return json.dumps({"event": {"sessionEnd": {}}})
