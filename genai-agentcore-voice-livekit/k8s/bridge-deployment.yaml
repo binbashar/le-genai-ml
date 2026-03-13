@@ -1,0 +1,86 @@
+---
+# Reference Kubernetes Deployment for the Bridge Worker.
+# Connects to a LiveKit server and bridges audio to AgentCore via WebSocket.
+#
+# Prerequisites:
+#   - LiveKit server deployed (see livekit-values.yaml)
+#   - AgentCore Runtime deployed with voice agent
+#   - IRSA configured for Bedrock/AgentCore access
+#   - ConfigMap and Secret created (see bottom of file)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bridge-worker
+  labels:
+    app: bridge-worker
+    component: voice-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bridge-worker
+  template:
+    metadata:
+      labels:
+        app: bridge-worker
+        component: voice-agent
+      annotations:
+        # IRSA: associate with IAM role for Bedrock/AgentCore access
+        eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/bridge-worker-irsa-role"
+    spec:
+      serviceAccountName: bridge-worker
+      containers:
+        - name: bridge-worker
+          image: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/bridge-worker:latest
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          envFrom:
+            - configMapRef:
+                name: bridge-worker-config
+            - secretRef:
+                name: bridge-worker-secrets
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import os; exit(0)"
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bridge-worker-config
+data:
+  LIVEKIT_URL: "ws://livekit.default.svc.cluster.local:7880"
+  VOICE_BACKEND: "nova_sonic"
+  VOICE_ID: "tiffany"
+  AWS_REGION: "us-east-1"
+  # Set this to the AgentCore Runtime ARN after deployment
+  AGENTCORE_RUNTIME_ARN: ""
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bridge-worker-secrets
+type: Opaque
+stringData:
+  # LiveKit credentials (replace with actual values from your LiveKit deployment)
+  LIVEKIT_API_KEY: "devkey"
+  LIVEKIT_API_SECRET: "secret"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bridge-worker
+  annotations:
+    # IRSA: associate with IAM role
+    eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/bridge-worker-irsa-role"

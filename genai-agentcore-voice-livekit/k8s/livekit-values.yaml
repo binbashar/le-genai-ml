@@ -1,0 +1,62 @@
+# Reference Helm values for LiveKit Server on EKS.
+# Chart: https://github.com/livekit/livekit-helm
+#
+# Install:
+#   helm repo add livekit https://helm.livekit.io
+#   helm install livekit livekit/livekit-server -f k8s/livekit-values.yaml
+
+livekit:
+  # Keys: map of API key -> secret
+  # In production, use external secrets management (e.g., AWS Secrets Manager + ESO)
+  keys:
+    devkey: secret
+
+  # Logging
+  log_level: info
+
+replicaCount: 2
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "500m"
+  limits:
+    memory: "512Mi"
+    cpu: "1000m"
+
+# Ingress for WebSocket support via ALB
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:REGION:ACCOUNT_ID:certificate/CERTIFICATE_ID"
+    # WebSocket support
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=86400
+  hosts:
+    - host: livekit.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+# TURN server configuration
+# Required for reliable WebRTC connectivity through firewalls/NATs.
+# In production, configure an external TURN server or use LiveKit Cloud.
+turn:
+  enabled: false
+  # Uncomment and configure for self-hosted TURN:
+  # domain: turn.example.com
+  # tls_port: 5349
+  # udp_port: 3478
+  # external_tls: true
+
+# Node port for direct WebRTC traffic (if not using TURN)
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
