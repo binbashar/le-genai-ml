@@ -79,6 +79,11 @@ Browser (Chrome)                    Server (AgentCore + Strands)
 
 Configurable constants at the top of `agent.py`: voice (`lupe`), model (`amazon.nova-2-sonic-v1:0`), output sample rate (24kHz), system prompt, endpointing sensitivity, session timeout (8 min).
 
+## Strands Library Notes
+
+- `strands.experimental.bidi.models.nova_sonic` exports `NOVA_SONIC_V2_MODEL_ID` and `NOVA_SONIC_V1_MODEL_ID` constants — use these instead of hardcoding model IDs
+- `provider_config["turn_detection"]` (endpointing sensitivity) is Nova 2 Sonic only — strands raises `ValueError` if used with v1 model ID
+
 ## Gotchas
 
 - Nova 2 Sonic has an **8-minute connection limit** — the server enforces this and sends `session_timeout`
@@ -86,4 +91,5 @@ Configurable constants at the top of `agent.py`: voice (`lupe`), model (`amazon.
 - `AWS_PROFILE` env var is **required** — `os.environ["AWS_PROFILE"]` raises `KeyError` if unset
 - `strands.experimental.bidi` is experimental API — may change across strands-agents versions
 - `OUTPUT_SAMPLE_RATE` in `agent.py` must match `OUTPUT_RATE` in `web/index.html` — mismatch causes audio to play at wrong speed
+- `handleDisconnect()` in frontend must check for existing error state before overwriting status — `ws.onclose` fires after server sends error JSON
 - The AudioWorklet inline processor runs at browser's native 48kHz and downsamples; changing sample rates requires updating both client and server
