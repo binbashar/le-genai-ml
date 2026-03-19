@@ -1,0 +1,10 @@
+[project]
+name = "nova-sonic-ws-poc"
+version = "0.1.0"
+description = "POC: Nova 2 Sonic bidirectional voice agent over WebSocket"
+requires-python = ">=3.12"
+dependencies = [
+    "strands-agents[bidi]",
+    "bedrock-agentcore",
+    "boto3",
+]
