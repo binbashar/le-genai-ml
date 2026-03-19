@@ -19,7 +19,13 @@ AWS_PROFILE=YOUR_PROFILE uv run python agent.py
 curl http://localhost:8080/ping
 ```
 
-No tests, linting, or CI configured.
+## Linting
+
+CI runs **Black** (`--check`) on all Python files. Format before committing:
+```bash
+uvx black agent.py
+```
+Note: `uvx black@23.3.0` fails on Python 3.12+ (`ast.Str` removed). Use `uvx black` (latest) — CI accepts it.
 
 ## Architecture
 

@@ -30,6 +30,7 @@ This is a monorepo (`le-genai-ml`) containing multiple GenAI and ML demonstratio
 - **`genai-product-spot-detector/`**: Product detection demo
 - **`genai-agent-webscrapper/`**: Web scraping agent
 - **`genai-speech2speech/`**: Speech-to-speech with Bedrock
+- **`nova-sonic-ws-poc/`**: Bidirectional voice agent via pure WebSocket (Nova Sonic + Strands BidiAgent, no LiveKit)
 
 Each directory is self-contained with its own `pyproject.toml`, dependencies, and deployment scripts.
 
