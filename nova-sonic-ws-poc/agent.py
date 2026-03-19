@@ -100,16 +100,23 @@ class WebSocketBidiOutput(BidiOutput):
             logger.debug("Audio OUT: %d bytes to browser", len(pcm))
             await self._queue.put(("audio", pcm))
         elif isinstance(event, BidiTranscriptStreamEvent):
-            logger.info("Transcript: role=%s final=%s text=%s", event.role, event.is_final, event.text[:80])
-            await self._queue.put((
-                "transcript",
-                {
-                    "type": "transcript",
-                    "role": event.role,
-                    "text": event.text,
-                    "is_final": event.is_final,
-                },
-            ))
+            logger.info(
+                "Transcript: role=%s final=%s text=%s",
+                event.role,
+                event.is_final,
+                event.text[:80],
+            )
+            await self._queue.put(
+                (
+                    "transcript",
+                    {
+                        "type": "transcript",
+                        "role": event.role,
+                        "text": event.text,
+                        "is_final": event.is_final,
+                    },
+                )
+            )
         elif isinstance(event, BidiInterruptionEvent):
             await self._queue.put(("barge_in", {"type": "barge_in"}))
 
@@ -151,7 +158,9 @@ async def ws_handler(websocket, context):  # noqa: ARG001
         except Exception as exc:
             error_msg = f"AWS credentials error (profile={aws_profile}): {exc}"
             logger.error(error_msg)
-            await websocket.send_text(json.dumps({"type": "error", "message": error_msg}))
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": error_msg})
+            )
             await websocket.close(code=1011, reason="AWS credentials error")
             return
 
@@ -160,10 +169,14 @@ async def ws_handler(websocket, context):  # noqa: ARG001
             provider_config={"audio": {"voice": "lupe", "output_rate": 24000}},
             client_config={"boto_session": session},
         )
-        agent = BidiAgent(model=model, tools=[], system_prompt=(
-            "You are a friendly and helpful voice assistant. "
-            "Keep your responses concise but complete."
-        ))
+        agent = BidiAgent(
+            model=model,
+            tools=[],
+            system_prompt=(
+                "You are a friendly and helpful voice assistant. "
+                "Keep your responses concise but complete."
+            ),
+        )
 
         await websocket.send_text(json.dumps({"type": "session_ready"}))
 
@@ -179,7 +192,9 @@ async def ws_handler(websocket, context):  # noqa: ARG001
                     agent.run(inputs=[ws_input], outputs=[ws_output]),
                     name="agent-runner",
                 )
-                tg.create_task(_session_timeout(websocket, output_queue), name="timeout")
+                tg.create_task(
+                    _session_timeout(websocket, output_queue), name="timeout"
+                )
         except* WebSocketDisconnect:
             logger.info("WebSocket disconnected during streaming")
         except* asyncio.CancelledError:
