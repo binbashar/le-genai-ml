@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nova Sonic Voice Agent</title>
+    <title>Nova 2 Sonic Voice Agent</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -116,7 +116,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Nova Sonic Voice Agent</h1>
+        <h1>Nova 2 Sonic Voice Agent</h1>
 
         <div id="statusBar" class="status-bar disconnected">
             <div style="display:flex;align-items:center;">
@@ -221,7 +221,11 @@ function handleDisconnect() {
     stopPlayback();
     ws = null;
     clearInterval(timerInterval);
-    setStatus('disconnected', 'Disconnected');
+    // Preserve error status — don't overwrite with "Disconnected"
+    const bar = document.getElementById('statusBar');
+    if (!bar.classList.contains('error')) {
+        setStatus('disconnected', 'Disconnected');
+    }
     document.getElementById('connectBtn').disabled = false;
     document.getElementById('disconnectBtn').style.display = 'none';
     document.getElementById('pttSection').style.display = 'none';

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Bidirectional voice agent POC using **Amazon Nova Sonic v1** via pure WebSocket (no LiveKit/WebRTC). Stack: AgentCore Runtime + Strands BidiAgent + vanilla JS frontend. Two files: `agent.py` (server) and `web/index.html` (client).
+Bidirectional voice agent POC using **Amazon Nova 2 Sonic** via pure WebSocket (no LiveKit/WebRTC). Stack: AgentCore Runtime + Strands BidiAgent + vanilla JS frontend. Two files: `agent.py` (server) and `web/index.html` (client).
 
 ## Commands
 
@@ -75,14 +75,15 @@ Browser (Chrome)                    Server (AgentCore + Strands)
 | Variable | Default | Notes |
 |----------|---------|-------|
 | `AWS_PROFILE` | **required** | AWS SSO profile with Bedrock access |
-| `AWS_REGION` | `us-east-1` | Nova Sonic only available in us-east-1 |
+| `AWS_REGION` | `us-east-1` | Nova 2 Sonic regions: us-east-1, us-west-2, ap-northeast-1 |
 
-Hardcoded in `agent.py`: voice (`lupe`), model (`amazon.nova-sonic-v1:0`), output sample rate (24kHz), system prompt, session timeout (8 min).
+Configurable constants at the top of `agent.py`: voice (`lupe`), model (`amazon.nova-2-sonic-v1:0`), output sample rate (24kHz), system prompt, endpointing sensitivity, session timeout (8 min).
 
 ## Gotchas
 
-- Nova Sonic has an **8-minute connection limit** — the server enforces this and sends `session_timeout`
+- Nova 2 Sonic has an **8-minute connection limit** — the server enforces this and sends `session_timeout`
 - WebSocket URL is hardcoded to `ws://localhost:8080/ws` in the frontend
 - `AWS_PROFILE` env var is **required** — `os.environ["AWS_PROFILE"]` raises `KeyError` if unset
 - `strands.experimental.bidi` is experimental API — may change across strands-agents versions
+- `OUTPUT_SAMPLE_RATE` in `agent.py` must match `OUTPUT_RATE` in `web/index.html` — mismatch causes audio to play at wrong speed
 - The AudioWorklet inline processor runs at browser's native 48kHz and downsamples; changing sample rates requires updating both client and server

@@ -1,7 +1,7 @@
 """Nova 2 Sonic bidirectional voice agent via WebSocket.
 
 Uses Strands BidiAgent with custom WebSocket I/O classes to bridge
-browser audio (WebSocket) to Nova Sonic (Bedrock bidirectional stream).
+browser audio (WebSocket) to Nova 2 Sonic (Bedrock bidirectional stream).
 
 Protocol:
     Browser → Agent: binary PCM (16kHz 16-bit mono) or JSON control messages
@@ -28,7 +28,10 @@ from starlette.websockets import WebSocketDisconnect
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands.experimental.bidi import BidiAgent
-from strands.experimental.bidi.models.nova_sonic import BidiNovaSonicModel
+from strands.experimental.bidi.models.nova_sonic import (
+    BidiNovaSonicModel,
+    NOVA_SONIC_V2_MODEL_ID,
+)
 from strands.experimental.bidi.types.events import (
     BidiAudioInputEvent,
     BidiAudioStreamEvent,
@@ -40,7 +43,38 @@ from strands.experimental.bidi.types.io import BidiInput, BidiOutput
 
 logger = logging.getLogger(__name__)
 
-SESSION_TIMEOUT_SECONDS = 8 * 60  # 8 minutes — Nova Sonic connection limit
+# ===========================================================================
+# Configuration — edit these values to customize the agent
+# ===========================================================================
+
+# AWS credentials (required — run: aws sso login --profile <name>)
+AWS_PROFILE = os.environ["AWS_PROFILE"]
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+
+# Model
+MODEL_ID = NOVA_SONIC_V2_MODEL_ID  # "amazon.nova-2-sonic-v1:0"
+
+# Voice — "lupe" (es), "carlos" (es), "tiffany" (en, polyglot), "matthew" (en, polyglot)
+VOICE = "lupe"
+
+# Audio sample rates (Hz) — OUTPUT_SAMPLE_RATE must match OUTPUT_RATE in web/index.html
+OUTPUT_SAMPLE_RATE = 24000
+INPUT_SAMPLE_RATE = 16000
+
+# Turn detection — how quickly the model responds after the user stops speaking
+# Options: "HIGH" (fast), "MEDIUM", "LOW" (patient), or None for model default
+ENDPOINTING_SENSITIVITY = None
+
+# System prompt
+SYSTEM_PROMPT = (
+    "You are a friendly and helpful voice assistant. "
+    "Keep your responses concise but complete."
+)
+
+# Session limit (Nova 2 Sonic caps connections at ~8 minutes)
+SESSION_TIMEOUT_SECONDS = 8 * 60
+
+# ===========================================================================
 
 app = BedrockAgentCoreApp()
 
@@ -77,7 +111,7 @@ class WebSocketBidiInput(BidiInput):
         return BidiAudioInputEvent(
             audio=base64.b64encode(pcm).decode("utf-8"),
             format="pcm",
-            sample_rate=16000,
+            sample_rate=INPUT_SAMPLE_RATE,
             channels=1,
         )
 
@@ -144,19 +178,16 @@ async def ws_handler(websocket, context):  # noqa: ARG001
         logger.info("session_start received")
 
         # --- Build Strands BidiAgent ---
-        aws_profile = os.environ["AWS_PROFILE"]
-        aws_region = os.environ.get("AWS_REGION", "us-east-1")
         try:
-            session = boto3.Session(profile_name=aws_profile, region_name=aws_region)
+            session = boto3.Session(profile_name=AWS_PROFILE, region_name=AWS_REGION)
             creds = session.get_credentials()
             if not creds:
-                raise ValueError(f"No credentials for profile '{aws_profile}'")
-            # Verify credentials are valid
+                raise ValueError(f"No credentials for profile '{AWS_PROFILE}'")
             sts = session.client("sts")
             identity = sts.get_caller_identity()
-            logger.info("AWS identity: %s (profile=%s)", identity["Arn"], aws_profile)
+            logger.info("AWS identity: %s (profile=%s)", identity["Arn"], AWS_PROFILE)
         except Exception as exc:
-            error_msg = f"AWS credentials error (profile={aws_profile}): {exc}"
+            error_msg = f"AWS credentials error (profile={AWS_PROFILE}): {exc}"
             logger.error(error_msg)
             await websocket.send_text(
                 json.dumps({"type": "error", "message": error_msg})
@@ -164,18 +195,23 @@ async def ws_handler(websocket, context):  # noqa: ARG001
             await websocket.close(code=1011, reason="AWS credentials error")
             return
 
+        provider_config = {
+            "audio": {"voice": VOICE, "output_rate": OUTPUT_SAMPLE_RATE},
+        }
+        if ENDPOINTING_SENSITIVITY:
+            provider_config["turn_detection"] = {
+                "endpointingSensitivity": ENDPOINTING_SENSITIVITY,
+            }
+
         model = BidiNovaSonicModel(
-            model_id="amazon.nova-sonic-v1:0",
-            provider_config={"audio": {"voice": "lupe", "output_rate": 24000}},
+            model_id=MODEL_ID,
+            provider_config=provider_config,
             client_config={"boto_session": session},
         )
         agent = BidiAgent(
             model=model,
             tools=[],
-            system_prompt=(
-                "You are a friendly and helpful voice assistant. "
-                "Keep your responses concise but complete."
-            ),
+            system_prompt=SYSTEM_PROMPT,
         )
 
         await websocket.send_text(json.dumps({"type": "session_ready"}))
@@ -277,7 +313,7 @@ async def _session_timeout(
     websocket,
     output_queue: asyncio.Queue[tuple[str, bytes | dict]],
 ) -> None:
-    """Enforce Nova Sonic's ~8 minute connection limit."""
+    """Enforce Nova 2 Sonic's ~8 minute connection limit."""
     await asyncio.sleep(SESSION_TIMEOUT_SECONDS)
     logger.info("Session timeout reached (%ds)", SESSION_TIMEOUT_SECONDS)
     await output_queue.put(("timeout", {"type": "session_timeout"}))
