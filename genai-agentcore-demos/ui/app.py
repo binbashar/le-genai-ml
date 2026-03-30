@@ -395,41 +395,6 @@ with st.sidebar:
     # ============================================================================
     # SECTION 2: Agent Selection & Authentication
     # ============================================================================
-    # Auto-restore session from browser storage (if available)
-    if "auth_restore_attempted" not in st.session_state:
-        st.session_state["auth_restore_attempted"] = True
-        stored_auth = get_token_from_browser()
-
-        if stored_auth and isinstance(stored_auth, dict):
-            token = stored_auth.get("token")
-            username = stored_auth.get("username")
-            agent_type_stored = stored_auth.get("agent_type")
-
-            # Check if localStorage user differs from current session user
-            current_username = st.session_state.get("username")
-            if current_username and current_username != username:
-                # Different user detected - clear session state for security
-                logger.warning(
-                    f"User mismatch: session={current_username}, storage={username}. Clearing session."
-                )
-                st.session_state.clear()
-                st.session_state[
-                    "auth_restore_attempted"
-                ] = True  # Prevent infinite loop
-
-            # Validate token before restoring
-            if token and username and agent_type_stored and validate_token(token):
-                logger.info(f"Restored session from browser storage: {username}")
-                st.session_state["auth_token"] = token
-                st.session_state["username"] = username
-                st.session_state["agent_type"] = agent_type_stored
-                # Note: session_id is NOT restored - fresh session on each page load
-                st.rerun()
-            else:
-                # Token expired or invalid - clear it
-                logger.info("Stored token expired or invalid, clearing storage")
-                clear_token_from_browser()
-
     # Check if user is logged into an OAuth agent
     current_agent_in_session = st.session_state.get("agent_type")
 
@@ -512,7 +477,6 @@ with st.sidebar:
     # ============================================================================
     # SECTION 3: Footer
     # ============================================================================
-    st.caption("🏦 Athia - DEUNA")
     st.caption("Built with ❤️ by binbash team.")
 
 # ============================================================================

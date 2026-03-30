@@ -21,6 +21,8 @@ class BedrockModelCatalog(Enum):
     CLAUDE_HAIKU_45 = "claude_haiku_45"
     CLAUDE_SONNET_37 = "claude_sonnet_37"
     CLAUDE_SONNET_45 = "claude_sonnet_45"
+    CLAUDE_SONNET_46 = "claude_sonnet_46"
+    NOVA_2_LITE = "nova_2_lite"
 
 
 @dataclass(frozen=True)
@@ -148,7 +150,19 @@ MODEL_REGISTRY = {
         model_id="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         temperature=0.7,
         max_tokens=4096,
-        description="Enhanced reasoning for complex analysis (latest)",
+        description="Enhanced reasoning for complex analysis",
+    ),
+    BedrockModelCatalog.CLAUDE_SONNET_46: ModelConfig(
+        model_id="us.anthropic.claude-sonnet-4-6",
+        temperature=0.7,
+        max_tokens=4096,
+        description="Latest Claude model for complex analysis",
+    ),
+    BedrockModelCatalog.NOVA_2_LITE: ModelConfig(
+        model_id="us.amazon.nova-2-lite-v1:0",
+        temperature=0.4,
+        max_tokens=4096,
+        description="Fast Nova 2 model for orchestration and routing",
     ),
 }
 

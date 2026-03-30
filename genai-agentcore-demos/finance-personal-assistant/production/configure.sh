@@ -57,14 +57,7 @@ if [ -n "$UNIFIED_CONFIG" ]; then
 fi
 
 # Build agentcore configure command arguments as array
-ARGS=("configure" "-e" "${ENTRYPOINT}" "-n" "${AGENT_NAME}" "--non-interactive")
-
-# Add request header allowlist for OAuth authentication and custom user ID
-echo "✅ Configuring request headers: Authorization, X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id"
-ARGS+=("--request-header-allowlist" "Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-User-Id")
-
-echo "✅ Disabling auto-managed memory"
-ARGS+=("--disable-memory")
+ARGS=("configure" "-e" "${ENTRYPOINT}" "-n" "${AGENT_NAME}")
 
 if [ -n "$EXECUTION_ROLE_ARN" ]; then
     echo "✅ Found execution role ARN: ${EXECUTION_ROLE_ARN}"
@@ -78,6 +71,27 @@ if [ -n "$OAUTH_CONFIG" ]; then
     ARGS+=("--authorizer-config" "${OAUTH_CONFIG}")
 else
     echo "ℹ️  No OAuth configuration found, using IAM authentication"
+fi
+
+# Remove stale agent entries from .bedrock_agentcore.yaml before configuring
+# The agentcore CLI appends new entries but never cleans old ones, so a previous
+# run with a different name (e.g. the default 'main') leaves a residual entry
+# that confuses post-deploy scripts.
+if [ -f ".bedrock_agentcore.yaml" ]; then
+    uv run python -c "
+import yaml, sys
+with open('.bedrock_agentcore.yaml') as f:
+    cfg = yaml.safe_load(f) or {}
+agents = cfg.get('agents', {})
+stale = [k for k in agents if k != '${AGENT_NAME}']
+if stale:
+    for k in stale:
+        del agents[k]
+    cfg['default_agent'] = '${AGENT_NAME}'
+    with open('.bedrock_agentcore.yaml', 'w') as f:
+        yaml.safe_dump(cfg, f, default_flow_style=False)
+    print(f'🧹 Removed stale agent entries: {stale}')
+"
 fi
 
 # Execute configure command with any additional arguments
