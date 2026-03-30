@@ -76,9 +76,9 @@ When generating financial reports, structure them clearly:
 
 Default to thoroughness—gather context before jumping to recommendations."""
 
-# Using Claude Sonnet 4.5 for superior reasoning on budget analysis
+# Using Claude Sonnet 4.6 for superior reasoning on budget analysis
 model = get_bedrock_model(
-    model=BedrockModelCatalog.CLAUDE_SONNET_45,
+    model=BedrockModelCatalog.CLAUDE_SONNET_46,
     framework="strands",
 )
 

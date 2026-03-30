@@ -124,7 +124,7 @@ conversation_manager = SummarizingConversationManager(
 
 model = get_bedrock_model(
     framework="strands",
-    model=BedrockModelCatalog.CLAUDE_SONNET_45,
+    model=BedrockModelCatalog.NOVA_2_LITE,
 )
 
 
