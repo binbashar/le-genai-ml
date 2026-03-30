@@ -42,7 +42,7 @@ agents:
       memory_name: chat_agent_mem
       event_expiry_days: 30
       first_invoke_memory_check_done: true
-      was_created_by_toolkit: true
+      was_created_by_toolkit: false
     identity:
       credential_providers: []
       workload: null
