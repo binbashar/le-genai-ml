@@ -66,8 +66,12 @@ def get_agent_arn(agent_dir: Path) -> str:
         print("   ❌ Error: No agents found in .bedrock_agentcore.yaml")
         sys.exit(1)
 
-    # Get first agent (should only be one per agent directory)
-    agent_data = next(iter(agents.values()))
+    # Look up by default_agent, then fall back to first agent
+    default_agent = bedrock_config.get("default_agent")
+    if default_agent and default_agent in agents:
+        agent_data = agents[default_agent]
+    else:
+        agent_data = next(iter(agents.values()))
     agent_arn = agent_data.get("bedrock_agentcore", {}).get("agent_arn")
 
     if not agent_arn:
