@@ -25,6 +25,7 @@ This repo includes the binbash GenAI - ML projects
 ## Agent | AWS Bedrock AgentCore
 - 🚧 https://github.com/awslabs/amazon-bedrock-agentcore-samples/tree/main
 - 🚧 https://github.com/awslabs/fullstack-solution-template-for-agentcore
+- 🚧 https://github.com/awslabs/fullstack-solution-template-for-agentcore/tree/main/patterns/claude-agent-sdk-multi-agent
 
 ## Agent | Speech2Text & Text2Speech
 - 🚧 https://github.com/binbashar/amazon-bedrock-voice-conversation
