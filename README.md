@@ -13,6 +13,9 @@ This repo includes the binbash GenAI - ML projects
 
 # GenAI AWS CDK Solutions Library
 
+## Agent | DevTools 
+- 🚧 https://github.com/awslabs/agent-plugins
+
 ## Workshops
 - ✔️ https://github.com/binbashar/le-genai-agents-bedrock-workshop
 - 📙 https://github.com/aws-samples/aws-genai-llm-chatbot
