@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova 2 Sonic Voice Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container { max-width: 540px; width: 100%; }
+        h1 { text-align: center; color: #00d4ff; margin: 20px 0 30px; font-size: 22px; }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .status-bar.disconnected { background: #2a2a3e; color: #888; }
+        .status-bar.connecting   { background: #3d3520; color: #f5a623; }
+        .status-bar.connected    { background: #1a3a2a; color: #4cdf8b; }
+        .status-bar.error        { background: #3a1a1a; color: #ff6b6b; }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: currentColor; margin-right: 10px; flex-shrink: 0;
+        }
+        .status-bar.connected .status-dot { animation: pulse-dot 1.5s infinite; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .timer { font-variant-numeric: tabular-nums; }
+
+        /* Controls */
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        .controls button {
+            flex: 1; padding: 14px; border: none; border-radius: 8px;
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .controls button:active { transform: scale(0.97); }
+        #connectBtn { background: #00d4ff; color: #1a1a2e; }
+        #connectBtn:hover { background: #00b8e6; }
+        #connectBtn:disabled { background: #444; color: #888; cursor: not-allowed; }
+        #disconnectBtn { background: #ff4757; color: #fff; display: none; }
+        #disconnectBtn:hover { background: #ff3344; }
+
+        /* Push-to-talk */
+        .ptt-section { margin-bottom: 20px; text-align: center; display: none; }
+        #pttBtn {
+            width: 100%; padding: 18px; border: 2px solid #333;
+            border-radius: 8px; background: #16213e; color: #aaa;
+            font-size: 15px; cursor: pointer; transition: all 0.15s;
+            user-select: none; -webkit-user-select: none;
+        }
+        #pttBtn.active { background: #00d4ff; color: #1a1a2e; border-color: #00d4ff; }
+        #pttBtn.speaking { background: #f5a623; color: #1a1a2e; border-color: #f5a623; }
+        .mode-toggle {
+            margin-top: 10px; display: flex; align-items: center;
+            justify-content: center; gap: 8px; font-size: 13px; color: #888;
+        }
+        .mode-toggle input { accent-color: #00d4ff; }
+
+        /* Transcripts */
+        .transcripts {
+            background: #16213e; border-radius: 8px; padding: 16px;
+            max-height: 300px; overflow-y: auto; font-size: 14px;
+            line-height: 1.6; margin-bottom: 20px;
+        }
+        .transcripts:empty::after {
+            content: "Transcriptions will appear here...";
+            color: #555;
+        }
+        .transcript-entry { margin-bottom: 8px; }
+        .transcript-entry .role {
+            font-weight: 600; font-size: 12px; text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .transcript-entry .role.user { color: #00d4ff; }
+        .transcript-entry .role.assistant { color: #f5a623; }
+        .transcript-entry .text { color: #ccc; }
+        .transcript-entry.partial .text { color: #888; font-style: italic; }
+
+        /* Timeout overlay */
+        .timeout-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .timeout-overlay.active { display: flex; }
+        .timeout-box {
+            background: #16213e; padding: 30px; border-radius: 12px;
+            text-align: center; max-width: 360px;
+        }
+        .timeout-box h2 { color: #f5a623; margin-bottom: 12px; font-size: 18px; }
+        .timeout-box p { color: #aaa; margin-bottom: 20px; font-size: 14px; }
+        .timeout-box button {
+            background: #00d4ff; color: #1a1a2e; border: none;
+            padding: 12px 30px; border-radius: 8px; font-size: 15px;
+            font-weight: 600; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nova 2 Sonic Voice Agent</h1>
+
+        <div id="statusBar" class="status-bar disconnected">
+            <div style="display:flex;align-items:center;">
+                <div class="status-dot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+            <span id="timer" class="timer"></span>
+        </div>
+
+        <div class="controls">
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="disconnectBtn" onclick="disconnect()">Disconnect</button>
+        </div>
+
+        <div id="pttSection" class="ptt-section">
+            <button id="pttBtn">Hold to talk</button>
+            <div class="mode-toggle">
+                <input type="checkbox" id="continuousMode">
+                <label for="continuousMode">Continuous mode (no push-to-talk)</label>
+            </div>
+        </div>
+
+        <div id="transcripts" class="transcripts"></div>
+
+        <div id="timeoutOverlay" class="timeout-overlay">
+            <div class="timeout-box">
+                <h2>Session expired</h2>
+                <p>The 8-minute session has ended. You can reconnect to continue.</p>
+                <button onclick="reconnect()">Reconnect</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let ws = null;
+let audioCtxCapture = null;
+let audioCtxPlayback = null;
+let workletNode = null;
+let mediaStream = null;
+let capturing = false;
+let continuous = false;
+let timerInterval = null;
+let sessionStart = null;
+let nextPlayTime = 0;
+
+const WS_URL = 'ws://localhost:8080/ws';
+const INPUT_RATE = 16000;
+const OUTPUT_RATE = 24000;
+
+// ---------------------------------------------------------------------------
+// Connection
+// ---------------------------------------------------------------------------
+async function connect() {
+    setStatus('connecting', 'Connecting...');
+    document.getElementById('connectBtn').disabled = true;
+
+    try {
+        ws = new WebSocket(WS_URL);
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'session_start' }));
+        };
+
+        ws.onmessage = (evt) => {
+            if (typeof evt.data === 'string') {
+                handleControl(JSON.parse(evt.data));
+            } else {
+                handleAudio(evt.data);
+            }
+        };
+
+        ws.onclose = () => handleDisconnect();
+        ws.onerror = () => {
+            setStatus('error', 'Connection error');
+            handleDisconnect();
+        };
+    } catch (e) {
+        setStatus('error', 'Error: ' + e.message);
+        document.getElementById('connectBtn').disabled = false;
+    }
+}
+
+function disconnect() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'session_end' }));
+        ws.close();
+    }
+    handleDisconnect();
+}
+
+function reconnect() {
+    document.getElementById('timeoutOverlay').classList.remove('active');
+    connect();
+}
+
+function handleDisconnect() {
+    stopCapture();
+    stopPlayback();
+    ws = null;
+    clearInterval(timerInterval);
+    // Preserve error status — don't overwrite with "Disconnected"
+    const bar = document.getElementById('statusBar');
+    if (!bar.classList.contains('error')) {
+        setStatus('disconnected', 'Disconnected');
+    }
+    document.getElementById('connectBtn').disabled = false;
+    document.getElementById('disconnectBtn').style.display = 'none';
+    document.getElementById('pttSection').style.display = 'none';
+    document.getElementById('timer').textContent = '';
+}
+
+// ---------------------------------------------------------------------------
+// Control messages from agent
+// ---------------------------------------------------------------------------
+function handleControl(msg) {
+    switch (msg.type) {
+        case 'session_ready':
+            setStatus('connected', 'Connected');
+            document.getElementById('disconnectBtn').style.display = 'block';
+            document.getElementById('pttSection').style.display = 'block';
+            startTimer();
+            initPlayback();
+            if (document.getElementById('continuousMode').checked) {
+                startCapture();
+            }
+            break;
+
+        case 'transcript':
+            addTranscript(msg.role, msg.text, msg.is_final);
+            break;
+
+        case 'barge_in':
+            clearAudioBuffer();
+            break;
+
+        case 'session_timeout':
+            document.getElementById('timeoutOverlay').classList.add('active');
+            handleDisconnect();
+            break;
+
+        case 'error':
+            setStatus('error', 'Error: ' + (msg.message || 'Unknown'));
+            break;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Audio playback (24kHz PCM from agent)
+// ---------------------------------------------------------------------------
+function initPlayback() {
+    audioCtxPlayback = new AudioContext({ sampleRate: OUTPUT_RATE });
+    nextPlayTime = 0;
+}
+
+function handleAudio(arrayBuffer) {
+    if (!audioCtxPlayback) return;
+
+    const int16 = new Int16Array(arrayBuffer);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / 32768;
+    }
+
+    const buffer = audioCtxPlayback.createBuffer(1, float32.length, OUTPUT_RATE);
+    buffer.getChannelData(0).set(float32);
+
+    const source = audioCtxPlayback.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtxPlayback.destination);
+
+    const now = audioCtxPlayback.currentTime;
+    const startTime = Math.max(now, nextPlayTime);
+    source.start(startTime);
+    nextPlayTime = startTime + buffer.duration;
+}
+
+function clearAudioBuffer() {
+    if (audioCtxPlayback) {
+        nextPlayTime = 0;
+    }
+}
+
+function stopPlayback() {
+    if (audioCtxPlayback) {
+        audioCtxPlayback.close().catch(() => {});
+        audioCtxPlayback = null;
+    }
+    nextPlayTime = 0;
+}
+
+// ---------------------------------------------------------------------------
+// Audio capture (mic -> 16kHz PCM -> WebSocket)
+// ---------------------------------------------------------------------------
+const workletCode = `
+class PCMProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this._buffer = [];
+        this._sampleCount = 0;
+        this._flushAt = 4800;
+    }
+    process(inputs) {
+        const input = inputs[0];
+        if (!input || !input[0]) return true;
+        const samples = input[0];
+        for (let i = 0; i < samples.length; i++) {
+            this._buffer.push(samples[i]);
+        }
+        this._sampleCount += samples.length;
+        if (this._sampleCount >= this._flushAt) {
+            this._flush();
+        }
+        return true;
+    }
+    _flush() {
+        const ratio = 3;
+        const outLen = Math.floor(this._buffer.length / ratio);
+        const int16 = new Int16Array(outLen);
+        for (let i = 0; i < outLen; i++) {
+            let s = this._buffer[i * ratio];
+            s = Math.max(-1, Math.min(1, s));
+            int16[i] = s < 0 ? s * 32768 : s * 32767;
+        }
+        this.port.postMessage(int16.buffer, [int16.buffer]);
+        this._buffer = [];
+        this._sampleCount = 0;
+    }
+}
+registerProcessor('pcm-processor', PCMProcessor);
+`;
+
+async function startCapture() {
+    if (capturing) return;
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: { sampleRate: 48000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+        });
+        audioCtxCapture = new AudioContext({ sampleRate: 48000 });
+        const source = audioCtxCapture.createMediaStreamSource(mediaStream);
+
+        const blob = new Blob([workletCode], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        await audioCtxCapture.audioWorklet.addModule(url);
+        URL.revokeObjectURL(url);
+
+        workletNode = new AudioWorkletNode(audioCtxCapture, 'pcm-processor');
+        workletNode.port.onmessage = (evt) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(evt.data);
+            }
+        };
+        source.connect(workletNode);
+        workletNode.connect(audioCtxCapture.destination);
+
+        capturing = true;
+        document.getElementById('pttBtn').classList.add('speaking');
+    } catch (e) {
+        console.error('Capture error:', e);
+    }
+}
+
+function stopCapture() {
+    if (!capturing) return;
+    if (workletNode) {
+        workletNode.disconnect();
+        workletNode = null;
+    }
+    if (audioCtxCapture) {
+        audioCtxCapture.close().catch(() => {});
+        audioCtxCapture = null;
+    }
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+    }
+    capturing = false;
+    document.getElementById('pttBtn').classList.remove('speaking');
+}
+
+// ---------------------------------------------------------------------------
+// Push-to-talk / continuous toggle
+// ---------------------------------------------------------------------------
+document.getElementById('pttBtn').addEventListener('mousedown', () => {
+    if (!continuous) startCapture();
+});
+document.getElementById('pttBtn').addEventListener('mouseup', () => {
+    if (!continuous) stopCapture();
+});
+document.getElementById('pttBtn').addEventListener('mouseleave', () => {
+    if (!continuous) stopCapture();
+});
+document.getElementById('pttBtn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (!continuous) startCapture();
+});
+document.getElementById('pttBtn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (!continuous) stopCapture();
+});
+
+document.getElementById('continuousMode').addEventListener('change', (e) => {
+    continuous = e.target.checked;
+    const btn = document.getElementById('pttBtn');
+    if (continuous) {
+        btn.textContent = 'Continuous mode active';
+        btn.classList.add('active');
+        if (ws && ws.readyState === WebSocket.OPEN) startCapture();
+    } else {
+        btn.textContent = 'Hold to talk';
+        btn.classList.remove('active');
+        stopCapture();
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Timer (MM:SS / 08:00)
+// ---------------------------------------------------------------------------
+function startTimer() {
+    sessionStart = Date.now();
+    const timerEl = document.getElementById('timer');
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+        const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const ss = String(elapsed % 60).padStart(2, '0');
+        timerEl.textContent = mm + ':' + ss + ' / 08:00';
+    }, 1000);
+}
+
+// ---------------------------------------------------------------------------
+// Transcripts (safe DOM construction — no innerHTML)
+// ---------------------------------------------------------------------------
+function addTranscript(role, text, isFinal) {
+    const container = document.getElementById('transcripts');
+
+    const lastEntry = container.lastElementChild;
+    if (lastEntry && lastEntry.dataset.role === role && !lastEntry.dataset.final) {
+        lastEntry.querySelector('.text').textContent = text;
+        if (isFinal) {
+            lastEntry.classList.remove('partial');
+            lastEntry.dataset.final = 'true';
+        }
+    } else {
+        const entry = document.createElement('div');
+        entry.className = 'transcript-entry' + (isFinal ? '' : ' partial');
+        entry.dataset.role = role;
+        if (isFinal) entry.dataset.final = 'true';
+
+        const roleDiv = document.createElement('div');
+        roleDiv.className = 'role ' + role;
+        roleDiv.textContent = role === 'user' ? 'You' : 'Agent';
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'text';
+        textDiv.textContent = text;
+
+        entry.appendChild(roleDiv);
+        entry.appendChild(textDiv);
+        container.appendChild(entry);
+    }
+    container.scrollTop = container.scrollHeight;
+}
+
+// ---------------------------------------------------------------------------
+// Status
+// ---------------------------------------------------------------------------
+function setStatus(type, text) {
+    const bar = document.getElementById('statusBar');
+    bar.className = 'status-bar ' + type;
+    document.getElementById('statusText').textContent = text;
+}
+</script>
+</body>
+</html>
