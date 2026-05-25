@@ -63,6 +63,7 @@ This repo includes the binbash GenAI - ML projects
 - 🚧 https://github.com/aws-samples/awesome-ai-agents-hcls
 - 📙 https://github.com/aws-samples/aws-healthcare-lifescience-ai-ml-sample-notebooks
 - 📙 https://catalog.workshops.aws/hcls-aiml/en-US/breast-cancer-classification
+- 📙 https://github.com/aws-samples/amazon-bedrock-agents-healthcare-lifesciences
 
 
 # CONSIDERATIONS
