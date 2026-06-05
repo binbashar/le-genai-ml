@@ -4,6 +4,6 @@ version = "0.1.0"
 description = "Kinesis Firehose Lambda transformer for Bedrock invocation logs"
 requires-python = ">=3.13"
 dependencies = [
-    "pyarrow>=18.1.0",
+    "pyarrow>=23.0.1",
     "boto3>=1.34.0",
 ]
