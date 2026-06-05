@@ -5,7 +5,7 @@ description = "Lambda function to filter staging data and generate Bedrock evalu
 requires-python = ">=3.13"
 dependencies = [
     "boto3>=1.35.0",
-    "pyarrow>=18.1.0",
+    "pyarrow>=23.0.1",
     "pandas>=2.2.0",
 ]
 
