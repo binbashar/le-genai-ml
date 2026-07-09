@@ -33,7 +33,7 @@ dependencies = [
     "PyJWT>=2.10.0",
     "requests>=2.32.0",
     "pyyaml>=6.0",
-    "python-dotenv>=1.1.1",
+    "python-dotenv>=1.2.2",
     "playwright>=1.40.0",  # AgentCore Browser automation
     "nest-asyncio>=1.5.0",  # Async support for browser tool
 ]
